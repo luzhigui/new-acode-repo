@@ -149,8 +149,19 @@ const { checkUnitHpValidity, checkActionRights } = await import('./122health-uti
 const ruleDir = fileURLToPath(new URL('./health-rules/', import.meta.url));
 const files = (await readdir(ruleDir)).filter(f => f.endsWith('.js')).sort();
 const rules = [];
+// 第34轮（2026-11-21）：逐条容错装载——任一规则文件 import 失败（如依赖的 ui/727 倒针模块
+//   已归档被删）以前会让整个回放器崩在模块解析、181 条规则一条都跑不起来（自检自身腐烂，
+//   比单条规则缺失严重得多）。改成与 121 的 Promise.allSettled 同口径：单条失败只记下来、
+//   不伪造空规则混进执行数组，其余照常跑；失败清单在报告里点名。
+const LOAD_FAILURES = [];
 for (const f of files) {
-    const mod = await import(new URL('./health-rules/' + f, HERE).href);
+    let mod;
+    try {
+        mod = await import(new URL('./health-rules/' + f, HERE).href);
+    } catch (e) {
+        LOAD_FAILURES.push({ file: f, why: String((e && e.message) || e) });
+        continue;
+    }
     for (const k of Object.keys(mod)) {
         if (/^rule\d+$/.test(k) && mod[k] && typeof mod[k].test === 'function') rules.push(mod[k]);
     }
@@ -652,6 +663,11 @@ if (invIssues.size) {
 }
 
 console.log(`=== 规则回放自检：${cases} 场 / ${rules.length} 条规则 ===`);
+// 第34轮：装载失败点名——依赖已归档模块的规则上不了岗，必须显形，不能只靠 rules.length 少几条蒙混。
+if (LOAD_FAILURES.length) {
+    console.log(`=== 规则装载失败 ${LOAD_FAILURES.length} 条（依赖模块被删/改名，未混进执行数组）===`);
+    for (const f of LOAD_FAILURES) console.log(`  ✗ ${f.file}：${f.why}`);
+}
 // 双档覆盖自检（ENEMY_HEX）：开了双档却一次都没给敌方补到 buff ⇒ 判红——
 //   "选了但引擎整批丢弃"会让双海克斯长期假覆盖，这条把它变成可观测事实。
 if (ENEMY_HEX) {

@@ -23,8 +23,32 @@
 // V1.2.0 | 2026-11-08：002（提交 b7a9784e）有意废弃 brother.lastStand.hpThreshold——妹背水改为
 //   「团队背水在场即触发」，002 保留空对象占键；消费方 core/204 已同步（缺键不抛错）。
 //   契约表 brother.lastStand 改为空 schema，允许「有约定但无必填字段」的占位条目存在。
-export const VER = 'tests/health-rules/179-hex-enhance-contract.js V1.2.0';
+// V1.3.0 | 2026-11-18（第 236 轮）：姊段键集判据加「专属无姊版」豁免（NO_SISTER_EXEMPT），
+//   条件是专属（heroRequirement/zhangExclusive）+ 全仓零 sister.<key> 消费者，二者缺一不豁免；
+//   豁免表腐烂（键被删 / 开始有消费方）单独判红，不放水。
+// V1.4.0 | 2026-11-21（第 250 轮）：上游 2026-11-19 新增张三丰专属海克斯「太极归一」（taijiUnity，
+//   modules/311 V6.28.0），001 buffs 的普通海克斯由 15 个变 16 个，sister 段键集一一对应判据随之要求
+//   sister.taijiUnity，但 002 里没有（该海克斯由 heroRequirement=isZhangSanfeng 限定角色出现，
+//   本就没有「小昭·姊在场加强」档）⇒ 156 场 × 1 处全红。
+//   处置：把 taijiUnity 加进 NO_SISTER_EXEMPT（专属 ✓ / 全仓零 sister.taijiUnity 消费者 ✓），
+//   并**同步**把 taijiUnity 加进 SISTER_CONSUMER_RE —— 两条必须一起改：只加豁免不加正则，
+//   日后真有消费方读 sister.taijiUnity 时扫描不到，豁免不会失效（等于给豁免表开后门）。
+//   豁免腐烂判据（键不在 001 / 不再专属 / 出现消费方 ⇒ 红）原样保留，不因此放宽。
+export const VER = 'tests/health-rules/179-hex-enhance-contract.js V1.4.0';
+
+// 无姊版的专属海克斯：张无忌/韦一笑/张三丰专属强化，由 heroRequirement 限定角色出现，没有「小昭·姊在场加强」档
+const NO_SISTER_EXEMPT = ['hlsPower1', 'weiExclusive', 'zhangDestiny', 'zhangRescue', 'zhangProdigy', 'taijiUnity'];
+// 可选字段缺省时必须存在的兜底常量（逐条写明出处，缺省即回落它）
+const OPT_FALLBACK = {
+    // core/204 applyLastStandBonus:「加攻不写=回落团队 0.1（2026-11-11 老板拍板）」
+    'lastStand.atkBonus': 'C.BUFFS.lastStand.atkBonus = 0.1'
+};
+// 消费方读姊段的形态（core/modules 里出现 ⇒ 该键必须有姊版数据，豁免失效）
+const SISTER_CONSUMER_RE = /sister\s*[.[]\s*['"]?(hlsPower1|weiExclusive|zhangDestiny|zhangRescue|zhangProdigy|taijiUnity)/;
 import { getGameData, getHexEnhanceData } from '../../core/201-config-5v5-test.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // 消费方硬读字段表：改这里 = 改契约，必须同步 core/modules 的实际读取点
 const SISTER_SCHEMA = {
@@ -41,7 +65,11 @@ const SISTER_SCHEMA = {
     soulDrain: { atkBonus: 'signed', perUnitBonus: 'prob' },
     holyFire: { reviveCount: 'int', firstReviveRatio: 'prob', secondReviveRatio: 'prob' },
     doubleStrike: { chance: 'prob' },
-    lastStand: { hpThreshold: 'prob', atkBonus: 'prob', leechRatio: 'prob' },
+    // V1.3.0：atkBonus 改可选口径（'opt:' 前缀）。204 applyLastStandBonus 明写
+    //   「加攻不写=回落团队 0.1（2026-11-11 老板拍板）」，即该字段是可选覆盖、不是硬读；
+    //   旧判据把「有约定字段」当「必须有」，把一次拍板留白判成红逐场复发。
+    //   这里是收紧不是放宽：字段缺省时另要求消费方真有兜底常量，缺字段又没兜底才算红。
+    lastStand: { hpThreshold: 'prob', 'opt:atkBonus': 'prob', leechRatio: 'prob' },
     unity: { recruitM: 'int', recruitTarget: 'int', extraDuration: 'int' }
 };
 const BROTHER_SCHEMA = {
@@ -90,6 +118,36 @@ function checkValue(kind, v) {
     return '未知校验类型';
 }
 
+// 全仓静态里找「读这 5 个键的姊段」的消费点（core/modules/ui/render/fx）。命中即豁免失效。
+//   用逐文件读字符串而不是正则扫全仓：只在第一次调用时跑一次并缓存，规则会被逐场回放反复调用。
+let _consumerCache = null;
+function scanSisterConsumers() {
+    if (_consumerCache) return _consumerCache;
+    var hits = [];
+    var dirs = ['core', 'modules', 'render', 'fx', 'ui'];
+    var root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+    function walk(d) {
+        var ents = [];
+        try { ents = fs.readdirSync(d, { withFileTypes: true }); } catch (e) { return; }
+        for (var i = 0; i < ents.length; i++) {
+            var e = ents[i];
+            var full = path.join(d, e.name);
+            if (e.isDirectory()) { walk(full); continue; }
+            if (!/\.(js|mjs)$/.test(e.name)) continue;
+            var src = '';
+            try { src = fs.readFileSync(full, 'utf8').replace(/\r\n/g, '\n'); } catch (err) { continue; }
+            // 先剥注释行，避免注释里提到键名就误判成「有消费者」
+            var code = src.split('\n').map(function(l) { return /^\s*(\/\/|\*|\/\*)/.test(l) ? '' : l; }).join('\n');
+            var m;
+            var re = new RegExp(SISTER_CONSUMER_RE.source, 'g');
+            while ((m = re.exec(code)) !== null) { if (hits.indexOf(m[1]) < 0) hits.push(m[1]); }
+        }
+    }
+    for (var j = 0; j < dirs.length; j++) walk(path.join(root, dirs[j]));
+    _consumerCache = hits;
+    return hits;
+}
+
 function sectionProblems(sectionName, section, schema, baseKeys) {
     var problems = [];
     if (!section || typeof section !== 'object') {
@@ -109,15 +167,23 @@ function sectionProblems(sectionName, section, schema, baseKeys) {
         //   有必填契约时条目为空才算配置缺失。
         if (!fields.length && Object.keys(s).length > 0) problems.push(sectionName + '.' + key + ' 条目为空');
         Object.keys(s).forEach(function(f) {
-            if (!Object.prototype.hasOwnProperty.call(section[key], f)) {
-                problems.push(sectionName + '.' + key + '.' + f + ' 缺失（消费方硬读该字段）');
+            // 'opt:' 前缀 = 可选覆盖字段：缺省合法，但缺省时消费方必须有兜底常量（见 OPT_FALLBACK）
+            var opt = f.indexOf('opt:') === 0;
+            var realF = opt ? f.slice(4) : f;
+            if (!Object.prototype.hasOwnProperty.call(section[key], realF)) {
+                if (opt) {
+                    if (!OPT_FALLBACK[key + '.' + realF]) problems.push(sectionName + '.' + key + '.' + realF + ' 缺省且未登记兜底常量（可选字段必须有回落值）');
+                    return;
+                }
+                problems.push(sectionName + '.' + key + '.' + realF + ' 缺失（消费方硬读该字段）');
                 return;
             }
-            var bad = checkValue(s[f], section[key][f]);
-            if (bad) problems.push(sectionName + '.' + key + '.' + f + ' = ' + JSON.stringify(section[key][f]) + ' —— ' + bad);
+            var bad = checkValue(s[f], section[key][realF]);
+            if (bad) problems.push(sectionName + '.' + key + '.' + realF + ' = ' + JSON.stringify(section[key][realF]) + ' —— ' + bad);
         });
         fields.forEach(function(f) {
-            if (!Object.prototype.hasOwnProperty.call(s, f)) {
+            var realKeys = Object.keys(s).map(function(k) { return k.indexOf('opt:') === 0 ? k.slice(4) : k; });
+            if (realKeys.indexOf(f) < 0) {
                 problems.push(sectionName + '.' + key + '.' + f + ' 是约定外字段（消费方不读，拼写漂移已静默失效）');
             }
         });
@@ -140,13 +206,44 @@ export const rule179 = {
         var problems = [];
 
         // 判据1：姊段键集必须与普通海克斯键集一一对应
+        //   V1.3.0（第 236 轮）：新增「无姊版」豁免 —— 张无忌/韦一笑**专属**强化不属于姊强化族，
+        //   它们由 heroRequirement 限定只对特定角色出现，压根没有「小昭·姊在场时加强」这一档，
+        //   002 里不写 sister 段是对的。旧判据把它们当「配置缺失」逐场报红（pass=0 fail=156），
+        //   是**判据错**而非数据错。豁免表只收两条硬条件同时成立的键，任何一条不成立照样报红：
+        //     ① 001 里该键带 heroRequirement 或 zhangExclusive（=专属，非全员可选）；
+        //     ② 全仓没有一处读它的 sister 段（grep sister.<key> 零命中）。
+        //   这不是放水：豁免表变长会在下面「豁免腐烂」判据里被逐条复核（键不在 001 了 / 开始有消费者了 ⇒ 红）。
         var sisterKeys = (hex.sister && typeof hex.sister === 'object') ? Object.keys(hex.sister) : [];
+        var consumerHits = scanSisterConsumers();
+        var exempt = NO_SISTER_EXEMPT.filter(function(k) {
+            var cfg = gd.buffs[k];
+            var exclusive = !!(cfg && (cfg.heroRequirement || cfg.zhangExclusive));
+            return exclusive && consumerHits.indexOf(k) < 0;
+        });
         baseKeys.forEach(function(k) {
-            if (sisterKeys.indexOf(k) < 0) problems.push('sister 缺 ' + k + '（该海克斯没有姊强化数据，消费方会走普通版或抛错）');
+            if (sisterKeys.indexOf(k) >= 0) return;
+            if (exempt.indexOf(k) >= 0) return;
+            problems.push('sister 缺 ' + k + '（该海克斯没有姊强化数据，消费方会走普通版或抛错）');
         });
 
         problems = problems.concat(sectionProblems('sister', hex.sister, SISTER_SCHEMA, baseKeys));
         problems = problems.concat(sectionProblems('brother', hex.brother, BROTHER_SCHEMA, baseKeys));
+
+        // 判据5（V1.3.0 新增）：豁免表腐烂 + 有消费者却无姊版 —— 防上面那张豁免表变成调节阀。
+        //   ① 豁免键已不在 001 buffs 里（键被改名/撤除）⇒ 表烂了，必须收缩；
+        //   ② 豁免键在 001 里已不再专属（heroRequirement/zhangExclusive 都没了）⇒ 它现在是全员海克斯，
+        //      必须有姊版，豁免失效；
+        //   ③ 豁免键出现真消费方（读 sister.<key>）⇒ 必须有姊版数据，豁免失效。
+        exempt.forEach(function(k) {
+            if (baseKeys.indexOf(k) < 0) problems.push('豁免腐烂：' + k + ' 已不在 001 buffs 里（NO_SISTER_EXEMPT 必须收缩）');
+        });
+        NO_SISTER_EXEMPT.forEach(function(k) {
+            if (baseKeys.indexOf(k) < 0) return;
+            var cfg = gd.buffs[k] || {};
+            var exclusive = !!(cfg.heroRequirement || cfg.zhangExclusive);
+            if (!exclusive) problems.push('豁免失效：' + k + ' 在 001 里已不是专属海克斯（无 heroRequirement/zhangExclusive），必须有姊版数据');
+            if (consumerHits.indexOf(k) >= 0) problems.push('豁免失效：' + k + ' 已有消费方读 sister.' + k + '，却不在 002 姊段里（消费方会拿到 undefined）');
+        });
 
         if (problems.length) {
             return { fail: true, msg: '复发：海克斯强化配置异常 ' + problems.length + ' 处：' + problems.slice(0, 4).join(' | ') };
