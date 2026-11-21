@@ -6,7 +6,7 @@ import { makeFXSnapshot, fmtHp, fmtHpText, fmt1, fmtNum, fmtAtk } from '../infra
 import { getStat } from '../core/214-battle-shared.js';
 import { FACT_TYPES, CAMP_TYPES, DROP_TYPES } from '../infra/106-battle-enums.js';
 import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } from './406-fact-registry.js';
-export const VER = 'render/407-facts-attack.js V1.5.14';
+export const VER = 'render/407-facts-attack.js V1.5.15';
 
 // 攻击流程
 export function renderMissFact(fact) {
@@ -189,6 +189,10 @@ export function renderAttackFact(fact) {
         formulaText += ` -${pct}% 减伤=${fmt1(runningRaw)}`;
     }
     group.entries.push({type:'detail', isDamageCalc:true, text:`<span class="gray small">计算：${formulaText}</span>`});
+    // 护盾吸收量（core/212 记入 dmgResult.shieldAbsorbed）：此前普通攻击只落 target.state，战报只显示
+    //   「造成 12 伤害、血掉 9」，看不到护盾挡了 3。这里补进伤害行，斩杀行不加（斩杀时护盾已计入有效血量）。
+    const shieldAbsorbed = dmgResult && dmgResult.shieldAbsorbed ? Math.round(dmgResult.shieldAbsorbed * 10) / 10 : 0;
+    const absorbSuffix = shieldAbsorbed > 0 ? `（护盾抵挡 ${fmtNum(shieldAbsorbed)} 点）` : '';
     const damageText = directKill
         ? renderKillLineFact({
             ac, dc, campA, campD,
@@ -198,7 +202,7 @@ export function renderAttackFact(fact) {
             hpBefore: fmtHpText(dmgResult.hpBefore),
             hpNow: fmtHpText(targetHpAfter)
         }).text
-        : `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">${fmt1(shownDmg)}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${fmtHpText(dmgResult.hpBefore)} → ${fmtHpText(targetHpAfter)} ${dmgResult.dead?'💀阵亡':''}`;
+        : `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">${fmt1(shownDmg)}</span> 伤害${absorbSuffix}，<span class="${dc}">${campD} ${target.name}</span> ${fmtHpText(dmgResult.hpBefore)} → ${fmtHpText(targetHpAfter)} ${dmgResult.dead?'💀阵亡':''}`;
     // 灭绝师太：出手计数提示挂在伤害行末（hint 文本由 modules/26 随 fact 下发）
     // dmg：player/46 播到这行时用它弹伤害飘字（原先飘字由 fx/88 在命中后 1100ms 打，
     //   已改为「播到伤害行同帧打」，所以这里必须把数值带出来）。

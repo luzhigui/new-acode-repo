@@ -5,7 +5,7 @@
 //   统一过 core/203 的 getMeleeLegalTargetSet/isMeleeLegalTarget，手动拖拽再也选不到后排。
 //   声明层（BEFORE_SELECT_TARGET 指定 targetResult）与 core/209 锁定目标/换目标旁路不在本次范围：
 //   实测在 emit 后追加 isMeleeLegalTarget 会破坏同种子双跑复现性（seed=5 stage=3），故不在此处加闸。
-export const VER = 'core/212-battle-attack-chain.js V1.0.18';
+export const VER = 'core/212-battle-attack-chain.js V1.0.19';
 
 import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
 // 小昭运行时改名为「小昭·姊/妹」，查任何以角色名为键的数据表都要退回主名（否则圣火令气运永不生效）
@@ -394,6 +394,8 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         hpLoss -= a;
     }
     target.state._shieldAbsorbed = shieldAbsorbed;
+    // shieldAbsorbed 同时随 applyAttackResult 返回（→ fact.data.dmgResult）：render/407 在伤害行动态补
+    //   「护盾抵挡 N 点」。此前只落 target.state，战报只显示掉血、看不到护盾吃掉了多少（老板实锤）。
     // 单次受伤上限（庄铮·断锤三式）：必须截在 dead 判定之前——core/13 的 hp 截断只改落账值，
     //   这里不改 hpLoss 的话，致死伤害照样把 hpAfter 算成 ≤0、死亡标记照样落下（上限形同虚设）。
     //   上限只有 _dmgCap 一个来源；core/13 直扣血出口读同一字段。
@@ -521,7 +523,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         }
     }
 
-    return { dmg, dead, cappedLoss, horseReboundDeclarations, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, atkAct, defAct, hpBonus, fortifyDeclarations, _shield: target.state._shield || 0, _shieldExtra: target.state._shieldExtra || 0, _permShield: target.state._permShield || 0 };
+    return { dmg, dead, cappedLoss, horseReboundDeclarations, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, atkAct, defAct, hpBonus, fortifyDeclarations, _shield: target.state._shield || 0, _shieldExtra: target.state._shieldExtra || 0, _permShield: target.state._permShield || 0, shieldAbsorbed };
 }
 
 // 步骤5：构建攻击事实

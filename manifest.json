@@ -1,5 +1,5 @@
 {
- "ver": "d0214d2a3b2ab38c7fc81448c6afd3a8ce6310fa6b808c7b103f23fd2fadb545",
+ "ver": "159b136e9e79c5503e05aac442af79323e22631a7535ce96ea9a7540304a942d",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 154,
  "files": [
@@ -61,7 +61,7 @@
   ],
   [
    "core/212-battle-attack-chain.js",
-   "915b5df1bd7be08a0118551fbc2392f0a984d182a89de815bafcfe6fe0bdd48d"
+   "ad463aab3c1d16454814abb2252fef4d45d7a097aeb5e171f9f5d3d3bce3c070"
   ],
   [
    "core/213-battle-attack-edge.js",
@@ -477,7 +477,7 @@
   ],
   [
    "render/407-facts-attack.js",
-   "f7c719e6481517cf3d1e87065956afb7c810f74007d7f8175a8ae42515428a01"
+   "12ac1367a8f664ecefef2030fa13037228519ecb00ac58d10b6a74babb121248"
   ],
   [
    "render/408-facts-effect.js",
