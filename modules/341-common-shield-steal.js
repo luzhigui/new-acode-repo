@@ -1,4 +1,5 @@
-﻿﻿// V1.2.6 | 2026-11-20 智取抢来的回血补飘字：张松溪/受益队友吃血后推 HEAL fact（💡 智取），血条不再无声上涨。
+﻿// V1.2.8 | 2026-11-21 智取抢量下调：护盾/回血由「总量 60%（各 0.3）」降到「总量 40%（各 0.2）」，目标实得 60%。
+// V1.2.6 | 2026-11-20 智取抢来的回血补飘字：张松溪/受益队友吃血后推 HEAL fact（💡 智取），血条不再无声上涨。
 // V1.2.7 | 2026-11-21 补版本日志行（VER 常量已抬，漏写本行致 ver-drift 判领先）。
 // V1.2.5 | 2026-11-20 智取回血改为各分一半：张松溪固定先拿自己那份（队友满血吃不完才转给他），
 //   修「抢来的回血全喂给没满血的队友、张松溪一点不分」。
@@ -22,7 +23,7 @@ import { pushSkillAnnounce } from './305-elite-helpers.js';
 import { FACT_TYPES } from '../infra/106-battle-enums.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 
-export const VER = 'modules/341-common-shield-steal.js V1.2.7';
+export const VER = 'modules/341-common-shield-steal.js V1.2.8';
 
 const STEALER_NAME = '张松溪';
 
@@ -88,7 +89,7 @@ export function stealShieldHalf(unit, amount, A, B, ctx) {
     if (!isValid(unit) || !(amount > 0)) return amount;
     const thief = findStealer(A, B);
     if (!thief || thief.camp === unit.camp) return amount;
-    const share = Math.floor(amount * 0.3);   // 抢夺比例 0.6：两份各 0.3，敌方实得 0.4（2026-11-19 用户拍板）
+    const share = Math.floor(amount * 0.2);   // 抢夺比例 0.4：两份各 0.2，敌方实得 0.6（2026-11-21 用户拍板下调）
     if (share <= 0) return amount;
     thief.state._permShield = (thief.state._permShield || 0) + share;
     const mate = pickNeediestMate(thief, sideOf(thief, A, B));
@@ -115,7 +116,7 @@ export function stealHealHalf(target, nominal, A, B, ctx) {
     if (!isValid(target) || !(nominal > 0)) return { kept: nominal, stolen: 0 };
     const thief = findStealer(A, B);
     if (!thief || thief.camp === target.camp) return { kept: nominal, stolen: 0 };
-    const share = Math.floor(nominal * 0.3);   // 抢夺比例 0.6：两份各 0.3（2026-11-19 用户拍板）
+    const share = Math.floor(nominal * 0.2);   // 抢夺比例 0.4：两份各 0.2（2026-11-21 用户拍板下调）
     if (share <= 0) return { kept: nominal, stolen: 0 };
     const mate = pickNeediestMate(thief, sideOf(thief, A, B));
     // 分配（2026-11-20 老板拍板）：抢来的两半各归一个人——张松溪固定先拿自己那一半，
