@@ -1,5 +1,5 @@
 {
- "ver": "edd78ff756c14ea07b96c1a29a87be07da4234eb262772182b8fe843a42d4844",
+ "ver": "f4ea919769ea6746fecb63fa09ac2a6d0261e51cbc33eb7adaf667392147470a",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 157,
  "files": [
@@ -193,7 +193,7 @@
   ],
   [
    "infra/101-event-bus.js",
-   "a33de474b2d2c871e4bf06e6bfbbedcfc2edc48755c5a1915c3df1afc7ea1054"
+   "28220b4953132d3a7b3bd47bd83f0c4527b0964255c7515ff1a554a72e62a35c"
   ],
   [
    "infra/102-core-utils.js",
@@ -213,11 +213,11 @@
   ],
   [
    "infra/106-battle-enums.js",
-   "02368305a85646c09d5ba3d9d7d01501474e9369d25a0471f349bec750f0d34d"
+   "591ab9cc709cfd5a90362bc338b948490a65473d7343c0fabff98ec719185aea"
   ],
   [
    "infra/107-fact-contract.js",
-   "d3f489b88c21579adff4187c922946251205142f29b451dbc86d23d1d8e8e678"
+   "d99287966d8b29cafb7c045705d934258234559898a61dfbed4c1cc88aaec753"
   ],
   [
    "infra/108-state-change.js",
@@ -397,7 +397,7 @@
   ],
   [
    "modules/340-common-mech-disciples.js",
-   "22d520967cb7469b89c080903bb497f642fde529fde6128b588f61cb638bb1c1"
+   "71feaf46b4c5dd5d2a73b7b2b77b16ffff04e2ac1bfc33755a6f900c5b9ff8f6"
   ],
   [
    "modules/341-common-mech-kongzhi.js",

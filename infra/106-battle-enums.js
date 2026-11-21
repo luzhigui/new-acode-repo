@@ -51,6 +51,8 @@ export const FACT_TYPES = Object.freeze({
     LAST_STAND_APPLY: 'lastStandApply',
     // 众志成城（core/04 applyUnityBonus，op:mul 人数阶梯攻防同乘）：每回合每存活单位 2 条（攻/防各一），发乘率
     UNITY_APPLY: 'unityApply',
+    // 拼命弟子（modules/340 每损失 10% 血 permanent +10% 攻击，op:mul）：每层变化 1 条，发乘率
+    DESPERATE_APPLY: 'desperateApply',
     // 唐文亮冲刺·转战士（modules/26 addRoleBonus，op:add 永久职业加成）：每次冲刺 1 条，发 atk/def/maxHp 三 stat 增量
     TW_DASH_APPLY: 'twDashApply',
     XIAO_ZHAO_CARRY_APPLY: 'xiaoZhaoCarryApply',

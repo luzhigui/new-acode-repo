@@ -32,10 +32,10 @@ export const desperateHandler = {
                 addMod(self, 'atk', { value: 0.1 * stacks, op: 'mul', group: 'desperate', source: '拼命' });
                 if (data.log) {
                     data.log.push({
-                        factType: FACT_TYPES.STAT_CHANGE_APPLY,
+                        factType: FACT_TYPES.DESPERATE_APPLY,
                         data: {
-                            unitUid: self.uid, unitName: self.name, stat: 'atk',
-                            value: 0.1 * stacks, op: 'mul', group: 'desperate', reason: '拼命'
+                            unitUid: self.uid, unitName: self.name, camp: self.camp,
+                            field: 'atk', op: 'mul', ratio: 0.1 * stacks, group: 'desperate', reason: '拼命'
                         }
                     });
                 }

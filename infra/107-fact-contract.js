@@ -179,6 +179,8 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.LAST_STAND_APPLY]: { requiredFields: ['unitName', 'unitUid', 'camp', 'op', 'field', 'ratio'], renderFn: null, translateFn: null },
     // 众志成城（core/04 applyUnityBonus，op:mul 人数阶梯攻防同乘）：ratio 与 addMod value 同值（tier.atkBonus/defBonus），field='atk'|'def'，体检按乘率（mulSum）口径核对
     [FACT_TYPES.UNITY_APPLY]: { requiredFields: ['unitName', 'unitUid', 'camp', 'op', 'field', 'ratio'], renderFn: null, translateFn: null },
+    // 拼命弟子（modules/340，op:mul 每损失 10% 血永久 +10% 攻击）：ratio 与 addMod value 同值（0.1×层数），field='atk'，只进账本
+    [FACT_TYPES.DESPERATE_APPLY]: { requiredFields: ['unitName', 'unitUid', 'camp', 'op', 'field', 'ratio'], renderFn: null, translateFn: null },
     // 唐文亮冲刺·转战士（modules/26 addRoleBonus，op:add 永久职业加成）：atk/def/maxHp 与 addMod value 同值（getRoleBonus(WARRIOR)），体检按加法增量口径核对
     [FACT_TYPES.TW_DASH_APPLY]: { requiredFields: ['unitName', 'unitUid', 'atk', 'def', 'maxHp'], renderFn: null, translateFn: null },
     [FACT_TYPES.XIAO_ZHAO_CARRY_APPLY]: { requiredFields: ['unitName', 'unitUid', 'atk', 'def', 'maxHp'], renderFn: null, translateFn: null },
