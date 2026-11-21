@@ -1,6 +1,7 @@
 // modules/337-elite-mingjiao-zhuangzheng.js — 明教·天鹰教 庄铮「断锤三式」
+// V1.0.10 | 2026-11-21 保命落血精确收到 keepHp：上限带加成（carry 等）时等比缩后血量可能 > keepHp，补血分支不触发
 // V1.0.9 | 2026-11-20 触发后单次上限 _dmgCap 丢失自愈（防「一次掉 4 点」）
-export const VER = 'modules/337-elite-mingjiao-zhuangzheng.js V1.0.9';
+export const VER = 'modules/337-elite-mingjiao-zhuangzheng.js V1.0.10';
 
 import { processUnitAttack } from '../core/209-battle-attack.js';
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
@@ -44,7 +45,8 @@ export const duanChuiHandler = {
             //   refreshMaxHp 的等比缩会把 hp 按 (8/原上限) 缩到 <8，随后再拉一次到 keepHp——两步顺序不能反。
             self.state._maxHpLock = keepHp;
             refreshMaxHp(self, null, '断锤三式·锁血');
-            if (self.hp < keepHp) applyStatChange(self, 'hp', keepHp - self.hp, null, '断锤保命', false, false);
+            // 保命落血：上限带加成（carry 等）时等比缩后血量可能 > keepHp，必须双向收到 keepHp，否则违背「保留 keepHp 点生命」
+            if (Math.abs(self.hp - keepHp) > 1e-6) applyStatChange(self, 'hp', keepHp - self.hp, null, '断锤保命', false, false);
             self.state._duanChuiTriggered = true;
             self.state._dmgCap = cap;
             // 断锤形态整套免疫（2026-11-11 老板拍板，2026-11-18 调整）：

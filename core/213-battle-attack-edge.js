@@ -3,7 +3,7 @@
 //   snapshotUnitForFact，core/10 独立调 resolveDeaths，core/16 独立调 resolveDamageImmune）；
 //   攻击链内部流转留在 212-battle-attack-chain.js，保持「一条攻击链一个文件」。
 // V1.0.6 | 2026-11-19 | fact 出口收口（T-EP-1）：SUMMON_DEAD 事实裸 log.push → pushFact
-export const VER = '213-battle-attack-edge.js V1.0.6';
+export const VER = 'core/213-battle-attack-edge.js V1.0.6';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { getDodgeRules } from './221-registry-dodge.js';
