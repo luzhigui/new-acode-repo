@@ -1,5 +1,5 @@
 // infra/112-store-schema.js — GlobalStore 键名白名单、值类型 schema 与运行期校验
-export const VER = 'infra/112-store-schema.js V1.1.0';
+export const VER = 'infra/112-store-schema.js V1.1.1';
 
 import { BUFF_TYPES, FACT_TYPES } from './106-battle-enums.js';
 
@@ -30,7 +30,7 @@ export const STORE_KEY_WHITELIST = Object.freeze(new Set([
     'battleStore', 'bugMode', 'bulletTimeActive', 'careerLogSuppress', 'chestCount', 'crashMode',
     'currentBattleState', 'currentDoubleStrikeUid', 'currentStage', 'debugMode',
     'dodgeEffectEnabled', 'enemyAutoHex', 'fastForwardActive', 'forceHanLiSa', 'forceMingUnit',
-    'forceMechTest', 'forcePang', 'forceSectUnit', 'forceSoloWeakElite', 'forceWeakElite', 'forceWei', 'forceXiaoZhao',
+    'forceMechTest', 'forcePang', 'forceSanDu', 'forceSectUnit', 'forceSoloWeakElite', 'forceWeakElite', 'forceWei', 'forceXiaoZhao',
     'forceXieXun', 'forceZhang', 'fxDashSlow', 'fxDodgeBullet', 'fxHanlisaAim', 'gameStarted',
     'glowColors', 'gs', 'hlsAimPlayedThisTurn', 'holyToken', 'isBattleStarting', 'isPaused',
     'logLevel', 'netGuestDone', 'netGuestReady', 'netPeerReady', 'netRole', 'panelPaused',
@@ -40,7 +40,7 @@ export const STORE_KEY_WHITELIST = Object.freeze(new Set([
     'xiaoZhaoPermanentBuffs'
 ]));
 
-/** 12 个集合/动态结构键（其余 54 个为标量/布尔/枚举） */
+/** 12 个集合/动态结构键（其余 55 个为标量/布尔/枚举） */
 export const STRUCTURED_STORE_KEYS = Object.freeze([
     'snapshot', 'UI', 'activeBuffs', 'battleHistory', 'battleLog', 'battleFacts',
     'usedBuffKeys', 'xiaoZhaoPermanentBuffs', 'xiaoZhaoBackup', 'battleStore',
@@ -105,6 +105,8 @@ export const STORE_SCHEMA = Object.freeze({
     forceMingUnit: { type: S.STRING, nullable: true },
     forceMechTest: { type: S.BOOLEAN, nullable: true },
     forcePang: { type: S.BOOLEAN, nullable: true },
+    // 第 6 关三渡阵（dev-index 🐲 按钮）：强制抽含炎魔狮王的变体
+    forceSanDu: { type: S.BOOLEAN, nullable: true },
     forceSectUnit: { type: S.STRING, nullable: true },
     forceSoloWeakElite: { type: S.BOOLEAN, nullable: true },
     forceWeakElite: { type: S.STRING, nullable: true },
