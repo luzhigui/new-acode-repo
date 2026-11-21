@@ -7,6 +7,9 @@
 //   `覆盖率/空转红线  99317ms  exit=1  156  100.0% 70/86/0  ❌ 伤害印数与血条实落同源`
 
 // 从 run-all 完整输出抓汇总表红行，剥掉 "  ❌ " 前缀
+// V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
+export const VER = 'tests/_lib/health-report-parse.mjs V1.0.0';
+
 export function extractRedLines(output) {
     return String(output || '').split(/\r?\n/)
         .filter(l => /^  ❌/.test(l))

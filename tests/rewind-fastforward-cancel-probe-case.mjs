@@ -17,6 +17,9 @@
 // ★ 主代码已在 fcd5dd04 落地会话代次守卫（mySteps）⇒ ③ 转绿；原「修好样本」fix-tail-guard
 //   随之失去意义，改配「去掉守卫」样本 no-tail-guard：把两处守卫删掉，③ 必须由绿转红，
 //   证明这条判据咬的正是那两行守卫。
+// V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
+export const VER = 'tests/rewind-fastforward-cancel-probe-case.mjs V1.0.0';
+
 import {
     installDom, upgradeLogDomFidelity, installClockShim, makeFakeStore, mkStep,
     loadRewind, runChildWithEnv, envSkipMarker, check, summarize

@@ -14,6 +14,9 @@
 //        定身之后「后续回合仍被跳过」= 控制残留（判红）；下一回合正常出手是设计口径（不判红）
 //     ④ 当回合不出手：PUSH_STUN 之后到本回合结束，目标不得再有攻击事实；解除公告之后才放行
 //     ⑤ 宣称窗口不许越界：点穴「本回合无法行动」→ 之后回合不得再因它被跳过；布袋「回合末放出」→ 释放在下一回合开始前必须出现
+// V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
+export const VER = 'tests/health-rules/302-control-window-consistency.js V1.0.0';
+
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 const CONTROL_WORDS = ['点穴', '布袋', '眩晕', '换位', '寒冰', '定身', '惑心'];

@@ -18,6 +18,9 @@
 //   M4 resume-no-clear 「继续播」不拆闸门      → ④ 红（战斗永远卡在步首）
 // 运行：node tests/rewind-gate-park-probe-case.mjs
 //   期望末行 RESULT: PASS（含反向样本全红）；任何一条红 → 退出码 1。
+// V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
+export const VER = 'tests/rewind-gate-park-probe-case.mjs V1.0.0';
+
 import {
     installDom, makeFakeStore, mkStep, loadRewind, runChildWithEnv, envSkipMarker, check, summarize, REPO
 } from './rewind-probe-sandbox-case.mjs';

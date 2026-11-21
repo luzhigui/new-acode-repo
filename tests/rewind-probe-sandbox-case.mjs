@@ -10,6 +10,9 @@
 // 子进程约定：设 HC_PROBE_MUT=<变异名> 时，本进程只跑变异体（父进程用它验「反向样本真的红」）；
 //   不设时跑原版（正路径）。
 // ★ 本件是倒针域的合成动态探针，不挂 run-all 常规链（需要桩环境），由本域手动/里程碑跑。
+// V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
+export const VER = 'tests/rewind-probe-sandbox-case.mjs V1.0.0';
+
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';

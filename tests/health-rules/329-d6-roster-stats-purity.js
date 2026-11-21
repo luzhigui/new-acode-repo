@@ -7,6 +7,9 @@
 //   ③ 交叉观察（不硬判，登记转交）：附身宿主是否落在召唤物 uid 上（modules/322 `_executeAttach`
 //      只排 isHorse、没排 isSummon），以及成昆幻影误伤（PHANTOM_CONFUSE）目标名是否是召唤物专名
 //      （召唤物被当成队友误伤 = 虚假单位与召唤串线）。
+// V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
+export const VER = 'tests/health-rules/329-d6-roster-stats-purity.js V1.0.0';
+
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 export const rule329 = {

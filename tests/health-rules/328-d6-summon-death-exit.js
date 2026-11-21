@@ -8,6 +8,9 @@
 //      本条不臆造 SUMMON_DEAD，只把 UNIT_DEATH 当唯一出口做对账；将来真加 SUMMON_DEAD，
 //      必须仍由 resolveDeaths 同一处发射，不得另开出口。
 // 实测（156 场）：525 只召唤物 / 361 只阵亡，UNIT_DEATH 对账 0 违规。
+// V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
+export const VER = 'tests/health-rules/328-d6-summon-death-exit.js V1.0.0';
+
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 export const rule328 = {

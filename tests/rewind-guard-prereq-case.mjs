@@ -10,6 +10,9 @@
 //      （不许把加严做成放宽：环境问题能豁免，真缺陷不能豁免）。
 // 运行：node tests/rewind-guard-prereq-case.mjs
 //   期望末行 RESULT: PASS；任何一条红 → 退出码 1。
+// V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
+export const VER = 'tests/rewind-guard-prereq-case.mjs V1.0.0';
+
 import {
     runChildWithEnv, ENV_SKIP_REASON, isSpawnEnvFailure
 } from './rewind-probe-sandbox-case.mjs';

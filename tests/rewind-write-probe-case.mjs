@@ -1,3 +1,6 @@
+// V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
+export const VER = 'tests/rewind-write-probe-case.mjs V1.0.0';
+
 // 倒针写入面「动态」探针（合成用例，node 直跑，不开浏览器）：
 //   静态规则 267 只能证明源码结构上只有 enterReview/exitReview 会换账本；
 //   本用例把 ui/727 真跑起来，用最小 DOM/Store 桩 + 真录制接口（513 startBattleRecording），

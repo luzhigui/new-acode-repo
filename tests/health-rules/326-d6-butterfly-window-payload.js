@@ -6,6 +6,9 @@
 //      尸体被事件流清掉、或凭显示名猜 uid 时这里会红（宿主死亡后尸体找回路径的核心断言）；
 //   ④ 窗口已打开时不得再发 BUTTERFLY_NO_HOST（窗口开着却说找不到宿主 = 状态机错位，之后飞回按错身份结算）。
 // 实测（156 场）：364 次附身 / 341 次飞回 / 23 次宿主阵亡，载荷违规 0 条。
+// V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
+export const VER = 'tests/health-rules/326-d6-butterfly-window-payload.js V1.0.0';
+
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 export const rule326 = {

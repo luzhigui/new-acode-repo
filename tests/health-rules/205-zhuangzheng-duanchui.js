@@ -18,7 +18,7 @@
 //   · 掉血用 hpBefore − 显示血（fmtHp <10 一位小数 / ≥10 整数），容差 cap+0.6；
 //   · 护盾/波动减伤只会让实际掉血更小，不会误报；
 //   · 反击存在性不判（攻击者可能被反弹打死而合法不反击），只判上面可观测的五项。
-export const VER = 'tests/health-rules/205-zhuangzheng-duanchui.js V1.0.0';
+export const VER = 'tests/health-rules/205-zhuangzheng-duanchui.js V1.1.0';
 import { FACT_TYPES, SKILL_CUE_KINDS } from '../../infra/106-battle-enums.js';
 import { getSkillParams } from '../../core/201-config-5v5-test.js';
 
@@ -65,22 +65,42 @@ export const rule205 = {
         if (triggerIdx < 0) return 'skip';
 
         // ② 触发那一击必须落地成 IMMUNE，且保命后的血量恰为 keepHp
-        var immuneSeen = false;
-        for (var j = triggerIdx; j < facts.length; j++) {
+        //    ★ 第192轮窗口修正（假红修复）：断锤的播报是在 AFTER_ATTACK_IMMUNE 的处理器里推的
+        //      （modules/337 L141-152），而 IMMUNE fact 早在免疫分支里落账
+        //      （core/209 L468 pushFact → L473 才 emit 事件）⇒ **IMMUNE 必然排在播报之前**。
+        //      原判据从 triggerIdx 往后找 ⇒ 永远找不到 ⇒「已播报触发但 IMMUNE 落地 fact 缺失」是假红。
+        //      现在改成：以播报位置为轴，**先往前找最近的一条「断锤」IMMUNE**；往前没有才往后兜底找一条
+        //      （兜底只防引擎顺序再变，匹配条件一字未松：目标仍是庄铮、reason 仍须含「断锤」）。
+        var immuneIdx = -1;
+        for (var j = triggerIdx - 1; j >= 0; j--) {
             var g = facts[j];
             if (!g || g.factType !== FACT_TYPES.IMMUNE || !g.data) continue;
             if (!g.data.target || g.data.target.name !== '庄铮') continue;
             if (String(g.data.reason || '').indexOf('断锤') < 0) continue;
-            immuneSeen = true;
-            var hpAfterImmune = typeof g.data.targetHp === 'number' ? g.data.targetHp : parseFloat(g.data.targetHp);
+            immuneIdx = j;
+            break;
+        }
+        if (immuneIdx < 0) {
+            for (var j2 = triggerIdx + 1; j2 < facts.length; j2++) {
+                var g2 = facts[j2];
+                if (!g2 || g2.factType !== FACT_TYPES.IMMUNE || !g2.data) continue;
+                if (!g2.data.target || g2.data.target.name !== '庄铮') continue;
+                if (String(g2.data.reason || '').indexOf('断锤') < 0) continue;
+                immuneIdx = j2;
+                break;
+            }
+        }
+        var immuneSeen = immuneIdx >= 0;
+        if (immuneSeen) {
+            var gi = facts[immuneIdx];
+            var hpAfterImmune = typeof gi.data.targetHp === 'number' ? gi.data.targetHp : parseFloat(gi.data.targetHp);
             if (isFinite(hpAfterImmune) && Math.abs(hpAfterImmune - keepHp) > 0.11) {
                 return { fail: true, msg: '复发：断锤保命后落地血 ' + hpAfterImmune + ' ≠ 配置 keepHp ' + keepHp + '（保命没落账 / 免疫回退退多了）' };
             }
-            var dc = g.data.dmgCalc;
+            var dc = gi.data.dmgCalc;
             if (dc && typeof dc.hpBefore === 'number' && typeof dc.dmg === 'number' && dc.hpBefore - dc.dmg > 0) {
                 return { fail: true, msg: '复发：断锤触发的那一击不致死（触发前血 ' + dc.hpBefore + ' − 伤害 ' + dc.dmg + ' > 0，首击判据写松了）' };
             }
-            break;
         }
         if (!immuneSeen) {
             return { fail: true, msg: '复发：断锤三式已播报触发，但 IMMUNE 落地 fact 缺失（保命免疫声明被吞 / 未走免疫分支）' };

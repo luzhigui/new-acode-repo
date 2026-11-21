@@ -17,6 +17,9 @@
 //   M3 no-play-release resumePlay 不放行停点      → ③ 红
 // 运行：node tests/rewind-cue-interrupt-probe-case.mjs
 //   期望末行 RESULT: PASS（含反向样本全红）；任何一条红 → 退出码 1。
+// V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
+export const VER = 'tests/rewind-cue-interrupt-probe-case.mjs V1.0.0';
+
 import {
     installDom, upgradeLogDomFidelity, installClockShim, makeFakeStore, mkStep,
     loadRewind, runChildWithEnv, envSkipMarker, check, summarize

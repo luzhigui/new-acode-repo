@@ -8,6 +8,9 @@
 //     ② 公告里的双方都是本场名册里的单位，且不是同一人
 //     ③ 终局若双方都在，state._liangyiPartnerUid 必须互相指向
 //     ④ 双方未触发红血（红血会换职业）时，职业必须是对系（战士↔远程）
+// V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
+export const VER = 'tests/health-rules/307-hetaichong-liangyi-pair.js V1.0.0';
+
 import { FACT_TYPES, ROLE_TYPES } from '../../infra/106-battle-enums.js';
 
 function allUnits(a, b, c, d) {

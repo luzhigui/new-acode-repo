@@ -6,6 +6,9 @@
 //   ③ 只有 byName、没有 byUid 的只能是团队补召标签（众志成城 / 小昭·妹），白名单外一律红；
 //   ④ 两者都没有的是团队级召唤（副将雄鹰：全队 carry 溢出补位，无单一召唤者），只计数观察，不硬判。
 // 已知缺口（tests/known-transfers.md「待用户定夺·召唤者 uid」行）：core/204 副将雄鹰 / 众志成城补员两条没写 byUid，本条不重复染红。
+// V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
+export const VER = 'tests/health-rules/327-d6-summon-authorship.js V1.0.0';
+
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 const TEAM_LEVEL_BY_NAME = new Set(['众志成城', '小昭·妹']);

@@ -13,6 +13,9 @@
 //     ④ 加血行数字自洽：X>0，且 H2-H1 与 X 差不超过 1（显示取整容差）
 //     ⑤ 触发门槛：触发前最近一次挨打后血量 ≤ 40% 上限（无挨打记录则跳过，DOT 触发不可回溯）
 //     ⑥ 单人撤退位号落在 4–9（code：1–6 位队友身后 +3）
+// V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
+export const VER = 'tests/health-rules/309-hetaichong-red-swap-account.js V1.0.0';
+
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 const RED_THRESHOLD = 0.4; // modules/314 redBlood.thresholdPct 默认 40%

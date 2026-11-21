@@ -3,6 +3,9 @@
 // 为什么需要它：浏览器"全能体检"只查战中当场出错；账本对账/判据空转/基线回归这类问题
 //   打一百局也看不出来，只能靠 node 全套守门。浏览器按钮跑不了 node，故做本地双击入口。
 // 红线：只读跑现有测试，不改任何判据/阈值/基线/主代码；本报告纯呈现，不参与任何判定。
+// V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
+export const VER = 'tests/one-click-health.mjs V1.0.0';
+
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';

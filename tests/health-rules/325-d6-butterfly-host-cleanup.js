@@ -7,6 +7,9 @@
 // 实测口径（156 场）：364 次附身 / 23 次宿主阵亡；残留词条 26 具全部走 death 分支，复活 0 具。
 // 根因（转交主代码，tests/known-transfers.md）：modules/322 `_executeReturn` 的 host-alive 分支有
 //   `removeModsByGroup(host,'butterfly')`，宿主死亡分支没有 ⇒ 死亡宿主词条不清。
+// V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
+export const VER = 'tests/health-rules/325-d6-butterfly-host-cleanup.js V1.0.0';
+
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 export const rule325 = {

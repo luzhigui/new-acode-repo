@@ -1,6 +1,9 @@
 // 定向小 case（不进回放）：301/303/304/305/306 判据「能判红」自检 —— 只跑构造输入，几秒完事。
 // 用法：node tests/d1-damage-rounding-case.mjs
 // 每例给「期望 pass」或「期望 fail」，任何一条与期望不符即退出码 1。
+// V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
+export const VER = 'tests/d1-damage-rounding-case.mjs V1.0.0';
+
 import { fileURLToPath } from 'node:url';
 
 // 环境垫片（同 rules-replay）：引擎零 DOM，但 loadGameData 走 fetch 读本地 JSON

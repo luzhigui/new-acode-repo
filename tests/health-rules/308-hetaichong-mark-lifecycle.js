@@ -10,6 +10,9 @@
 //     ③ 重新标记前必须有同目标的旧标记；碎裂（markBurst）必须有标记在身
 //     ④ 同一目标两次「标记」之间必须至少隔 2 回合（未过期不得重挂，应走「重新标记」）
 //     ⑤ 乘区数值全场至多两档、均 >1，且挂标人打出的档位不得低于其他队友
+// V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
+export const VER = 'tests/health-rules/308-hetaichong-mark-lifecycle.js V1.0.0';
+
 import { FACT_TYPES, CAMP_TYPES } from '../../infra/106-battle-enums.js';
 
 const MARK_ROUNDS = 2; // content/001 何太冲 attackMark.rounds=2（挂标当回合 + 下一回合，共 2 回合）
