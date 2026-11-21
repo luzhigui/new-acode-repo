@@ -141,7 +141,8 @@ check(8, '六大派全员 ENEMY_M（含顺序/m）', enemyMProd, enemyMDerive,
 //   任何增删/换位都会红；顺序不承诺稳定的前提下，这条就是「历史顺序漂移」的唯一回归锚。
 const MING_ALL_FROZEN = ['张无忌', '韦一笑', '殷天正', '杨逍', '范遥', '庄铮', '颜垣', '吴劲草',
     '周颠', '张中', '说不得', '冷谦', '彭莹玉', '明教洪午', '明教岳山', '明教石虎',
-    '反伤弟子', '明教弟子1', '明教弟子2', '明教弟子3'];
+    '反伤弟子', '明教弟子1', '明教弟子2', '明教弟子3',
+    '木桩弟子', '拼命弟子', '防化弟子'];   // 2026-11-21 M97 机制弟子三人（mingOrder 22/23/24）
 const mingAllProd = prod.mingAll();
 const mingAllDrift = [];
 if (mingAllProd.length !== MING_ALL_FROZEN.length) {

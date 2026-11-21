@@ -804,7 +804,7 @@
     "木桩弟子": {
       "named": true,
       "tags": ["明教", "防战", "普通"],
-      "m": 97, "poolTier": 97, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 18, "mingAll": true, "unitFlags": ["isWoodenDummy"], "tool": {"m100Skill":3},
+      "m": 97, "poolTier": 97, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 22, "mingAll": true, "unitFlags": ["isWoodenDummy"], "tool": {"m100Skill":3},
       "skills": {
         "basicStrike": {
           "name": "基础挥砍",
@@ -827,7 +827,7 @@
     "拼命弟子": {
       "named": true,
       "tags": ["明教", "战士", "普通"],
-      "m": 97, "poolTier": 97, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 19, "mingAll": true, "unitFlags": ["isDesperateDisciple"], "tool": {"m100Skill":3},
+      "m": 97, "poolTier": 97, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 23, "mingAll": true, "unitFlags": ["isDesperateDisciple"], "tool": {"m100Skill":3},
       "skills": {
         "basicStrike": {
           "name": "基础挥砍",
@@ -850,7 +850,7 @@
     "防化弟子": {
       "named": true,
       "tags": ["明教", "战士", "普通"],
-      "m": 97, "poolTier": 97, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 20, "mingAll": true, "unitFlags": ["isAntiPoisonDisciple"], "tool": {"m100Skill":3},
+      "m": 97, "poolTier": 97, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 24, "mingAll": true, "unitFlags": ["isAntiPoisonDisciple"], "tool": {"m100Skill":3},
       "skills": {
         "basicStrike": {
           "name": "基础挥砍",

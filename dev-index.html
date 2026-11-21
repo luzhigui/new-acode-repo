@@ -118,6 +118,8 @@
                     <button class="big-btn btn-health" id="btnHealthCheck" style="flex:1;border-radius:10px 0 0 10px;">🩺 全面体检</button>
                     <button class="big-btn btn-tool" id="btnTools" style="flex:1;border-radius:0 10px 10px 0;">🧰 工具箱</button>
                 </div>
+                <!-- M97 机制弟子测试局（2026-11-21）：强制木桩/拼命/防化三人同时出场，验证三条新机制 -->
+                <button class="big-btn btn-play" id="btnMechTest" style="width:100%;margin-bottom:10px;background:linear-gradient(135deg, #26c6da, #00695c);">🧪 机制弟子测试局（木桩 / 拼命 / 防化）</button>
                 <div style="display:flex;gap:0;">
                     <button class="big-btn btn-tool" id="btnCareerLog" style="flex:1;border-radius:10px 0 0 10px;">📊 生涯记录</button>
                     <button class="big-btn btn-tool" id="btnBugRecords" style="flex:1;border-radius:0 10px 10px 0;">🐛 Bug记录</button>
@@ -193,6 +195,12 @@
         });
         document.getElementById('btnWeiYixiao').addEventListener('click', () => {
             mustSet('_forceWei', '1');
+
+            window.location.href = 'index.html';
+        });
+        // M97 机制弟子测试局：一次性标记，进游戏后由 ui/701 消费
+        document.getElementById('btnMechTest').addEventListener('click', () => {
+            mustSet('_forceMechTest', '1');
 
             window.location.href = 'index.html';
         });

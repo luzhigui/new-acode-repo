@@ -1,11 +1,11 @@
 {
- "ver": "fb8e89baf148332a75cf06258681ffc1052d9f0c7f3ca316c4db7a16f10c8b1d",
+ "ver": "c8f6fddc6e2f720ac5b71d230821753412a06031db718ab8e70feb750a69ee0c",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 156,
  "files": [
   [
    "content/001-game-data.json",
-   "9f73e62489344c820a7fb1200d7d9503f2b0bfd27ada7a49f254546e213e4bbf"
+   "3071a28d3d1143ebbd2283291809d5c83920a8ec0356e1677f40c6bfeadcdbd9"
   ],
   [
    "content/002-hex-enhance.json",
@@ -357,7 +357,7 @@
   ],
   [
    "modules/330-battle-init.js",
-   "7a3460e639ce51277a5004d87f16a0323ae7be41d89f044146b4093c2b4709a6"
+   "030552b1fe1bff507da135d21dbe234462428465c54248677684aa82fe6ce8f4"
   ],
   [
    "modules/331-custom-effects.js",
@@ -541,7 +541,7 @@
   ],
   [
    "ui/701-main-utils.js",
-   "8273a053dbb276e07948f19fcc1ae34f5b4bcec0dfff310de05767ad0d958c3d"
+   "718f91886457a9b893aafbd9b7d742e63d6ca8fb79c417c4e4667801e738ba3c"
   ],
   [
    "ui/702-main-5v5-test.js",

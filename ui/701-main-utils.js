@@ -72,6 +72,11 @@ export function initDevFlags() {
         GlobalStore.set('forceWei', true);
         localStorage.removeItem('_forceWei');
     }
+    // M97 机制弟子测试局（dev-index 按钮）：一次性消费，避免残留一直生效
+    if (localStorage.getItem('_forceMechTest') === '1') {
+        GlobalStore.set('forceMechTest', true);
+        localStorage.removeItem('_forceMechTest');
+    }
     // 新角色实战 demo（dev-index 三按钮）：
     // _forceXieXun：dev-index 写 localStorage，这里一次性消费进 GlobalStore 后清除，避免残留一直生效
     if (localStorage.getItem('_forceXieXun') === '1') {

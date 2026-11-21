@@ -135,7 +135,7 @@ export function initBattleTeams(currentStage, _rng) {
     const weakAllyForced = !!(forceWeakElite && mingWeakPool.some(w => w.name === forceWeakElite));
 
     // 明教带技能的普通兵池（M100 档补位用；反伤弟子在数据里是 m=97，建单位一律读 MING_M 实际值，不硬写 100）
-    const MING_SPECIAL_M100 = ['周颠', '说不得', '彭莹玉', '张中', '反伤弟子'];
+    const MING_SPECIAL_M100 = ['周颠', '说不得', '彭莹玉', '张中', '反伤弟子', '木桩弟子', '拼命弟子', '防化弟子'];
 
     // ⚠️ RNG 序列更新（V7.6.7）：明教抽签次数从原 3 次变更为 7 次，旧冻结基线（固定种子回放/140 场体检）失效，
     //    联机双端需重新校准基线。骰子一律无条件消耗，force 只改「是否应用」。
@@ -186,15 +186,31 @@ export function initBattleTeams(currentStage, _rng) {
     const forceXieXun = GlobalStore.get('forceXieXun');
     // V7.6.1：寒离飒已升强精英，需独立 force 通道（走 forceWeakElite 会撞下方入池校验抛错）
     const forceHanLiSa = GlobalStore.get('forceHanLiSa');
+    // M97 机制弟子测试局（dev-index「🧪 机制弟子测试局」按钮）：强制三名带机制弟子同时进明教队
+    const forceMechTest = GlobalStore.get('forceMechTest') === true;
     const _forceXzEarly = (GlobalStore.get('forceXiaoZhao') === 'sister' || GlobalStore.get('forceXiaoZhao') === 'brother');
     // V7.5.26：forceSoloWeakElite（工具强精英单挑）单独抑制轮盘——只锁寒离飒、不产生第二个精英
     const forceSoloWeak = GlobalStore.get('forceSoloWeakElite') === true;
-    const anyForce = forceZhang || forceWei || forceXieXun || forceHanLiSa || _forceXzEarly || forceSoloWeak;
+    const anyForce = forceZhang || forceWei || forceXieXun || forceHanLiSa || _forceXzEarly || forceSoloWeak || forceMechTest;
 
     if (forceZhang && !allyTeam.some(u => u.isZhang)) pushElite(bossConfig);
     if (forceWei && !allyTeam.some(u => u.isWei)) pushElite(strongEliteConfigs.find(c => c.isWei));
     if (forceXieXun && !allyTeam.some(u => u.isXieXun)) pushElite(strongEliteConfigs.find(c => c.isXieXun));
     if (forceHanLiSa && !allyTeam.some(u => u.isHanLiSa)) pushElite(strongEliteConfigs.find(c => c.isHanLiSa));
+    if (forceMechTest) {
+        ['木桩弟子', '拼命弟子', '防化弟子'].forEach(n => {
+            if (allyTeam.some(u => u.name === n)) return;
+            const cfg = getGameData()?.characters?.[n];
+            if (!cfg) return;
+            const role = cfg.role || (cfg.tags || []).find(t => C.ROLES.includes(t));
+            const unit = new Unit(n, cfg.m, role, CAMP_TYPES.ALLY);
+            unit.init(_rng);
+            unit.applyBonus();
+            unit.pos = null;
+            if (allyTeam.length >= 5) allyTeam.pop();   // 与随机补位同口径：满 5 人挤掉最后一个
+            allyTeam.push(unit);
+        });
+    }
 
     // V7.5.16 小昭同款互锁（dev 试玩按钮与张/韦同一排，口径对齐）：指定姊/妹时轮盘不转，
     //   队里=单小昭局。旧版轮盘照抽，「小昭+另一精英」双精英场占 3/4（探针实测单精英命中仅 74/300）。
