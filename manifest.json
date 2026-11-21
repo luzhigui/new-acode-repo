@@ -1,11 +1,11 @@
 {
- "ver": "1e663582b39053d75be7be15cf106262005c3890aebb2abb8d6dbd9d463a6c8b",
+ "ver": "5fb4e73b006e4be7e7a423c0c8158821fa04c4cdf976064dccf4f3aec8d1c582",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 156,
  "files": [
   [
    "content/001-game-data.json",
-   "47694730fa52476a7d7d4624da742d4c599972ed0239925ca6157a11ad79abe2"
+   "6d09b3f3027cc5d1f28105a98bd7ab8688c8cb0644981ef047941089004b8339"
   ],
   [
    "content/002-hex-enhance.json",
@@ -313,7 +313,7 @@
   ],
   [
    "modules/319-elite-mingjiao-hanlisa.js",
-   "14dab74d99a1b1cac3bdfaffeaa5a13c1bd598b24384d1617fdd9535793a6c0a"
+   "139d7649c3779d845eaf432d4caa74c79f7e006896afbafbfefebe5bfcb01f0a"
   ],
   [
    "modules/320-elite-mingjiao-zhangwuji.js",
