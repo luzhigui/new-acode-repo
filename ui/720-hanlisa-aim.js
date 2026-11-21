@@ -9,8 +9,9 @@
 // V3.5.8 | 2026-11-18 预览撤基数加笔(与319同口径,攻击力笔已在桶内)
 // V3.5.9 | 2026-11-18 预览全轰半攻(与319同口径)
 // V3.5.10 | 2026-11-19 修全屏轰拳 ReferenceError：dmgMapFor 未接 hls 却用 getStat(hls,'atk')
+// V3.5.12 | 2026-11-21 预览 N 与引擎对齐：窗口读 recentRounds（原写死 3）、补 _hlsExtraBonus
 // V3.5.11 | 2026-11-20 全轰预览的攻击力加成改读 rowAtkRatio（原写死 /2，实战已按 0.3 算 ⇒ 预览高估）；缺参数 throw 不兜底
-export const VER = 'ui/720-hanlisa-aim.js V3.5.11';
+export const VER = 'ui/720-hanlisa-aim.js V3.5.12';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
@@ -799,8 +800,10 @@ export function showHanlisaAim(c, hls, payload, resolve) {
         resolve({ aim: 0, holdMs: 0 });
         return;
     }
-    const buckets = Array.isArray(hls.state._hlsTaken) ? hls.state._hlsTaken.slice(-3) : [];
-    const N = Math.floor(buckets.reduce((s, v) => s + (v || 0), 0));
+    if (xl.recentRounds == null) throw new Error('缺技能参数: 寒离飒.xuLi.recentRounds');
+    // 与 modules/319 结算同口径：窗口取 recentRounds（不是固定 3）、且必含蓄力期额外基数 _hlsExtraBonus
+    const buckets = Array.isArray(hls.state._hlsTaken) ? hls.state._hlsTaken.slice(-xl.recentRounds) : [];
+    const N = Math.floor(buckets.reduce((s, v) => s + (v || 0), 0) + (hls.state._hlsExtraBonus || 0));
 
     // 阵容（图标/分档色从战场活格现查）
     const ENEMY = {}, ALLY = {};
