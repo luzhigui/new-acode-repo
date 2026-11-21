@@ -1,3 +1,5 @@
+// V1.24.1 | 2026-11-21 变体分桶扩到第6关：新增「三渡」桶（渡厄/渡劫/渡难），第6关可拆「三渡 / 标准」两行；
+//   分桶逻辑抽成 variantBucket()/makeVariantBuckets()，7 处 job 统一共用。
 // V1.24.0 | 2026-11-14 新增 kind:'stageAB'（850 关卡精英评分）：固定明教骨架 vs 关卡原生防守，
 //   明教精英换进明教骨架同职业位、六大派精英换进该关防守同职业杂兵位；双方阵容只建一次（固定种子），
 //   同一候选永远同一批队友，不同候选之间只差换进去的那个人。只产出明教胜率（wins/draws/runs）。
@@ -246,6 +248,18 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled, enemyHex = false
 // 112 精英评测：跑普通局，按"谁在场"归因
 // V1.20.0：在场/分桶一律读开战快照；下面两个小工具只负责「按快照身份取人」与「按 uid 对回终局单位取数值」，
 //   避免各 job 里直接对 res.ally / res.enemy 做查找（终局阵容会被惑人心智换位、召唤、死亡移除干扰）。
+// 变体分桶（2026-11-21）：第3关 胖远桥/宋青书、第6关 三渡/常规，其余关落「标准」。
+//   分桶只读开战快照；调用方按需取，避免每处重复三段判断。
+const SAN_DU_NAMES = ['渡厄', '渡劫', '渡难'];
+function makeVariantBuckets(newAgg) {
+    return { '胖远桥': newAgg(), '宋青书': newAgg(), '三渡': newAgg(), '标准': newAgg() };
+}
+function variantBucket(team) {
+    if (team.some(u => u && u.isPangYuanQiao)) return '胖远桥';
+    if (team.some(u => u && u.isSongQingshu)) return '宋青书';
+    if (team.some(u => u && SAN_DU_NAMES.includes(u.name))) return '三渡';
+    return '标准';
+}
 function unitBy(list, pred) {
     for (const u of (list || [])) if (pred(u)) return u;
     return null;
@@ -267,7 +281,7 @@ function runSoloEliteJob(stage, seed, runs, elite, startIndex = 0, enemyHex = fa
     // 变体桶（V1.6.1）：与 runEliteStageJob 同款判定——按"本局敌方是谁"整局分桶，
     // 第3关轮换阵容拆成胖远桥/宋青书两行；其余关落进「标准」桶
     const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 });
-    const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
+    const variants = makeVariantBuckets(newAgg);
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();   // 注意：clear 会清 force，每场都要在 clear 之后重设
         if (isXz) GlobalStore.set('forceXiaoZhao', elite === '小昭·姊' ? 'sister' : 'brother');
@@ -280,9 +294,7 @@ function runSoloEliteJob(stage, seed, runs, elite, startIndex = 0, enemyHex = fa
         const res = runWholeBattle(ally, teams.enemyTeam, battleSeed, true, enemyHex ? { enemyHex } : null);
         // V1.21.1 口径统一：平局也入样本（同 runEliteStageJob）
         // V1.20.0：变体桶读开战快照（runBattle 内部 clone，teams.enemyTeam 不被战斗改动）
-        const enemyHasPang = teams.enemyTeam.some(u => u.isPangYuanQiao);
-        const enemyHasSong = teams.enemyTeam.some(u => u.isSongQingshu);
-        const a = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
+        const a = variants[variantBucket(teams.enemyTeam)];
         a.runs++;
         if (!res.winner) a.draws++;
         else if (res.winner === '明教') a.wins++;
@@ -307,7 +319,7 @@ function runNoEliteJob(stage, seed, runs, startIndex = 0, enemyHex = false) {
     const isElite = u => u.isZhang || u.isWei || u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXieXun
         || u.isHanLiSa || u.isYangXiao || u.isYinTianZheng;
     const newAgg = () => ({ runs: 0, wins: 0, draws: 0, sumSurv: 0 });
-    const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
+    const variants = makeVariantBuckets(newAgg);
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();   // 先清场（含上一场可能残留的 force 标志），保证本场是纯自然局
         GlobalStore.set('forceSoloWeakElite', true);   // clear 会清掉，每场都要在 clear 之后重设
@@ -323,9 +335,7 @@ function runNoEliteJob(stage, seed, runs, startIndex = 0, enemyHex = false) {
         const res = runWholeBattle(ally, teams.enemyTeam, s, true, enemyHex ? { enemyHex } : null);
         // V1.21.1 口径统一：平局也入样本（同 runEliteStageJob）
         // V1.20.0：变体桶读开战快照（同 runEliteStageJob）
-        const enemyHasPang = teams.enemyTeam.some(u => u.isPangYuanQiao);
-        const enemyHasSong = teams.enemyTeam.some(u => u.isSongQingshu);
-        const a = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
+        const a = variants[variantBucket(teams.enemyTeam)];
         a.runs++;
         if (!res.winner) a.draws++;
         else if (res.winner === '明教') a.wins++;
@@ -390,7 +400,7 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0, en
     // V1.22.0（2026-11-11）：精英臂新增 sumRebound——终局引擎权威账本 unit.reboundDone（全反伤路径覆盖），
     //   839 弱精英测评页「反伤/场」列消费；自然臂不采（无 me）。旧消费方（812）不读该字段，向后兼容。
     const newAgg = () => ({ runs: 0, wins: 0, draws: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, sumRebound: 0, clean: {} });
-    const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
+    const variants = makeVariantBuckets(newAgg);
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();   // 先清场（含上一场残留的 forceWeakElite），再按 arm 重设
         // V1.14.0 路C：明教侧不再设 forceWeakElite（换人挪到建队后，见 applyForcedWeakAlly）；
@@ -406,9 +416,7 @@ function runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex = 0, en
         const res = runWholeBattle(ally, teams.enemyTeam, seed + (startIndex + i) * 7919, true, enemyHex ? { enemyHex } : null);
         // V1.21.1 口径统一：平局也入样本（同 runEliteStageJob）
         // V1.20.0：变体桶读开战快照（明教侧用换人后的 ally，它才是本场真正的开战阵容）
-        const enemyHasPang = teams.enemyTeam.some(u => u.isPangYuanQiao);
-        const enemyHasSong = teams.enemyTeam.some(u => u.isSongQingshu);
-        const a = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
+        const a = variants[variantBucket(teams.enemyTeam)];
         if (arm === 'natural') {              // 自然对照臂：整关明教胜率，不认具体精英
             // V1.13.1 干净对照：只剔除「本局自然出现了某个弱精英」的局，按名字各留一套计数（clean[name]）——
             //   该精英在对照臂自然登场时，两臂都带同一机制、Δ 被稀释（第4关空见自然出现 18%，曾把 Δ 从 -5 拉成 +0.5）。
@@ -534,7 +542,7 @@ function runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startInd
         runs: 0, wins: 0, draws: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0, sumHeal: 0,
         skills: {}, factsSelf: {}, factsTarget: {}, probes: {}
     });
-    const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
+    const variants = makeVariantBuckets(newAgg);
     const bump = (obj, key) => { if (key) obj[key] = (obj[key] || 0) + 1; };
     const merge = (dst, src) => { for (const [k, v] of Object.entries(src)) dst[k] = (dst[k] || 0) + v; };
     const probeList = Array.isArray(probes) ? probes.filter(Boolean) : [];
@@ -570,9 +578,7 @@ function runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startInd
         const res = runWholeBattle(ally, teams.enemyTeam, battleSeed, true, onStep ? { onStep, enemyHex } : { enemyHex });
         // V1.21.1 口径统一：平局也入样本（同 runEliteStageJob）
         // V1.20.0：变体桶读开战快照（明教侧用换人后的 ally，它才是本场真正的开战阵容）
-        const enemyHasPang = teams.enemyTeam.some(u => u.isPangYuanQiao);
-        const enemyHasSong = teams.enemyTeam.some(u => u.isSongQingshu);
-        const a = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
+        const a = variants[variantBucket(teams.enemyTeam)];
         if (arm === 'natural') {
             // 干净对照（与 runWeakEliteJob / 112 V3.0.3 同口径）：只剔「目标精英本人自然登场」的局，
             //   其他弱精英保持自然分布（一起剔 = 对照凭空变强，Δ 被放大成假值）
@@ -620,7 +626,7 @@ function runEliteStageJob(stage, seed, runs, startIndex = 0, enemyHex = false) {
         }
         return a;
     };
-    const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
+    const variants = makeVariantBuckets(newAgg);
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals(); // 每场清理防 OOM（同时清掉 force 标志，保证本场是纯普通局）
         const initRng = new SeededRNG(seed + (startIndex + i) * 7919);
@@ -631,9 +637,7 @@ function runEliteStageJob(stage, seed, runs, startIndex = 0, enemyHex = false) {
         const res = runWholeBattle(ally, teams.enemyTeam, seed + (startIndex + i) * 7919, true, enemyHex ? { enemyHex } : null); // 带海克斯，对齐正式游戏节奏
         // V1.21.1 口径统一：平局也入样本（813 承伤对账 / 852 生涯日志都记平局，此前这里整场丢掉 ⇒ 场次不一致）
         // V1.20.0：变体桶与"谁在场"都读开战快照（终局阵容会被惑人心智换位/召唤/死亡移除干扰）
-        const enemyHasPang = teams.enemyTeam.some(u => u.isPangYuanQiao);
-        const enemyHasSong = teams.enemyTeam.some(u => u.isSongQingshu);
-        const agg = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
+        const agg = variants[variantBucket(teams.enemyTeam)];
         for (const init of teams.allyTeam) {
             let name = null;
             if (init.isZhang) name = '张无忌';
@@ -1206,7 +1210,7 @@ try {
 function runAblationJob(stage, seed, runs, flags, startIndex = 0, enemyHex = false) {
     globalThis.MING_ABLATION = { ...flags };
     const newAgg = () => ({ runs: 0, wins: 0, draws: 0, sumSurv: 0 });
-    const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
+    const variants = makeVariantBuckets(newAgg);
     try {
         for (let i = 0; i < runs; i++) {
             clearBattleGlobals();
@@ -1219,10 +1223,9 @@ function runAblationJob(stage, seed, runs, flags, startIndex = 0, enemyHex = fal
             if (!ally.length) continue;
             GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
             const res = runWholeBattle(ally, teams.enemyTeam, battleSeed, true, enemyHex ? { enemyHex } : null);
-            const enemyHasPang = teams.enemyTeam.some(u => u.isPangYuanQiao);
-            const enemyHasSong = teams.enemyTeam.some(u => u.isSongQingshu);
-            // V1.22.1：只有第3关拆胖远桥/宋青书双桶——第4关等也带宋青书旗标，拆了页面侧没有对应格子（831 崩批根因）
-            const a = (stage === 3) ? (enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准'])) : variants['标准'];
+            // V1.22.1：只有第3/6关拆变体桶——第4关等也带宋青书旗标，拆了页面侧没有对应格子（831 崩批根因）
+            // 2026-11-21：第6关加入三渡/常规分桶
+            const a = (stage === 3 || stage === 6) ? variants[variantBucket(teams.enemyTeam)] : variants['标准'];
             a.runs++;
             if (!res.winner) a.draws++;
             else if (res.winner === '明教') a.wins++;

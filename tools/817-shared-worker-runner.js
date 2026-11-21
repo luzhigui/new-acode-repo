@@ -3,7 +3,7 @@
 //   2026-11-19 根因修复——裸 URL 让手机缓存旧版 816，其内部 import 的 201 是旧 hash 实例（已加载），
 //   而新 330 import 的新 hash 201 实例没加载数据 → 同一 worker 双实例，job 链路读空
 //   → 「gameData 未加载：角色池为 characters 推导，不能为空」。
-export const SHARED_WORKER_URL = new URL('./816-role-balance-worker.js?v=V1_23_6', import.meta.url);
+export const SHARED_WORKER_URL = new URL('./816-role-balance-worker.js?v=V1_24_1', import.meta.url);
 
 // 统一池大小口径：默认 min(逻辑核数, 16)。
 // V1.2.0 | 2026-11-11 | 原「用满全部逻辑核」在高核机器上翻车：93 核服务器一次开 93 个 worker，

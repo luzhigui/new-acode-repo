@@ -1,9 +1,12 @@
 // 由 tools/111-elite-power-eval.html 改造 | 跑张无忌/韦一笑/小昭姊/小昭妹 1-7关×N场（关卡由 102 复选框勾选，已含第7关）
 import { runParallel } from './817-shared-worker-runner.js';
-import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, ENEMY_VARIANTS, STATS_TH } from './827-tool-registry.js';
+import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, STATS_TH } from './827-tool-registry.js';
 import { VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
 
-export const VER = 'tools/812-elite-eval.js V3.14.0';
+export const VER = 'tools/812-elite-eval.js V3.15.0';
+// V3.15.0 | 2026-11-21 第3/6关拆变体且样本不减半：第3关拆「胖远桥 / 宋青书」、第6关拆「三渡 / 标准」，
+//   有变体的关按「每个变体各跑 RUNS 场」派活（该关总量 = RUNS × 变体数），拆行后每行不再只剩一半样本。
+//   816 同步新增「三渡」分桶（渡厄/渡劫/渡难），否则第6关两变体会混算成一行。
 // V3.14.0 | 2026-11-21 快照收口为「只存一份」：删掉历史下拉 / 💾 存结果 / 📂 载入三个控件，
 //   打开页面直接显示上次结果，新结果覆盖旧结果（同一张表取最新、不同表自动合并），只留「🗑 清空已存结果」。
 // V3.13.5 | 2026-11-21 默认场次调整：每关总场次 1200 → 1800，控制变量场数 400 → 300（输入框初始值与 JS 兜底值同步）。
@@ -55,10 +58,11 @@ const enemyHexOn = () => !!(document.getElementById('eliteEnemyHex') && document
 // 2026-11-20 顺序与主表·自然出场一致：张无忌（Boss）放第一个，其余强精英随后
 const configs = NATURAL_ELITES.map(name => ({ name }));
 const SOLO_ALL = [...BOSS_ELITE_NAMES, ...SOLO_ELITE_NAMES].map(name => ({ name }));
-const VARIANTS = ENEMY_VARIANTS;
-// 拆行口径（V3.4.0）：content 里只有第 3 关配了 squadVariants，所以「关卡变体」只属于第 3 关。
-//   其它关出现的同名精英来自六大派额外混入（M107/M100 档）或关卡固定阵容，不属于变体，不单列成行。
-const VARIANT_STAGE = 3;
+// 拆行口径（2026-11-21 V3.15.0）：第3关 胖远桥/宋青书，第6关 三渡/常规；其余关合并成单行。
+//   有变体的关按「每个变体各跑 RUNS 场」派活（总量 = RUNS × 变体数），避免拆行后每行样本减半。
+const STAGE_VARIANTS = { 3: ['胖远桥', '宋青书'], 6: ['三渡', '标准'] };
+const VARIANTS_ALL = ['胖远桥', '宋青书', '三渡', '标准'];
+const stageRunsOf = (stage, runs) => runs * (STAGE_VARIANTS[stage] ? STAGE_VARIANTS[stage].length : 1);
 // 跨变体合并（数值字段累加；弱精英表的 clean 子表逐名累加）
 function mergeAgg(dst, d) {
     if (!d) return dst;
@@ -79,9 +83,9 @@ function mergeAgg(dst, d) {
 //   桶有两种形态：主表/单英雄表是 { 名字: agg }，无精英表直接是 agg —— 逐键按类型合并，两种都吃得下
 function rowsOfStage(st, byStage) {
     const same = byStage[st] || {};
-    if (Number(st) === VARIANT_STAGE) return VARIANTS.map(v => ({ variant: v, bucket: same[v] }));
+    if (STAGE_VARIANTS[st]) return STAGE_VARIANTS[st].map(v => ({ variant: v, bucket: same[v] }));
     const merged = {};
-    for (const v of VARIANTS) {
+    for (const v of VARIANTS_ALL) {
         const slot = same[v];
         if (!slot) continue;
         for (const [k, val] of Object.entries(slot)) {
@@ -246,7 +250,7 @@ startBtn.addEventListener('click', async () => {
     const byStage = {}; // stage -> variant -> { 张无忌:{runs,wins,...}, ... }
     for (const st of stages) {
         byStage[st] = {};
-        for (const v of VARIANTS) {
+        for (const v of VARIANTS_ALL) {
             byStage[st][v] = {};
             for (const cfg of configs) byStage[st][v][cfg.name] = { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 };
         }
@@ -257,9 +261,10 @@ startBtn.addEventListener('click', async () => {
     const masterSeed = readSeed();
     const jobs = [];
     for (const stage of stages) {
-        const chunks = Math.ceil(RUNS / CHUNK);
+        const runsTotal = stageRunsOf(stage, RUNS);
+        const chunks = Math.ceil(runsTotal / CHUNK);
         for (let c = 0; c < chunks; c++) {
-            const runs = Math.min(CHUNK, RUNS - c * CHUNK);
+            const runs = Math.min(CHUNK, runsTotal - c * CHUNK);
             if (runs <= 0) continue;
             jobs.push({ stage, seed: masterSeed + stage * 131, startIndex: c * CHUNK, runs, label: `第${stage}关#${c + 1}` });
         }
@@ -317,7 +322,7 @@ async function runSoloGroup(list, ui) {
     const byStage = {}; // stage -> variant -> 精英名 -> {runs,wins,sumSurv,sumDmg,sumTaken}
     for (const st of stages) {
         byStage[st] = {};
-        for (const v of VARIANTS) {
+        for (const v of VARIANTS_ALL) {
             byStage[st][v] = {};
             for (const cfg of list) byStage[st][v][cfg.name] = { runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 };
         }
@@ -330,9 +335,10 @@ async function runSoloGroup(list, ui) {
     let eliteIdx = 0;
     for (const cfg of list) {
         for (const stage of stages) {
-            const chunks = Math.ceil(RUNS / CHUNK);
+            const runsTotal = stageRunsOf(stage, RUNS);
+            const chunks = Math.ceil(runsTotal / CHUNK);
             for (let c = 0; c < chunks; c++) {
-                const runs = Math.min(CHUNK, RUNS - c * CHUNK);
+                const runs = Math.min(CHUNK, runsTotal - c * CHUNK);
                 if (runs <= 0) continue;
                 jobs.push({ stage, elite: cfg.name, seed: masterSeed + stage * 131 + eliteIdx * 7717, startIndex: c * CHUNK, runs, label: `${cfg.name}·第${stage}关#${c + 1}` });
             }
@@ -430,7 +436,7 @@ function soloCellHtml(d) {
 function soloTotalsOf(cfg, byStage, stages) {
     let runs = 0, wins = 0, draws = 0, sumSurv = 0;
     for (const st of stages) {
-        for (const v of VARIANTS) {
+        for (const v of VARIANTS_ALL) {
             const d = byStage[st] && byStage[st][v] && byStage[st][v][cfg.name];
             if (!d) continue;
             runs += d.runs; wins += d.wins; draws += d.draws || 0; sumSurv += d.sumSurv;
@@ -454,16 +460,17 @@ noEliteBtn.addEventListener('click', async () => {
     const byStage = {}; // stage -> variant -> {runs,wins,sumSurv}
     for (const st of stages) {
         byStage[st] = {};
-        for (const v of VARIANTS) byStage[st][v] = { runs: 0, wins: 0, sumSurv: 0 };
+        for (const v of VARIANTS_ALL) byStage[st][v] = { runs: 0, wins: 0, sumSurv: 0 };
     }
     const startT = performance.now();
     const masterSeed = readSeed();
 
     const jobs = [];
     for (const stage of stages) {
-        const chunks = Math.ceil(RUNS / CHUNK);
+        const runsTotal = stageRunsOf(stage, RUNS);
+        const chunks = Math.ceil(runsTotal / CHUNK);
         for (let c = 0; c < chunks; c++) {
-            const runs = Math.min(CHUNK, RUNS - c * CHUNK);
+            const runs = Math.min(CHUNK, runsTotal - c * CHUNK);
             if (runs <= 0) continue;
             jobs.push({ stage, seed: masterSeed + stage * 131, startIndex: c * CHUNK, runs, label: `第${stage}关#${c + 1}` });
         }
@@ -531,7 +538,7 @@ function noEliteRowHtml(label, d) {
 function noEliteTotalsOf(byStage, stages) {
     let runs = 0, wins = 0, draws = 0, sumSurv = 0;
     for (const st of stages) {
-        for (const v of VARIANTS) {
+        for (const v of VARIANTS_ALL) {
             const d = byStage[st] && byStage[st][v];
             if (!d) continue;
             runs += d.runs; wins += d.wins; draws += d.draws || 0; sumSurv += d.sumSurv;
@@ -611,7 +618,7 @@ function buildHeroRates(byStage, stages) {
 function totalsOf(cfg, byStage, stages) {
     let tw = 0, tr = 0, td = 0, tt = 0, ts = 0, dr = 0;
     for (const st of stages) {
-        for (const v of VARIANTS) {
+        for (const v of VARIANTS_ALL) {
             const d = byStage[st] && byStage[st][v] && byStage[st][v][cfg.name];
             if (!d) continue;
             tw += d.wins; tr += d.runs; td += d.sumDmg; tt += d.sumTaken; ts += d.sumSurv; dr += d.draws || 0;
