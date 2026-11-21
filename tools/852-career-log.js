@@ -26,7 +26,10 @@ function readRecords(hexMode) {
         .map(x => x.r);
 }
 
-export const VER = 'tools/852-career-log.js V2.9.3';
+export const VER = 'tools/852-career-log.js V3.0.0';
+// V3.0.0 | 2026-11-21 | 英雄跨局聚合 getHeroAggregates 排序改「按胜率降序」（胜率相同按出场多在前）：
+//   原来按出场次数排，出场最多的英雄恒排第一，强弱信息被埋（典型：135 局 41% 压在最前）。
+//   小样本虚高仍由 reliable/95% 区间标注提示，排序不做隐藏过滤；报告表头与 dev-index 面板标题同步改口径。
 // V2.9.3 | 2026-11-08 | 导出汇总补「版本」行：引擎版本 + content 版本取自记录（modules/332 V1.3.0 起落盘），
 //   同批里跨版本或混有旧记录无版本时显式出「⚠️ 跨版本混榜」——此前只能靠 14 天新鲜度猜，看不出混版本。
 // V2.9.2 | 2026-11-08 | 修「两库拼接非时间序」的剩余尾巴（工具侧一次改透）：
@@ -207,7 +210,7 @@ export function exportCareerMarkdown(hexMode = null) {
     try {
         const agg = getHeroAggregates(false, hexMode);
         if (agg && agg.length) {
-            lines.push('## 英雄表现（Boss + 强弱精英 + 明教M100带技能；<8 局标「样本少」）');
+            lines.push('## 英雄表现（Boss + 强弱精英 + 明教M100带技能；按胜率降序，<8 局标「样本少」）');
             lines.push('| 英雄 | 出场 | 胜率 | 95%区间 | 难度校准 | 每回合输出 | 每回合承伤 | 每回合治疗 | 存活率 |');
             lines.push('|---|---|---|---|---|---|---|---|---|');
             for (const a of agg.slice(0, 15)) {
@@ -508,7 +511,9 @@ export function getHeroAggregates(includeEnemy = false, hexMode = null) {
             perRoundGames: a.games - a.noRoundData,     // 参与每回合计算的有效局数
             aliveRate: Math.round(a.alive / a.games * 100)
         };
-    }).sort((a, b) => b.games - a.games);
+    // V3.0.0：改按胜率降序（用户口径：按出场排会把强弱信息埋掉）。
+    //   胜率相同按出场多的在前——样本大更可信；小样本虚高交给 reliable/95% 区间提示，不在排序里隐藏。
+    }).sort((a, b) => b.winRate - a.winRate || b.games - a.games);
 }
 
 // V1.8.0 新增：逐海克斯实战胜率——给 126 规则八做「逐海克斯 模拟 vs 实战」对照用。

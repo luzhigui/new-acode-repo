@@ -408,7 +408,7 @@
                         if (agg && agg.length) {
                             const tbl = document.createElement('div');
                             tbl.style.cssText = 'margin-top:6px;border:1px solid #333;border-radius:8px;overflow-x:auto;';
-                            let h = '<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">英雄跨局表现（Boss + 强弱精英，按出场次数排序，前 12）</div>';
+                            let h = '<div style="background:#22223a;font-size:10px;color:#ffd700;padding:4px 6px;">英雄跨局表现（Boss + 强弱精英，按胜率排序，前 12）</div>';
                             h += '<table style="width:100%;border-collapse:collapse;font-size:10px;">';
                             h += '<tr style="background:#1a1a2e;color:#aaa;"><th style="padding:3px;">英雄</th><th>出场</th><th>胜率</th><th title="这个英雄的胜率，比他出场的那些关的平均胜率高/低多少个百分点：正=比同关平均更常赢，负=在难一点的关就拉胯（去掉「只在简单关出场」的虚高）">难度校准</th><th title="每存活回合的输出，跨局可比">输出/回合</th><th title="每存活回合的承伤">承伤/回合</th><th>存活率</th></tr>';
                             agg.slice(0, 12).forEach(a => {
