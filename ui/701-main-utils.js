@@ -1,4 +1,4 @@
-export const VER = 'ui/701-main-utils.js V6.1.2';
+export const VER = 'ui/701-main-utils.js V6.1.3';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 
@@ -92,6 +92,11 @@ export function initDevFlags() {
     if (localStorage.getItem('_forcePang') === '1') {
         GlobalStore.set('forcePang', true);
         localStorage.removeItem('_forcePang');
+    }
+    // 第 6 关三渡阵（dev-index 🐲 按钮）：强制抽含炎魔狮王的变体，与 forcePang 同口径一次性消费
+    if (localStorage.getItem('_forceSanDu') === '1') {
+        GlobalStore.set('forceSanDu', true);
+        localStorage.removeItem('_forceSanDu');
     }
     // 补漏：_forceWeakElite（弱精英锁定）——与上面几个同口径一次性消费。
     //   它的值是具名（如 '唐文亮'），不是 '1'；不清除会一直生效。

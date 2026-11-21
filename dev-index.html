@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>⚔️ 光明顶5v5 · 开发集成入口 V6.3.20</title>
+    <title>⚔️ 光明顶5v5 · 开发集成入口 V6.3.21</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
         /* 生涯记录面板内的表格：表头/数字单元格禁止换行，避免窄屏下表头与内容错行；
@@ -28,11 +28,16 @@
             padding-left: 10px; border-left: 3px solid #ffd700;
         }
         .btn-grid { display: grid; gap: 10px; }
+        /* 2026-11-21 统一按钮版式：等高、文字不换行、行内留缝，窄屏不再出现两行/三行参差 */
+        .btn-row { display: flex; gap: 8px; margin-bottom: 10px; }
+        .btn-row:last-child { margin-bottom: 0; }
         .big-btn {
-            display: block; width: 100%; padding: 15px 20px;
-            border: none; border-radius: 10px; font-size: 1rem; font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
+            width: 100%; min-height: 46px; padding: 10px 8px;
+            border: none; border-radius: 10px; font-size: 0.92rem; font-weight: bold;
             color: #1a1a2e; cursor: pointer; transition: 0.2s;
             text-align: center; text-decoration: none;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .btn-play { background: linear-gradient(135deg, #ffd700, #ffaa00); }
         .btn-play:hover { filter: brightness(1.1); transform: translateY(-2px); }
@@ -57,72 +62,74 @@
 <body>
     <div class="container">
         <h1>⚔️ 光明顶5v5</h1>
-        <div class="subtitle">V6.3.20 开发集成入口 <span id="devStamp1"></span></div>
+        <div class="subtitle">开发集成入口</div>
 
         <!-- 主入口 -->
         <div class="section">
             <div class="section-title">🎮 主入口</div>
             <div class="btn-grid">
                 <button class="big-btn btn-play" id="btnGame">⚔️ 主游戏</button>
-                <div style="display:flex;gap:0;margin-bottom:10px;">
-                    <button class="big-btn btn-play" id="btnXiaoZhaoSister" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #e040fb, #7c4dff);">🦋 小昭·姊</button>
-                    <button class="big-btn btn-play" id="btnXiaoZhaoBrother" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #ff5252, #b71c1c);">🕷️ 小昭·妹</button>
+                <div class="btn-row">
+                    <button class="big-btn btn-play" id="btnXiaoZhaoSister" style="flex:1;background:linear-gradient(135deg, #e040fb, #7c4dff);">🦋 小昭·姊</button>
+                    <button class="big-btn btn-play" id="btnXiaoZhaoBrother" style="flex:1;background:linear-gradient(135deg, #ff5252, #b71c1c);">🕷️ 小昭·妹</button>
                 </div>
-                <div style="display:flex;gap:0;margin-bottom:10px;">
-                    <button class="big-btn btn-play" id="btnZhangWuji" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #ffd700, #ffaa00);">☀️ 张无忌</button>
-                    <button class="big-btn btn-play" id="btnWeiYixiao" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #6a0dad, #4b0082);">🦇 韦一笑</button>
+                <div class="btn-row">
+                    <button class="big-btn btn-play" id="btnZhangWuji" style="flex:1;background:linear-gradient(135deg, #ffd700, #ffaa00);">☀️ 张无忌</button>
+                    <button class="big-btn btn-play" id="btnWeiYixiao" style="flex:1;background:linear-gradient(135deg, #6a0dad, #4b0082);">🦇 韦一笑</button>
                 </div>
                 <!-- 新角色实战 demo：点按钮 → 设好条件 → 进 index.html 真打一局 -->
-                <div style="display:flex;gap:0;margin-bottom:10px;">
-                    <button class="big-btn btn-play" id="btnPangYuanQiao" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #a1887f, #4e342e);">🥷 胖远桥</button>
+                <div class="btn-row">
+                    <button class="big-btn btn-play" id="btnPangYuanQiao" style="flex:1;background:linear-gradient(135deg, #a1887f, #4e342e);">🥷 胖远桥</button>
                     <button class="big-btn btn-play" id="btnMieJue" style="flex:1;background:linear-gradient(135deg, #b0bec5, #546e7a);">🗡️ 灭绝师太</button>
-                    <button class="big-btn btn-play" id="btnXieXun" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #f9a825, #e65100);">🦁 谢逊</button>
+                    <button class="big-btn btn-play" id="btnXieXun" style="flex:1;background:linear-gradient(135deg, #f9a825, #e65100);">🦁 谢逊</button>
                 </div>
                 <!-- 弱精英锁定（2026-10-16）：_forceWeakElite 传具名 → modules/29 必出该弱精英（混入正常阵容占 1 位，不整队替换）。
                      明教弱精英池＝杨逍/殷天正（寒离飒 2026-10-22 升强精英，改走 _forceHanLiSa）；
                      六大派 M104 具名池＝何太冲/唐文亮 -->
-                <div style="display:flex;gap:0;margin-bottom:10px;">
-                    <button class="big-btn btn-play" id="btnYangXiao" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #4db6ac, #00695c);">🐦 杨逍</button>
+                <div class="btn-row">
+                    <button class="big-btn btn-play" id="btnYangXiao" style="flex:1;background:linear-gradient(135deg, #4db6ac, #00695c);">🐦 杨逍</button>
                     <button class="big-btn btn-play" id="btnHanLiSa" style="flex:1;background:linear-gradient(135deg, #90caf9, #1565c0);">👊 寒离飒</button>
-                    <button class="big-btn btn-play" id="btnHeTaichong" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #9575cd, #4527a0);">🗡 何太冲</button>
+                    <button class="big-btn btn-play" id="btnHeTaichong" style="flex:1;background:linear-gradient(135deg, #9575cd, #4527a0);">🗡 何太冲</button>
                 </div>
-                <div style="display:flex;gap:0;margin-bottom:10px;">
-                    <button class="big-btn btn-play" id="btnShuoBuDe" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #9e9e9e, #424242);">🛍️ 说不得</button>
-                    <button class="big-btn btn-play" id="btnZhouDian" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #ffb74d, #e65100);">🤪 周颠</button>
+                <div class="btn-row">
+                    <button class="big-btn btn-play" id="btnShuoBuDe" style="flex:1;background:linear-gradient(135deg, #9e9e9e, #424242);">🛍️ 说不得</button>
+                    <button class="big-btn btn-play" id="btnZhouDian" style="flex:1;background:linear-gradient(135deg, #ffb74d, #e65100);">🤪 周颠</button>
                 </div>
-                <div style="display:flex;gap:0;margin-bottom:10px;">
-                    <button class="big-btn btn-play" id="btnYinTianZheng" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #8d6e63, #3e2723);">🦅 殷天正</button>
+                <div class="btn-row">
+                    <button class="big-btn btn-play" id="btnYinTianZheng" style="flex:1;background:linear-gradient(135deg, #8d6e63, #3e2723);">🦅 殷天正</button>
                     <button class="big-btn btn-play" id="btnTangWenLiang" style="flex:1;background:linear-gradient(135deg, #7cb342, #33691e);">👹 唐文亮</button>
-                    <button class="big-btn btn-play" id="btnKongJian" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #ffd700, #8b6f00);">🔔 空见</button>
+                    <button class="big-btn btn-play" id="btnKongJian" style="flex:1;background:linear-gradient(135deg, #ffd700, #8b6f00);">🔔 空见</button>
                 </div>
                 <!-- 明教新三兵（带技能 M100，走 _forceMingUnit 通用通道）：庄铮·叠防 / 彭莹玉·治疗 / 张中·蹦蹦 -->
-                <div style="display:flex;gap:0;margin-bottom:10px;">
-                    <button class="big-btn btn-play" id="btnZhuangZheng" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #a1887f, #4e342e);">🧱 庄铮</button>
+                <div class="btn-row">
+                    <button class="big-btn btn-play" id="btnZhuangZheng" style="flex:1;background:linear-gradient(135deg, #a1887f, #4e342e);">🧱 庄铮</button>
                     <button class="big-btn btn-play" id="btnPengYingYu" style="flex:1;background:linear-gradient(135deg, #81c784, #1b5e20);">🌿 彭莹玉</button>
-                    <button class="big-btn btn-play" id="btnZhangZhong" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #b0bec5, #37474f);">🐾 张中</button>
+                    <button class="big-btn btn-play" id="btnZhangZhong" style="flex:1;background:linear-gradient(135deg, #b0bec5, #37474f);">🐾 张中</button>
                 </div>
                 <!-- 六大派带技能普通兵（敌队侧强制，_forceSectUnit 通用通道）。
                      周芷若/宋青书/张三丰/成昆/鹿杖客/鹤笔翁为固定关卡 boss（自然出场），2026-11-10 应老板要求撤销按钮 -->
-                <div style="display:flex;gap:0;margin-bottom:10px;">
-                    <button class="big-btn btn-play" id="btnYuLianZhou" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #4fc3f7, #01579b);">🚣 俞莲舟</button>
+                <div class="btn-row">
+                    <button class="big-btn btn-play" id="btnYuLianZhou" style="flex:1;background:linear-gradient(135deg, #4fc3f7, #01579b);">🚣 俞莲舟</button>
                     <button class="big-btn btn-play" id="btnYuanZhen" style="flex:1;background:linear-gradient(135deg, #ffd54f, #5d4037);">🎭 圆真</button>
-                    <button class="big-btn btn-play" id="btnSuWen" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #a5d6a7, #2e7d32);">💊 素问</button>
+                    <button class="big-btn btn-play" id="btnSuWen" style="flex:1;background:linear-gradient(135deg, #a5d6a7, #2e7d32);">💊 素问</button>
                 </div>
                 <!-- 🐛 Bug 模式：海克斯选卡不洗牌不截断、全部可选（调试便利，2026-11-10 恢复） -->
                 <!-- 调试/工具入口两两一行（2026-11-19 老板要求）：全是纯跳转，不需要独占整行 -->
-                <div style="display:flex;gap:0;margin-bottom:10px;">
-                    <button class="big-btn btn-play" id="btnBugMode" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #f44336, #212121);">🐛 Bug模式</button>
-                    <button class="big-btn btn-play" id="btnShop" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #ff9800, #f57c00);">🏪 圣火令商店</button>
+                <div class="btn-row">
+                    <button class="big-btn btn-play" id="btnBugMode" style="flex:1;background:linear-gradient(135deg, #f44336, #212121);">🐛 Bug模式</button>
+                    <button class="big-btn btn-play" id="btnShop" style="flex:1;background:linear-gradient(135deg, #ff9800, #f57c00);">🏪 圣火令商店</button>
                 </div>
-                <div style="display:flex;gap:0;margin-bottom:10px;">
-                    <button class="big-btn btn-health" id="btnHealthCheck" style="flex:1;border-radius:10px 0 0 10px;">🩺 全面体检</button>
-                    <button class="big-btn btn-tool" id="btnTools" style="flex:1;border-radius:0 10px 10px 0;">🧰 工具箱</button>
+                <div class="btn-row">
+                    <button class="big-btn btn-health" id="btnHealthCheck" style="flex:1;">🩺 全面体检</button>
+                    <button class="big-btn btn-tool" id="btnTools" style="flex:1;">🧰 工具箱</button>
                 </div>
+                <!-- 第 6 关三渡阵（2026-11-21）：强制抽中「炎魔狮王 + 三渡」变体，直接开第 6 关 -->
+                <button class="big-btn btn-play" id="btnBlazeLionKing" style="width:100%;margin-bottom:10px;background:linear-gradient(135deg, #ff7043, #b71c1c);color:#fff;">🐲 炎魔狮王 · 第六关三渡阵</button>
                 <!-- M97 机制弟子测试局（2026-11-21）：强制木桩/拼命/防化三人同时出场，验证三条新机制 -->
-                <button class="big-btn btn-play" id="btnMechTest" style="width:100%;margin-bottom:10px;background:linear-gradient(135deg, #26c6da, #00695c);">🧪 机制弟子测试局（木桩 / 拼命 / 防化）</button>
-                <div style="display:flex;gap:0;">
-                    <button class="big-btn btn-tool" id="btnCareerLog" style="flex:1;border-radius:10px 0 0 10px;">📊 生涯记录</button>
-                    <button class="big-btn btn-tool" id="btnBugRecords" style="flex:1;border-radius:0 10px 10px 0;">🐛 Bug记录</button>
+                <button class="big-btn btn-play" id="btnMechTest" style="width:100%;margin-bottom:10px;background:linear-gradient(135deg, #26c6da, #00695c);">🧪 机制弟子测试局</button>
+                <div class="btn-row">
+                    <button class="big-btn btn-tool" id="btnCareerLog" style="flex:1;">📊 生涯记录</button>
+                    <button class="big-btn btn-tool" id="btnBugRecords" style="flex:1;">🐛 Bug记录</button>
                 </div>
             </div>
         </div>
@@ -160,7 +167,7 @@
 
         <!-- 新角色实战 demo：胖远桥（第3关）/ 灭绝师太（第7关）/ 谢逊（明教）——三个按钮已并入主入口 -->
 
-        <div class="footer">光明顶5v5 · 开发集成入口 V6.3.20 <span id="devStamp2"></span></div>
+        <div class="footer">光明顶5v5 · 开发集成入口</div>
     </div>
 
     <script>
@@ -642,6 +649,7 @@
                 localStorage.removeItem('_forcePang');
                 localStorage.removeItem('_forceXieXun');
                 localStorage.removeItem('_forceHanLiSa');
+                localStorage.removeItem('_forceSanDu');
                 localStorage.removeItem('_forceWeakElite');
                 localStorage.removeItem('_startStage');
             } catch (e) { console.warn('[dev-index] 清标记失败（不影响跳转）:', e); }
@@ -650,6 +658,13 @@
             clearDemoFlags();
             mustSet('_forcePang', '1');   // 第三关必出胖远桥（否则二选一随机）
             mustSet('_startStage', '3');
+
+            window.location.href = 'index.html';
+        });
+        document.getElementById('btnBlazeLionKing').addEventListener('click', () => {
+            clearDemoFlags();
+            mustSet('_forceSanDu', '1');  // 第 6 关必抽「炎魔狮王 + 三渡」变体（否则两个变体随机）
+            mustSet('_startStage', '6');
 
             window.location.href = 'index.html';
         });
@@ -940,23 +955,6 @@
                 renderStorageReport('已清 ' + n + ' 个跑批/评测日志键，腾出 ' + (freed / 1024).toFixed(1) + 'KB（进度/解锁/生涯全保留）');
             } catch (e) { alert('清理失败：' + e); }
         });
-
-        // 2026-09-20 时间戳：改原来副标题/页脚里写死的"12:15"（共两处）为实时值——
-        // 读 GitHub 仓库最新提交时间（真值，一推代码就变）。加载失败时不显示，不留过期数字。
-        (function () {
-            const s1 = document.getElementById('devStamp1');
-            const s2 = document.getElementById('devStamp2');
-            fetch('https://api.github.com/repos/luzhigui/new-acode-repo/commits?per_page=1')
-                .then(r => r.ok ? r.json() : null)
-                .then(arr => {
-                    const t = arr && arr[0] && arr[0].commit && arr[0].commit.committer && arr[0].commit.committer.date;
-                    if (!t) return;
-                    const txt = new Date(t).toLocaleString('zh-CN', { hour12: false });
-                    if (s1) s1.textContent = txt;
-                    if (s2) s2.textContent = txt;
-                })
-                .catch(() => {});
-        })();
 
     </script>
 

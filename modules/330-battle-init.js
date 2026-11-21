@@ -12,7 +12,8 @@
 // V7.9.5 | 2026-11-21 补版本日志行（VER 常量已抬，漏写本行致 ver-drift 判领先，跨了两个版本）。
 // V7.9.3 | 2026-11-20 阵容存档含对面六大派：saveAllyLineup 存双方、建队按档还原 enemyTeam（旧档无对面则照常随机）
 // V7.9.6 | 2026-11-21 注释口径同步：变体关不再只有第 3 关（第 6 关新增「常规 / 三渡」双变体）；forcePang 报错去掉「第三关」
-export const VER = 'modules/330-battle-init.js V7.9.6';
+// V7.9.7 | 2026-11-21 新增 forceSanDu：dev-index 🐲 按钮强制抽含炎魔狮王的第 6 关三渡变体（找不到照常随机）
+export const VER = 'modules/330-battle-init.js V7.9.7';
 
 // ── RNG 抽签契约版本（initBattleTeams 内随机数消耗的「次数 + 顺序」指纹）──
 // 为什么必须有：V7.6.7 把明教骰子 3→7、六大派骰子 2→6 时没有任何版本标记，
@@ -443,6 +444,11 @@ export function initBattleTeams(currentStage, _rng) {
             const target = squadVariants.find(v => v.squad.some(it => it && it.name === '胖远桥'));
             if (!target) throw new Error('forcePang 生效，但当前关卡没有含「胖远桥」的阵容变体');
             variant = target;
+        }
+        // 第 6 关三渡阵（dev-index 🐲 按钮）：强制抽含炎魔狮王的变体；找不到就照常随机
+        if (GlobalStore.get('forceSanDu')) {
+            const target = squadVariants.find(v => v.squad.some(it => it && it.name === '炎魔狮王'));
+            if (target) variant = target;
         }
         enemySquad = variant.squad;
         variantPosTemplate = variant.posTemplate || null;
