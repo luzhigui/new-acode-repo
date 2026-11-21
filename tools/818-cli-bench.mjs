@@ -200,7 +200,7 @@ await new Promise((resolve, reject) => {
     };
     const tick = () => process.stderr.write(`\r进度 ${doneCount}/${total} 片` + (doneCount === total ? '\n' : ''));
     for (let i = 0; i < pool; i++) {
-        const child = fork(fileURLToPath(import.meta.url), ['--child'], { stdio: ['ignore', 'ignore', 'inherit', 'ipc'] });
+        const child = fork(fileURLToPath(import.meta.url), ['--child'], { stdio: ['ignore', 'ignore', 'inherit', 'ipc'], execArgv: ['--no-warnings'] });
         procs.push(child);
         state.set(child, { alive: true, current: null });
         // IPC 写失败（子进程已死）是异步 error 事件，不接住会把整个父进程打崩
