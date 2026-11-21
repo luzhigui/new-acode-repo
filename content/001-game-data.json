@@ -801,6 +801,29 @@
       }
     },
 
+    "木桩弟子": {
+      "named": true,
+      "tags": ["明教", "防战", "普通"],
+      "m": 97, "poolTier": 97, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 18, "mingAll": true, "unitFlags": ["isWoodenDummy"], "tool": {"m100Skill":3},
+      "skills": {
+        "basicStrike": {
+          "name": "基础挥砍",
+          "desc": "攻击力全部转为防御；同列队友被攻击时由木桩代受",
+          "params": {}
+        }
+      },
+      "mechanics": [
+        {
+          "camp": "ally",
+          "type": "woodenDummy"
+        }
+      ],
+      "taunts": {
+        "attack": ["……", "打这里。"],
+        "kill": []
+      }
+    },
+
     "拼命弟子": {
       "named": true,
       "tags": ["明教", "战士", "普通"],

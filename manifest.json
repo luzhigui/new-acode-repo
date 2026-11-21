@@ -1,11 +1,11 @@
 {
- "ver": "d6faa3902b9fceb6a6e91ae3a62174c4294cc8138d90a6508987c0dafff658a8",
+ "ver": "77cac9c196e7546800c321e180eb7b9ca8477c7ac68efbb88a00ce089896a001",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 155,
  "files": [
   [
    "content/001-game-data.json",
-   "38abc504d9c45662bdd8732e9295d59ce2759b45e8f66b6effcafa69de8091ff"
+   "938983ce756437d55077607734e1214b4b35e800b102cfc8c17cdea555faa5a1"
   ],
   [
    "content/002-hex-enhance.json",
@@ -397,7 +397,7 @@
   ],
   [
    "modules/340-common-mech-disciples.js",
-   "c440c2381194aea55fa9eb25729f4c19e96905016373c3a95ecea52b1628253b"
+   "22d520967cb7469b89c080903bb497f642fde529fde6128b588f61cb638bb1c1"
   ],
   [
    "modules/341-common-shield-steal.js",

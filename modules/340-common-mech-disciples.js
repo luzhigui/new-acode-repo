@@ -6,6 +6,7 @@ import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../i
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES } from '../infra/106-battle-enums.js';
 import { getStat, addMod, removeModsByGroup, setPoisonBlockedHook } from '../core/214-battle-shared.js';
+import { canBeTargeted } from '../core/203-battle-utils.js';
 
 const allOf = (data) => [...((data && data.A) || []), ...((data && data.B) || [])];
 const findByName = (data, name) => allOf(data).find(u => u.name === name) || null;
@@ -42,6 +43,41 @@ export const desperateHandler = {
         };
         registerSettlementHook({ when: 'afterDamageApplied', priority: L.AFTER_DAMAGE_APPLIED.REBOUND, handler: refresh });
         registerSettlementHook({ when: SIGNAL_TYPES.ON_ROUND_START, priority: L.ROUND_START.XUANMING_POISON, handler: refresh });
+    }
+};
+
+// ---------- 木桩弟子：攻击力全部并入防御；同列队友被选中时，改由木桩承受这一击 ----------
+//   2026-11-21 老板口径：不做「50% 分摊 + 二次防御结算」那套数学——直接把目标换成木桩，
+//   伤害按木桩的高防正常结算，战报天然正确，也不需要事后补扣/补奶。
+export const woodenDummyHandler = {
+    fields: {},
+    install({ A, B, decl }) {
+        const myTeam = decl.camp === CAMP_TYPES.ALLY ? (A || []) : (B || []);
+        const self0 = myTeam.find(u => u.name === decl.name);
+        // 攻击归零、攻击力并入基础防御（getStat 读 _baseAtk/_baseDef）
+        if (self0 && self0.state) {
+            const atk = self0.state._baseAtk ?? getStat(self0, 'atk');
+            self0.state._baseAtk = 0;
+            self0.state._baseDef = (self0.state._baseDef ?? getStat(self0, 'def')) + atk;
+        }
+        registerSettlementHook({
+            when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
+            priority: L.BEFORE_SELECT_TARGET.PANG_TAUNT_FORCE,
+            handler: (data) => {
+                const dec = data && data.declaration;
+                const target = dec && dec.targetResult;
+                if (!target || !data) return;
+                const team = decl.camp === CAMP_TYPES.ALLY ? (data.A || []) : (data.B || []);
+                if (!team.includes(target)) return;                 // 只替自己人挡
+                const self = team.find(u => u.name === decl.name);
+                if (!self || !self.alive || self === target) return;
+                if (self.pos == null || target.pos == null) return;
+                // 同列判定：pos 1..9 按 3 列排布，列 = (pos-1) % 3
+                if ((target.pos - 1) % 3 !== (self.pos - 1) % 3) return;
+                if (!canBeTargeted(self)) return;
+                dec.targetResult = self;
+            }
+        });
     }
 };
 
@@ -86,5 +122,6 @@ export const antiPoisonHandler = {
     }
 };
 
+registerMechanicHandler(MECHANIC_TYPES.WOODEN_DUMMY, woodenDummyHandler);
 registerMechanicHandler(MECHANIC_TYPES.DESPERATE, desperateHandler);
 registerMechanicHandler(MECHANIC_TYPES.ANTI_POISON, antiPoisonHandler);
