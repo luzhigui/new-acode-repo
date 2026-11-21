@@ -29,14 +29,13 @@ const SOLO_LIST = ['张无忌', '韦一笑', '小昭·姊', '小昭·妹', '金�
 
 const isChild = process.argv.includes('--child');
 
-// ================================ 子进程：跑一批 job，逐条打印 JSON ================================
+// ================================ 子进程：等父进程派活 ================================
 if (isChild) {
-    const cfg = JSON.parse(fs.readFileSync(process.argv[process.argv.indexOf('--child') + 1], 'utf8'));
-    await runChild(cfg);
+    await runChild();
     process.exit(0);
 }
 
-async function runChild(cfg) {
+async function runChild() {
     globalThis.window = globalThis;
     globalThis.self = globalThis;
     let readyMsg = null;
@@ -73,15 +72,19 @@ async function runChild(cfg) {
         self.onmessage({ data: msg });
     });
 
-    for (const job of cfg.jobs) {
+    process.on('message', async (m) => {
+        if (!m) return;
+        if (m.type === 'end') process.exit(0);
+        if (m.type !== 'job') return;
         const t0 = Date.now();
         try {
-            const result = await send(job.msg);
-            console.log('@@RESULT ' + JSON.stringify({ key: job.key, stage: job.stage, result, ms: Date.now() - t0 }));
+            const result = await send(m.msg);
+            process.send({ type: 'result', key: m.key, stage: m.stage, result, ms: Date.now() - t0 });
         } catch (e) {
-            console.log('@@RESULT ' + JSON.stringify({ key: job.key, stage: job.stage, error: String(e && e.message || e) }));
+            process.send({ type: 'result', key: m.key, stage: m.stage, error: String(e && e.message || e), ms: Date.now() - t0 });
         }
-    }
+    });
+    process.send({ type: 'ready' });
 }
 
 // ================================ 父进程 ================================
@@ -96,7 +99,6 @@ const RUNS = Number(args.runs || 100);
 const SEED = Number(args.seed || Date.now());
 const ENEMY_HEX = !!args['enemy-hex'];
 const STAGES = parseStages(args.stages);
-const POOL = Math.max(1, Math.min(Number(args.jobs || (os.cpus().length - 1) || 2), STAGES.length));
 
 // 弱精英候选：与 846 同口径——M104/M100/M97 且有技能，side 由阵营派生
 const gameData = JSON.parse(fs.readFileSync(path.join(ROOT, 'content/001-game-data.json'), 'utf8'));
@@ -113,86 +115,88 @@ const weakUnits = (() => {
     return out;
 })();
 
-// 按关分片，一个子进程负责一段连续的关
-const stageBatches = [];
-for (let i = 0; i < POOL; i++) {
-    const slice = STAGES.filter((_, idx) => idx % POOL === i);
-    if (slice.length) stageBatches.push(slice);
-}
-
-console.log(`# ${cmd} ｜ 每格 ${RUNS} 场 ｜ 关卡 ${STAGES.join(',')} ｜ seed=${SEED} ｜ 并行 ${stageBatches.length} 进程${ENEMY_HEX ? ' ｜ 双海克斯' : ''}`);
 const t0 = Date.now();
 
-const jobsByBatch = stageBatches.map((stages) => {
-    const jobs = [];
-    for (const stage of stages) {
-        if (cmd === 'weak') {
-            for (let u = 0; u < weakUnits.length; u++) {
-                const unit = weakUnits[u];
-                for (let c = 0; c < Math.ceil(RUNS / CHUNK); c++) {
-                    const runs = Math.min(CHUNK, RUNS - c * CHUNK);
-                    if (runs <= 0) continue;
-                    jobs.push({
-                        key: unit.name, stage,
-                        msg: {
-                            jobId: jobs.length + 1, kind: 'unitAB', stage,
-                            seed: SEED + stage * 131 + u * 7717,
-                            startIndex: c * CHUNK, runs, elite: unit.name, side: unit.side, enemyHex: ENEMY_HEX
-                        }
-                    });
-                }
-            }
-        } else if (cmd === 'solo') {
-            for (let u = 0; u < SOLO_LIST.length; u++) {
-                for (let c = 0; c < Math.ceil(RUNS / CHUNK); c++) {
-                    const runs = Math.min(CHUNK, RUNS - c * CHUNK);
-                    if (runs <= 0) continue;
-                    jobs.push({
-                        key: SOLO_LIST[u], stage,
-                        msg: {
-                            jobId: jobs.length + 1, kind: 'soloElite', stage,
-                            seed: SEED + stage * 131 + u * 7717,
-                            startIndex: c * CHUNK, runs, elite: SOLO_LIST[u], enemyHex: ENEMY_HEX
-                        }
-                    });
-                }
-            }
-        } else {
+// 先把所有 job 摊平，再按进程数轮转切片：单关也能吃满全部进程（之前按关切片，只跑一关就只有 1 个进程）
+const allJobs = [];
+for (const stage of STAGES) {
+    if (cmd === 'weak') {
+        for (let u = 0; u < weakUnits.length; u++) {
+            const unit = weakUnits[u];
             for (let c = 0; c < Math.ceil(RUNS / CHUNK); c++) {
                 const runs = Math.min(CHUNK, RUNS - c * CHUNK);
                 if (runs <= 0) continue;
-                jobs.push({
-                    key: '*', stage,
+                allJobs.push({
+                    key: unit.name, stage,
                     msg: {
-                        jobId: jobs.length + 1, kind: cmd === 'none' ? 'noElite' : 'elite', stage,
-                        seed: SEED + stage * 131, startIndex: c * CHUNK, runs, enemyHex: ENEMY_HEX
+                        jobId: 0, kind: 'unitAB', stage,
+                        seed: SEED + stage * 131 + u * 7717,
+                        startIndex: c * CHUNK, runs, elite: unit.name, side: unit.side, enemyHex: ENEMY_HEX
                     }
                 });
             }
         }
-    }
-    return jobs;
-});
-
-const results = [];
-await Promise.all(jobsByBatch.map((jobs, i) => new Promise((resolve, reject) => {
-    const cfgFile = path.join(os.tmpdir(), `mf818-${process.pid}-${i}.json`);
-    fs.writeFileSync(cfgFile, JSON.stringify({ jobs }));
-    const child = fork(fileURLToPath(import.meta.url), ['--child', cfgFile], { stdio: ['ignore', 'pipe', 'inherit', 'ipc'] });
-    let buf = '';
-    child.stdout.on('data', (d) => {
-        buf += d.toString();
-        const lines = buf.split('\n');
-        buf = lines.pop();
-        for (const line of lines) {
-            if (line.startsWith('@@RESULT ')) results.push(JSON.parse(line.slice(9)));
+    } else if (cmd === 'solo') {
+        for (let u = 0; u < SOLO_LIST.length; u++) {
+            for (let c = 0; c < Math.ceil(RUNS / CHUNK); c++) {
+                const runs = Math.min(CHUNK, RUNS - c * CHUNK);
+                if (runs <= 0) continue;
+                allJobs.push({
+                    key: SOLO_LIST[u], stage,
+                    msg: {
+                        jobId: 0, kind: 'soloElite', stage,
+                        seed: SEED + stage * 131 + u * 7717,
+                        startIndex: c * CHUNK, runs, elite: SOLO_LIST[u], enemyHex: ENEMY_HEX
+                    }
+                });
+            }
         }
-    });
-    child.on('exit', (code) => {
-        try { fs.unlinkSync(cfgFile); } catch (e) { /* 临时文件，忽略 */ }
-        code === 0 ? resolve() : reject(new Error(`子进程退出码 ${code}`));
-    });
-})));
+    } else {
+        for (let c = 0; c < Math.ceil(RUNS / CHUNK); c++) {
+            const runs = Math.min(CHUNK, RUNS - c * CHUNK);
+            if (runs <= 0) continue;
+            allJobs.push({
+                key: '*', stage,
+                msg: {
+                    jobId: 0, kind: cmd === 'none' ? 'noElite' : 'elite', stage,
+                    seed: SEED + stage * 131, startIndex: c * CHUNK, runs, enemyHex: ENEMY_HEX
+                }
+            });
+        }
+    }
+}
+
+const pool = Math.max(1, Math.min(Number(args.jobs || (os.cpus().length - 1) || 2), allJobs.length));
+console.log(`# ${cmd} ｜ 每格 ${RUNS} 场 ｜ 关卡 ${STAGES.join(',')} ｜ seed=${SEED} ｜ 并行 ${pool} 进程｜ 共 ${allJobs.length} 片${ENEMY_HEX ? ' ｜ 双海克斯' : ''}`);
+
+// 动态派活：谁先空出来谁领下一个 job —— 单位之间耗时差很大（35 回合的磨血局能比速杀慢十几倍），
+//   静态切分会把长尾全压在一个进程上（实测 5 进程只快 1.2 倍）；动态派活才能按实际速度摊平。
+const queue = allJobs.map((j, i) => ({ ...j, msg: { ...j.msg, jobId: i + 1 } }));
+const results = [];
+const procs = [];
+await new Promise((resolve, reject) => {
+    let exited = 0;
+    let failed = false;
+    const assignTo = (child) => {
+        const job = queue.shift();
+        if (!job) { try { child.send({ type: 'end' }); } catch (e) { /* 已退出 */ } return; }
+        try { child.send({ type: 'job', key: job.key, stage: job.stage, msg: job.msg }); } catch (e) { /* 已退出 */ }
+    };
+    for (let i = 0; i < pool; i++) {
+        const child = fork(fileURLToPath(import.meta.url), ['--child'], { stdio: ['ignore', 'ignore', 'inherit', 'ipc'] });
+        procs.push(child);
+        child.on('message', (m) => {
+            if (!m) return;
+            if (m.type === 'ready') { assignTo(child); return; }
+            if (m.type === 'result') { results.push(m); assignTo(child); }
+        });
+        child.on('exit', (code) => {
+            exited++;
+            if (code !== 0 && !failed) { failed = true; reject(new Error(`子进程退出码 ${code}`)); return; }
+            if (exited === procs.length) resolve();
+        });
+    }
+});
 
 printTable(cmd, results);
 console.log(`# 总耗时 ${((Date.now() - t0) / 1000).toFixed(1)}s`);
