@@ -100,7 +100,7 @@ export const ENGINE_READ = {
     hanBingShenZhang:['duration', 'dotPercents'],
     xuLi:            ['shieldPct', 'hitShapes', 'tierDen', 'eightDen', 'fullDen', 'vampDiv', 'doublePunchHpPct', 'doublePunchProb', 'rowAtkRatio'],
     dianXueShenTong: ['prob', 'cdRounds', 'allActedDmgRatio'],
-    dianXueJieMai:   ['prob', 'rounds', 'healReduceRatio'],
+    dianXueJieMai:   ['prob', 'rounds'],
     xianJi:          ['jumpProb'],
     yingZhuaGong:    ['counterProb', 'dmgRatio'],
     yingWangWeiYa:   ['atkDown', 'defDown', 'maxHpDown'],

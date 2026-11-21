@@ -215,8 +215,9 @@ function previewHeal(target, raw, rawOnly = false) {
         const xp = st._xuanmingPoison, hd = st._hlsHanDu, bd = st._bengHanDu;
         const poisoned = (xp && xp.remaining > 0 && (xp.stacks || 1) > 0)
             || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0)
-            || (bd && bd.remaining > 0 && (bd.stacks || 1) > 0);
-        if (poisoned) applied = Math.round(applied * C.XUANMING_POISON_HEAL_REDUCE);
+            || (bd && bd.remaining > 0 && (bd.stacks || 1) > 0)
+            || st._healBan;                                   // 拼命弟子：禁疗统一走 CONFIG.HEAL_REDUCE_MULT（减疗 33%）
+        if (poisoned) applied = Math.round(applied * C.HEAL_REDUCE_MULT);
     }
     // rawOnly=true：只打折、不夹 maxHp 溢出——供「满血转护盾」类机制拿应发额度
     if (rawOnly) return Math.max(0, Math.floor(applied));
@@ -259,8 +260,7 @@ function applyStatChange(target, field, delta, source, reason, record = true, is
     //   老板口径 2026-11-09：免疫/异常状态单位不能被治疗（与斩杀同口径，同读 _dmgCap）。
     //   收口在所有 hp 正向落账处（吸血/回血/生生不息/布袋放生/休息回复…），不做逐出口修改。
     if (field === 'hp' && delta > 0 && isHeal && target.state && target.state._dmgCap > 0) return false;
-    // 拼命弟子：拒绝一切治疗（正/反向回血都算），与 _dmgCap 同口径收口在所有 hp 正向落账处
-    if (field === 'hp' && delta > 0 && isHeal && target.state && target.state._noHeal) return false;
+    // 拼命弟子：禁疗不是「拒疗」——与截脉/寒毒同口径打折（读 CONFIG.HEAL_REDUCE_MULT），在下面的统一打折块里处理
     // 杨逍·点穴截脉（反治疗）：被点穴目标眩晕解除后 rounds 回合内，受到的治疗/吸血回复按 ratio 打折。
     //   单点收口在所有 hp 正向落账处——全库 10+ 个治疗出口（吸血/回血/生生不息/快乐回血/飞行再生/休息回复/
     //   反弹回复/乾坤衍生…），逐个改必漏；ratio 与 rounds 由 modules 侧从 content 写进 _jinMai，此处只读。
@@ -285,8 +285,9 @@ function applyStatChange(target, field, delta, source, reason, record = true, is
                 const bd = target.state._bengHanDu;
                 const poisoned = (xp && xp.remaining > 0 && (xp.stacks || 1) > 0)
                     || (hd && hd.remaining > 0 && (hd.stacks || 1) > 0)
-                    || (bd && bd.remaining > 0 && (bd.stacks || 1) > 0);
-                if (poisoned) applied = applied * C.XUANMING_POISON_HEAL_REDUCE;
+                    || (bd && bd.remaining > 0 && (bd.stacks || 1) > 0)
+                    || target.state._healBan;                 // 拼命弟子禁疗（与寒毒/截脉共用统一乘数）
+                if (poisoned) applied = applied * C.HEAL_REDUCE_MULT;
             }
         }
     }

@@ -1,6 +1,6 @@
 // modules/327-elite-mingjiao-yangxiao.js — 明教精英「杨逍」：组件工厂（弹指/选敌/先机）
-export const VER = 'modules/327-elite-mingjiao-yangxiao.js V1.2.0';
-import { getSkillParams } from '../core/201-config-5v5-test.js';
+export const VER = 'modules/327-elite-mingjiao-yangxiao.js V1.2.1';
+import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { emitEvent, getBattleRng, getStat } from '../core/214-battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
@@ -54,7 +54,7 @@ export function createYangXiaoComponent() {
                 }
                 const dianHit = getBattleRng().next() < dian.prob;
                 const jieHit = getBattleRng().next() < (jie.prob != null ? jie.prob : 1);
-                const reducePct = Math.round(jie.healReduceRatio * 100);
+                const reducePct = Math.round((1 - CONFIG.HEAL_REDUCE_MULT) * 100);   // 禁疗比例统一读公共常量（=33%）
                 if (dianHit) {
                     Object.assign(target.state, { _stunned: true, _dianXueCd: dian.cdRounds });
                     emitHpChange(target, { _stunned: true });
@@ -62,7 +62,7 @@ export function createYangXiaoComponent() {
                 }
                 if (jieHit) {
                     // OBJECT 字段在 state 拷贝里是浅拷贝，必须整对象换新，避免就地改漏到 UI 镜像
-                    target.state._jinMai = { rounds: jie.rounds, ratio: 1 - jie.healReduceRatio };
+                    target.state._jinMai = { rounds: jie.rounds, ratio: CONFIG.HEAL_REDUCE_MULT };
                     emitHpChange(target, { _jinMai: target.state._jinMai });
                 }
                 if (!data.log) return;

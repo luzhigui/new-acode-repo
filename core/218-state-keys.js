@@ -278,8 +278,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _ctrlImmune:             { type: STATE_FIELD_TYPES.BOOLEAN, default: false, tags: [STATE_TAGS.CC_IMMUNE] },
     // 庄铮·断锤形态免疫标记（modules/337 触发时挂；_immuneExecute 由 modules/310 白骨爪斩杀读取，挂毒入口读 _immunePoison）
     _immunePoison:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    // 拼命弟子：拒绝一切治疗（core/214 applyStatChange hp 正向统一收口读取）
-    _noHeal:                 { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 拼命弟子：禁疗标记（core/214 统一打折读 CONFIG.HEAL_REDUCE_MULT，减疗 33%，与寒毒/截脉同口径）
+    _healBan:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 防化弟子：最近一次「拦毒转奶」的时间戳（render/403 据此挂 🧪 图标 1 秒）
     _antiPoisonPulse:        { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 拼命弟子：当前攻击加成层数（每损失满 10% 生命 1 层），层数变化才重挂乘率
