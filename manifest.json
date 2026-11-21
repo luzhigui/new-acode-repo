@@ -1,5 +1,5 @@
 {
- "ver": "cbdb28daa3270a770084369f40da667f4cf43463012fa8d73ff869b9a7e67aad",
+ "ver": "b7c6600c9f1dc279502a7659ed85682d1cdf16909ce1ba59b39d62ee53b5fca7",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 157,
  "files": [
@@ -53,7 +53,7 @@
   ],
   [
    "core/210-battle-round.js",
-   "1c48f96b7edb2b49452727b3b8f580bca2cc26689dba2de6d8cb7fdeb81ea8c6"
+   "e7c4f01c13527da22fe3ba16b737bac5ce4bb7ca8907906e18f990d3dacb0f0b"
   ],
   [
    "core/211-battle-attack-steps.js",
@@ -213,7 +213,7 @@
   ],
   [
    "infra/106-battle-enums.js",
-   "44d4a0f253f305730efdd4d809e5a8cbb1e7e74ac08b9d447119de56d1684dea"
+   "9c1af6eecb786325d51fac006f02a2e6135e2571aa5479e250989e048888828e"
   ],
   [
    "infra/107-fact-contract.js",
@@ -409,7 +409,7 @@
   ],
   [
    "modules/342-elite-sixsects-san-du.js",
-   "650829ac5a1214d4d3fc9c9f281aa2edac30656f560f006d03cccacc6e092547"
+   "6c7d3fc4718a8d5027cab41061df000df844ea40b0da87371bd067774b185a5f"
   ],
   [
    "player/501-player-text.js",

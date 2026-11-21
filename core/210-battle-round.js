@@ -1,10 +1,10 @@
-﻿// core/210-battle-round.js — 回合主循环（prepareRoundStart 八阶段 / 行动队列 / 收尾结算）
+﻿﻿// core/210-battle-round.js — 回合主循环（prepareRoundStart 八阶段 / 行动队列 / 收尾结算）
 // V6.3.48 | 2026-11-20 巨马召唤 fact 带 horseName：强化巨马改名后日志能显示正确名字（属性一律不动）
 // V6.3.42 | 2026-11-17 applyRoundStartSpawns 追加 spawnZhangRescueIfNeeded(A/B)：张无忌专属「快来护驾」
 //   改走普通池后任何回合都可能选中，召唤必须由引擎回合开头做（UI 侧队伍数组是 filter 副本，push 无效）。
 //   与时序要求一致：早于组件工厂循环，召出来的单位当回合就能被注册面挂上精英技能。
 // V6.3.45 | 2026-11-19 | fact 出口收口（T-EP-1）：圣火令·救援/打击两条事实裸 log.push → pushFact
-export const VER = 'core/210-battle-round.js V6.3.48';
+export const VER = 'core/210-battle-round.js V6.3.49';   // V6.3.49 新增 ROUND_SETTLED（整回合收尾只发一次，供回合结束前机制）
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields } from './218-state-keys.js';
@@ -730,6 +730,10 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
     consumeHexActions(A, B, log);
     resolveDeaths(A, B, log);
     drainLastStandFacts(log);
+
+    // 整回合收尾广播（每回合仅一次）：所有单位行动完、回合结束结算之前。
+    //   「回合结束前」类机制（炎魔狮王·炎爆）挂这里；ON_ROUND_END 是每次出手后广播，不能用于每回合一次的效果。
+    eventBus.emit(SIGNAL_TYPES.ROUND_SETTLED, { A, B, log });
 
     const { winner, done, endEvents } = finalizeRoundEnd(A, B, { log, round });
     yield makeStep(log, endEvents, winner, done);

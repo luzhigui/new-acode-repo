@@ -336,6 +336,10 @@ export const ROLE_TYPES = Object.freeze({
 export const SIGNAL_TYPES = Object.freeze({
     ON_ROUND_START: 'onRoundStart',
     ON_ROUND_END: 'onRoundEnd',
+    // 整回合收尾（每回合仅一次）：所有单位行动完 + 死亡结算完之后广播。
+    //   ⚠️ ON_ROUND_END 是「每次出手后」广播，拿它做每回合一次的效果会重复触发；
+    //   「回合结束前」类机制（炎魔狮王·炎爆）一律挂这里。
+    ROUND_SETTLED: 'roundSettled',
     BEFORE_ACTION_SELECT: 'beforeActionSelect',
     BEFORE_ATTACK: 'beforeAttack',
     BEFORE_SELECT_TARGET: 'beforeSelectTarget',

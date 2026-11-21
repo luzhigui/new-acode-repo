@@ -4,11 +4,11 @@
 //   渡劫：每回合攻击两次（必发；走引擎 doubleStrike 额外出手通道）
 //   渡难：自带流云身法，闪避 +25%
 //   共有：站 7~9 号位时每回合开始回复 30 点生命（金刚伏魔阵）
-//   炎魔狮王：锁在 5 号位、永久无法行动；每回合开始随机对一名明教角色打出一发炎爆（28 点真实伤害）。
+//   炎魔狮王：锁在 5 号位、永久无法行动；每回合收尾（所有单位行动完、回合结束结算前）随机对一名明教角色打出一发炎爆（28 点真实伤害）。
 // 注：引擎的 ON_ROUND_END 在每个出手后都会广播（并非整回合只一次），
-//   故「每回合」类效果统一挂 ON_ROUND_START，保证每回合各结算一次。
-// V1.1.1 | 2026-11-21 炎爆演出改挂 blazeBurst cue（凝球→飞行→爆开），撤掉只在目标头顶飘 🚀
-export const VER = 'modules/342-elite-sixsects-san-du.js V1.1.1';
+//   故「每回合收尾」类效果统一挂 ROUND_SETTLED（core/210 行动循环结束后只发一次）。
+// V1.1.2 | 2026-11-21 炎爆从「回合开始」改到 ROUND_SETTLED（回合结束前）；ON_ROUND_START 只负责每回合重新压 _stunned
+export const VER = 'modules/342-elite-sixsects-san-du.js V1.1.2';
 
 import { registerSettlementHook } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -90,11 +90,20 @@ export const blazeLionKingHandler = {
         registerSettlementHook({
             when: SIGNAL_TYPES.ON_ROUND_START,
             priority: 24,
-            handler: (data) => {
+            handler: () => {
                 if (!self.alive) return;
                 // 永久无法行动：_stunned 每回合被重置，这里每回合重新压上（跳过出手/行动）
                 self.state._stunned = true;
+            }
+        });
 
+        // 炎爆：整回合收尾（所有单位行动完、回合结束结算前）随机轰一发。
+        //   ⚠️ 不能挂 ON_ROUND_END——那是每次出手后广播，会一回合打很多次。
+        registerSettlementHook({
+            when: SIGNAL_TYPES.ROUND_SETTLED,
+            priority: 24,
+            handler: (data) => {
+                if (!self.alive) return;
                 const victims = ((data && data.A) || [])
                     .filter(u => u && u.alive && u.camp === CAMP_TYPES.ALLY && !u.isSummon);
                 if (victims.length === 0) return;
