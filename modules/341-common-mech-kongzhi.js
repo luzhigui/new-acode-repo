@@ -126,7 +126,8 @@ export const stealSkillHandler = {
                 if (pool.length === 0) return;
                 const picked = pool[getBattleRng().nextInt(0, pool.length - 1)];
                 try {
-                    installMechanicByType(eventBus, picked.type, data.A, data.B, data.log, { ...picked, name: self.name, camp: self.camp });
+                    // camp 必须沿用声明口径（'enemy'/'ally'）；不能传 unit.camp（'六大派'），否则阵营判定会走错分支
+                    installMechanicByType(eventBus, picked.type, data.A, data.B, data.log, { ...picked, name: self.name, camp: decl.camp });
                     pushSkillAnnounce(data.log, self, '11门绝技', `📖 空智顿悟，偷学了敌人的【${picked.type}】！`, { floatText: '📖', floatUid: self.uid });
                 } catch (e) {
                     console.warn('[341] 空智偷学技能失败:', e);

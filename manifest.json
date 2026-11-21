@@ -1,5 +1,5 @@
 {
- "ver": "1b43e1a216581cab714a12a8f1f0fe2bef41fe1e2f4349f85d2a663a32706f17",
+ "ver": "cecfd9ddb967267a8feecc6c184fa43bd4180b2c4d72bbbb80466ba7efd84e86",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 156,
  "files": [
@@ -401,7 +401,7 @@
   ],
   [
    "modules/341-common-mech-kongzhi.js",
-   "c88d3c7a2bfa399c0fed9674959e43fbbcc6748d1aa4a2788eba8eb7e8ef9abd"
+   "5c3badf8230f15b0e1735b342efb41433a0d5b3b4711eceffa8a6e735665804c"
   ],
   [
    "modules/341-common-shield-steal.js",
