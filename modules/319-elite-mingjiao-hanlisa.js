@@ -23,13 +23,8 @@
 //   全轰每格攻击力加成 50%→30%（新参数 rowAtkRatio，不再硬编码 hlsAtk/2）
 // V2.4.11 | 2026-11-20 recentRounds 去掉 `|| 2` 字面量兜底，改 register 期显式校验（缺参数当场报错）
 // V2.4.12 | 2026-11-21 全轰回调：护盾 25%→30%、每格攻击力加成 30%→40%、前排分母 4→3（N/3）
-<<<<<<< HEAD
 // V2.4.13 | 2026-11-21 承伤转化 0.8→1（全量入桶）、目标格 1.2N→1.1N（tierDen.direct 0.9091）
-=======
-// V2.4.13 | 2026-11-21 承伤桶改HP_LOSS_APPLIED单监听(所有实扣伤害都进,强化真转化改实际伤害)
-export const VER
->>>>>>> bf424b81 (承伤桶口径升级：所有实扣伤害统一进桶（HP_LOSS_APPLIED咽喉广播,撤AFTER/CLAW双口防双计）+强化真转化改按实际伤害（攻击力代伤少算,老板拍板）)
-export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.13';
+export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.14';
 
 import { getBattleRng, getStat, recordHpAudit, moveUnitPosition, emitEvent, previewHeal, applyStatChange, poisonBlockedByHook } from '../core/214-battle-shared.js';
 import { isEffectivelyAlive } from '../core/203-battle-utils.js';
@@ -208,18 +203,6 @@ export function createHanLiSaComponent() {
             // —— 护盾吸收播报（承伤累计已迁 HP_LOSS_APPLIED 单监听，2026-11-21 老板拍板）——
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.LEECH + 3, (data) => {
                 if (data.target !== hls) return;
-<<<<<<< HEAD
-                if (data.dmg && data.dmg > 0) {
-                    const arr = hls.state._hlsTaken;
-                    if (Array.isArray(arr) && arr.length > 0) {
-                        // 强化回合：吸收口径改为「攻击者攻击力」全额（真实伤害扣法，不看实际掉血）
-                        arr[arr.length - 1] += (hls.state._hlsTrueAbsorb && data.unit)
-                            ? Math.max(0, Math.floor(getStat(data.unit, 'atk')))
-                            : Math.floor(data.dmg * xl.bucketConvert);   // 普通桶按 bucketConvert 转化（2026-11-18 0.8；2026-11-21 老板拍板改 1 = 全量）
-                    }
-                }
-=======
->>>>>>> bf424b81 (承伤桶口径升级：所有实扣伤害统一进桶（HP_LOSS_APPLIED咽喉广播,撤AFTER/CLAW双口防双计）+强化真转化改按实际伤害（攻击力代伤少算,老板拍板）)
                 // core/12 写在本击的 absorbed 量：谁的日志归谁——护盾吸收是寒离飒的承伤反应，
                 //   不再插进攻击者的攻击组（pushInfo），改为紧跟本击攻击组之后的独立播报行
                 if (hls.state._shieldAbsorbed > 0) {
