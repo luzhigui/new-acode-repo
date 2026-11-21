@@ -1,4 +1,5 @@
 // ui/702-main-5v5-test.js — 主入口总装配（开场流程 / 战斗启动 / 关卡推进 / 返回封面）
+// V6.14.10 | 2026-11-21 补版本日志行（VER 常量已抬，漏写本行致 ver-drift 判领先）。
 // V6.14.9 | 2026-11-19 Bug 切片提精度：日志单条截断 60→200 字；actions 带 data 参数（≤160 字）；
 //   补 page（pathname+hash），解决「在哪个界面」定位缺失。
 export const VER = 'ui/702-main-5v5-test.js V6.14.10';

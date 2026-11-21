@@ -1,4 +1,5 @@
 ﻿﻿// core/210-battle-round.js — 回合主循环（prepareRoundStart 八阶段 / 行动队列 / 收尾结算）
+// V6.3.49 | 2026-11-21 补版本日志行（VER 常量已抬，漏写本行致 ver-drift 判领先）。
 // V6.3.48 | 2026-11-20 巨马召唤 fact 带 horseName：强化巨马改名后日志能显示正确名字（属性一律不动）
 // V6.3.42 | 2026-11-17 applyRoundStartSpawns 追加 spawnZhangRescueIfNeeded(A/B)：张无忌专属「快来护驾」
 //   改走普通池后任何回合都可能选中，召唤必须由引擎回合开头做（UI 侧队伍数组是 filter 副本，push 无效）。

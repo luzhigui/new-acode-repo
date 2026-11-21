@@ -1,6 +1,7 @@
 // core/212-battle-attack-chain.js — 攻击流程主干（选敌 → 命中/闪避 → 伤害 → 应用 → 构建攻击组 + 闪避效果）
 // 边裁与纯工具（computeDodgeChance / snapshotUnitForFact / resolveDeaths / resolveAfterDamageEffects /
 //   resolveDamageImmune / isUnitStunned）在 213-battle-attack-edge.js。
+// V1.0.19 | 2026-11-21 补版本日志行（VER 常量已抬，漏写本行致 ver-drift 判领先）。
 // V1.0.18 | 2026-11-17 FIX-2026-1117-11：近战打前排=硬规则。selectAttackTarget 的手动/候选池两路
 //   统一过 core/203 的 getMeleeLegalTargetSet/isMeleeLegalTarget，手动拖拽再也选不到后排。
 //   声明层（BEFORE_SELECT_TARGET 指定 targetResult）与 core/209 锁定目标/换目标旁路不在本次范围：

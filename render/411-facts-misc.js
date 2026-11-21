@@ -1,5 +1,6 @@
 ﻿﻿/// render/411-facts-misc.js — 效果域·系统/离散项 fact 渲染器
 //   系统行 + 离散精英项（幻影识破/新婚死亡/玄冥 dot 与联动/拒马销毁/buff 摘要）。
+// V1.1.11 | 2026-11-21 补版本日志行（VER 常量已抬，漏写本行致 ver-drift 判领先）。
 // V1.1.10 | 热血奋战摘要按 critPattern 判「全部翻倍」，周期数不再写死 3。
 export const VER = 'render/411-facts-misc.js V1.1.11';
 

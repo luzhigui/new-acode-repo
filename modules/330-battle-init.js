@@ -9,6 +9,7 @@
 //   骰子一律先掷后判、RNG 流双端同源——force 只改「是否应用」，不改消耗序列。
 // V7.9.1 | 2026-11-19 我方阵容存档：saveAllyLineup/clearAllyLineup/readAllyLineup（localStorage 只存名单+站位，属性与海克斯仍随机）
 // V7.9.2 | 2026-11-20 阵容存档升级多档：list/save/use/delete/clear 五个 API，旧 v1 单档兼容读取
+// V7.9.5 | 2026-11-21 补版本日志行（VER 常量已抬，漏写本行致 ver-drift 判领先，跨了两个版本）。
 // V7.9.3 | 2026-11-20 阵容存档含对面六大派：saveAllyLineup 存双方、建队按档还原 enemyTeam（旧档无对面则照常随机）
 export const VER = 'modules/330-battle-init.js V7.9.5';
 
