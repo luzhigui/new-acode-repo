@@ -10,7 +10,7 @@
 // V7.9.1 | 2026-11-19 我方阵容存档：saveAllyLineup/clearAllyLineup/readAllyLineup（localStorage 只存名单+站位，属性与海克斯仍随机）
 // V7.9.2 | 2026-11-20 阵容存档升级多档：list/save/use/delete/clear 五个 API，旧 v1 单档兼容读取
 // V7.9.3 | 2026-11-20 阵容存档含对面六大派：saveAllyLineup 存双方、建队按档还原 enemyTeam（旧档无对面则照常随机）
-export const VER = 'modules/330-battle-init.js V7.9.3';
+export const VER = 'modules/330-battle-init.js V7.9.4';
 
 // ── RNG 抽签契约版本（initBattleTeams 内随机数消耗的「次数 + 顺序」指纹）──
 // 为什么必须有：V7.6.7 把明教骰子 3→7、六大派骰子 2→6 时没有任何版本标记，
@@ -23,7 +23,8 @@ export const VER = 'modules/330-battle-init.js V7.9.3';
 //   六大派 3 掷 m107 / m104 / m100 + 3 pick m107 / m104 / m100；
 //   阵容变体 1 pick（仅当该关有 squadVariants）；
 //   之后是随分支/人数变化的补齐抽签（候选池洗牌、普通兵填充、站位洗牌、何太冲职业摇）——同属契约。
-export const RNG_CONTRACT_VERSION = 'rng-contract-v1';
+//   v2：第6关「三渡正三角」变体额外消耗 2 次洗位骰（仅该变体分支，Bubble 排序 3 位 = 2 次）。
+export const RNG_CONTRACT_VERSION = 'rng-contract-v2';
 // 六大派额外精英/特殊兵混入池（M107 / M104 / M100 三档）。
 //   导出给 tools/820 参数实验室的「关卡角色过滤」用——工具里不再抄一份名单，避免两边漂移。
 export const SIX_SECTS_WEAK_ELITE_POOLS = Object.freeze({
@@ -560,12 +561,31 @@ export function initBattleTeams(currentStage, _rng) {
     if (enemyM107Roll < 0.20 && stageAllows(SIX_M107[enemyM107PickIdx])) extraEnemyElites.push(SIX_M107[enemyM107PickIdx]);
     if (enemyM100Roll < 0.30 && stageAllows(SIX_M100[enemyM100PickIdx])) extraEnemyElites.push(SIX_M100[enemyM100PickIdx]);
 
+    // 第6关·少林三渡「正三角·金刚伏魔阵」变体：
+    //   渡厄/渡劫/渡难 随机分到 2/7/9 号位，职业随站位改写（2=防战 / 7=战士 / 9=飞行）；
+    //   技能固定（渡厄防御 / 渡劫双击 / 渡难闪避），玩家每局都要重新判断该先打谁。
+    //   走 _rng 洗位，PVP 双端同源。
+    const SAN_DU_NAMES = ['渡厄', '渡劫', '渡难'];
+    const SAN_DU_ROLE_BY_POS = { 2: ROLE_TYPES.DEFENDER, 7: ROLE_TYPES.WARRIOR, 9: ROLE_TYPES.FLYER };
+    let sanDuLayout = null;
+    if (currentStage === 6 && Array.isArray(enemySquad)
+        && enemySquad.filter(it => it && it.name && SAN_DU_NAMES.includes(it.name)).length === 3) {
+        const slots = [2, 7, 9];
+        for (let i = slots.length - 1; i > 0; i--) {
+            const j = _rng.nextInt(0, i);
+            [slots[i], slots[j]] = [slots[j], slots[i]];
+        }
+        sanDuLayout = new Map();
+        SAN_DU_NAMES.forEach((n, i) => sanDuLayout.set(n, { pos: slots[i], role: SAN_DU_ROLE_BY_POS[slots[i]] }));
+    }
+
     if (enemySquad) {
         let enemyPosSet = new Set();
         let xuanmingPairCount = 0;
         for (let item of enemySquad) {
             if (typeof item === 'object' && item.name) {
-                let unit = new Unit(item.name, item.m, item.role, CAMP_TYPES.ENEMY);
+                const sanDuRole = sanDuLayout ? (sanDuLayout.get(item.name) || {}).role : null;
+                let unit = new Unit(item.name, item.m, sanDuRole || item.role, CAMP_TYPES.ENEMY);
                 unit.pos = null; unit.init(_rng); unit.applyBonus();
                 enemyUnits.push(unit);
                 usedEnemyNames.push(item.name);
@@ -665,6 +685,16 @@ export function initBattleTeams(currentStage, _rng) {
             }
         }
         let allUnits = [...enemyUnits];
+        // 三渡正三角锁位：2/7/9 号位 + 魔化谢逊 5 号位（先占位，模板排位与随机补齐自动跳过）
+        if (sanDuLayout) {
+            for (const u of allUnits) {
+                const lay = sanDuLayout.get(u.name);
+                if (!lay) continue;
+                u.pos = lay.pos; u.state._originalPos = lay.pos; enemyPosSet.add(lay.pos);
+            }
+            const moXieXun = allUnits.find(u => u.name === '魔化谢逊');
+            if (moXieXun) { moXieXun.pos = 5; moXieXun.state._originalPos = 5; enemyPosSet.add(5); }
+        }
         let template = variantPosTemplate || (C.ENEMY_POS_TEMPLATES && C.ENEMY_POS_TEMPLATES[currentStage] ? C.ENEMY_POS_TEMPLATES[currentStage] : null);
         let eliteUnits = allUnits.filter(u => C.ELITE_POOL && C.ELITE_POOL[currentStage] && C.ELITE_POOL[currentStage].some(e => e.name === u.name));
         let normalUnits = allUnits.filter(u => !eliteUnits.includes(u));

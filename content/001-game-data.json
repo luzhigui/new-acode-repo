@@ -207,6 +207,44 @@
       }
     },
 
+    "渡厄": {
+      "named": false, "tags": ["六大派", "少林", "精英"],
+      "m": 104, "poolTier": 104, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": false,
+      "mechanics": [
+        { "camp": "enemy", "type": "monkFixedBuff", "buffType": "defense" }
+      ]
+    },
+
+    "渡劫": {
+      "named": false, "tags": ["六大派", "少林", "精英"],
+      "m": 104, "poolTier": 104, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": false,
+      "mechanics": [
+        { "camp": "enemy", "type": "monkFixedBuff", "buffType": "doubleAttack" }
+      ]
+    },
+
+    "渡难": {
+      "named": false, "tags": ["六大派", "少林", "精英"],
+      "m": 104, "poolTier": 104, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": false,
+      "mechanics": [
+        { "camp": "enemy", "type": "monkFixedBuff", "buffType": "dodge" }
+      ]
+    },
+
+    "魔化谢逊": {
+      "named": false, "tags": ["六大派", "少林", "首领"],
+      "m": 115, "poolTier": 115, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": false,
+      "skills": {
+        "demonHowl": {
+          "name": "狂魔怒吼",
+          "desc": "被金刚伏魔圈锁住，无法行动。每回合开始时，随机对一名明教角色造成28点真实伤害。"
+        }
+      },
+      "mechanics": [
+        { "camp": "enemy", "type": "demonXiexun" }
+      ]
+    },
+
     "唐文亮": {
       "named": true,
       "tags": ["六大派", "崆峒", "标枪", "精英"],
@@ -1579,6 +1617,18 @@
           ],
           "posTemplate": { "防战": [1], "战士": [3], "远程": [7, 8] }
         }
+      ],
+      "6": [
+        { "squad": [{ "name": "成昆", "role": "防战", "m": 112 }, 104, 104, 104, 100] },
+        {
+          "squad": [
+            { "name": "魔化谢逊", "role": "防战", "m": 115 },
+            { "name": "渡厄", "role": "防战", "m": 104 },
+            { "name": "渡劫", "role": "战士", "m": 104 },
+            { "name": "渡难", "role": "飞行", "m": 104 }
+          ],
+          "posTemplate": {}
+        }
       ]
     },
     "enemyPosTemplates": {
@@ -1605,7 +1655,11 @@
         { "name": "鹤笔翁", "role": "飞行", "m": 112, "skill": "hornStrike" }
       ],
       "6": [
-        { "name": "成昆", "role": "防战", "m": 112, "skill": "phantomThunder" }
+        { "name": "成昆", "role": "防战", "m": 112, "skill": "phantomThunder" },
+        { "name": "渡厄", "role": "防战", "m": 104, "skill": "monkFixedBuff" },
+        { "name": "渡劫", "role": "战士", "m": 104, "skill": "monkFixedBuff" },
+        { "name": "渡难", "role": "飞行", "m": 104, "skill": "monkFixedBuff" },
+        { "name": "魔化谢逊", "role": "防战", "m": 115, "skill": "demonXiexun" }
       ],
       "7": [
         { "name": "灭绝师太", "role": "战士", "m": 115, "skill": "counterAttack" }

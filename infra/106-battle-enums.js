@@ -227,7 +227,10 @@ export const MECHANIC_TYPES = Object.freeze({
     ANTI_POISON: 'antiPoison',         // 防化弟子：全场毒素无效化，每次拦毒给明教全体回 3% 最大生命
     // 空智（modules/341）
     WU_CHI: 'wuChi',                   // 武痴：场上他人攻防单次变化 ≥2 → 30% 随机顿悟
-    STEAL_SKILL: 'stealSkill'          // 11门绝技：每回合偷敌方一条 mechanic 声明
+    STEAL_SKILL: 'stealSkill',         // 11门绝技：每回合偷敌方一条 mechanic 声明
+    // 第6关·少林三渡正三角（modules/342）
+    MONK_FIXED_BUFF: 'monkFixedBuff',   // 三渡固定被动：防御+40% / 每回合两次攻击 / 闪避+25%
+    DEMON_XIEXUN: 'demonXiexun'         // 魔化谢逊：永久无法行动，每回合真伤一名明教
 });
 
 /**
