@@ -37,17 +37,21 @@
         .btn-row .big-btn:not(:last-child) { border-right: 1px solid rgba(0,0,0,0.22); }
         .big-btn {
             display: flex; align-items: center; justify-content: center;
-            width: 100%; min-height: 46px; padding: 10px 8px;
-            border: none; border-radius: 10px; font-size: 0.92rem; font-weight: bold;
+            width: 100%; padding: 15px 10px;
+            border: 1px solid transparent; border-radius: 10px; font-size: 1rem; font-weight: bold;
             color: #1a1a2e; cursor: pointer; transition: 0.2s;
             text-align: center; text-decoration: none;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        /* 窄屏三列防截断：字号与横向内边距收一点，仍保持单行 */
+        @media (max-width: 480px) {
+            .big-btn { font-size: 0.8rem; padding: 14px 3px; }
         }
         .btn-play { background: linear-gradient(135deg, #ffd700, #ffaa00); }
         .btn-play:hover { filter: brightness(1.1); transform: translateY(-2px); }
         .btn-health { background: linear-gradient(135deg, #4caf50, #2e7d32); }
         .btn-health:hover { filter: brightness(1.1); transform: translateY(-2px); }
-        .btn-tool { background: #3a3a6e; color: #fff; border: 1px solid #555; }
+        .btn-tool { background: #3a3a6e; color: #fff; border-color: #555; }
         .btn-tool:hover { background: #4a4a8e; border-color: #ffd700; transform: translateY(-2px); }
         .btn-music {
             background: #2a2a4e; color: #ffd700; border: 2px solid #ffd700;
@@ -73,29 +77,28 @@
             <div class="section-title">🎮 主入口</div>
             <div class="btn-grid">
                 <button class="big-btn btn-play" id="btnGame">⚔️ 主游戏</button>
+                <!-- 2026-11-21 版式定调：除主游戏/炎魔/机制测试局三个大入口外，其余一律三列一行 -->
                 <div class="btn-row">
                     <button class="big-btn btn-play" id="btnXiaoZhaoSister" style="flex:1;background:linear-gradient(135deg, #e040fb, #7c4dff);">🦋 小昭·姊</button>
                     <button class="big-btn btn-play" id="btnXiaoZhaoBrother" style="flex:1;background:linear-gradient(135deg, #ff5252, #b71c1c);">🕷️ 小昭·妹</button>
-                </div>
-                <div class="btn-row">
                     <button class="big-btn btn-play" id="btnZhangWuji" style="flex:1;background:linear-gradient(135deg, #ffd700, #ffaa00);">☀️ 张无忌</button>
-                    <button class="big-btn btn-play" id="btnWeiYixiao" style="flex:1;background:linear-gradient(135deg, #6a0dad, #4b0082);">🦇 韦一笑</button>
                 </div>
                 <!-- 新角色实战 demo：点按钮 → 设好条件 → 进 index.html 真打一局 -->
                 <div class="btn-row">
+                    <button class="big-btn btn-play" id="btnWeiYixiao" style="flex:1;background:linear-gradient(135deg, #6a0dad, #4b0082);">🦇 韦一笑</button>
                     <button class="big-btn btn-play" id="btnPangYuanQiao" style="flex:1;background:linear-gradient(135deg, #a1887f, #4e342e);">🥷 胖远桥</button>
                     <button class="big-btn btn-play" id="btnMieJue" style="flex:1;background:linear-gradient(135deg, #b0bec5, #546e7a);">🗡️ 灭绝师太</button>
+                </div>
+                <div class="btn-row">
                     <button class="big-btn btn-play" id="btnXieXun" style="flex:1;background:linear-gradient(135deg, #f9a825, #e65100);">🦁 谢逊</button>
+                    <button class="big-btn btn-play" id="btnYangXiao" style="flex:1;background:linear-gradient(135deg, #4db6ac, #00695c);">🐦 杨逍</button>
+                    <button class="big-btn btn-play" id="btnHanLiSa" style="flex:1;background:linear-gradient(135deg, #90caf9, #1565c0);">👊 寒离飒</button>
                 </div>
                 <!-- 弱精英锁定（2026-10-16）：_forceWeakElite 传具名 → modules/29 必出该弱精英（混入正常阵容占 1 位，不整队替换）。
                      明教弱精英池＝杨逍/殷天正（寒离飒 2026-10-22 升强精英，改走 _forceHanLiSa）；
                      六大派 M104 具名池＝何太冲/唐文亮 -->
                 <div class="btn-row">
-                    <button class="big-btn btn-play" id="btnYangXiao" style="flex:1;background:linear-gradient(135deg, #4db6ac, #00695c);">🐦 杨逍</button>
-                    <button class="big-btn btn-play" id="btnHanLiSa" style="flex:1;background:linear-gradient(135deg, #90caf9, #1565c0);">👊 寒离飒</button>
                     <button class="big-btn btn-play" id="btnHeTaichong" style="flex:1;background:linear-gradient(135deg, #9575cd, #4527a0);">🗡 何太冲</button>
-                </div>
-                <div class="btn-row">
                     <button class="big-btn btn-play" id="btnShuoBuDe" style="flex:1;background:linear-gradient(135deg, #9e9e9e, #424242);">🛍️ 说不得</button>
                     <button class="big-btn btn-play" id="btnZhouDian" style="flex:1;background:linear-gradient(135deg, #ffb74d, #e65100);">🤪 周颠</button>
                 </div>
@@ -118,23 +121,20 @@
                     <button class="big-btn btn-play" id="btnSuWen" style="flex:1;background:linear-gradient(135deg, #a5d6a7, #2e7d32);">💊 素问</button>
                 </div>
                 <!-- 🐛 Bug 模式：海克斯选卡不洗牌不截断、全部可选（调试便利，2026-11-10 恢复） -->
-                <!-- 调试/工具入口两两一行（2026-11-19 老板要求）：全是纯跳转，不需要独占整行 -->
                 <div class="btn-row">
                     <button class="big-btn btn-play" id="btnBugMode" style="flex:1;background:linear-gradient(135deg, #f44336, #212121);">🐛 Bug模式</button>
                     <button class="big-btn btn-play" id="btnShop" style="flex:1;background:linear-gradient(135deg, #ff9800, #f57c00);">🏪 圣火令商店</button>
+                    <button class="big-btn btn-tool" id="btnTools" style="flex:1;">🧰 工具箱</button>
                 </div>
                 <div class="btn-row">
                     <button class="big-btn btn-health" id="btnHealthCheck" style="flex:1;">🩺 全面体检</button>
-                    <button class="big-btn btn-tool" id="btnTools" style="flex:1;">🧰 工具箱</button>
+                    <button class="big-btn btn-tool" id="btnCareerLog" style="flex:1;">📊 生涯记录</button>
+                    <button class="big-btn btn-tool" id="btnBugRecords" style="flex:1;">🐛 Bug记录</button>
                 </div>
                 <!-- 第 6 关三渡阵（2026-11-21）：强制抽中「炎魔狮王 + 三渡」变体，直接开第 6 关 -->
                 <button class="big-btn btn-play" id="btnBlazeLionKing" style="width:100%;margin-bottom:10px;background:linear-gradient(135deg, #ff7043, #b71c1c);color:#fff;">🐲 炎魔狮王 · 第六关三渡阵</button>
                 <!-- M97 机制弟子测试局（2026-11-21）：强制木桩/拼命/防化三人同时出场，验证三条新机制 -->
                 <button class="big-btn btn-play" id="btnMechTest" style="width:100%;margin-bottom:10px;background:linear-gradient(135deg, #26c6da, #00695c);">🧪 机制弟子测试局</button>
-                <div class="btn-row">
-                    <button class="big-btn btn-tool" id="btnCareerLog" style="flex:1;">📊 生涯记录</button>
-                    <button class="big-btn btn-tool" id="btnBugRecords" style="flex:1;">🐛 Bug记录</button>
-                </div>
             </div>
         </div>
 
