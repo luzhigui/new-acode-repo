@@ -66,7 +66,7 @@
 <body>
     <div class="container">
         <h1>⚔️ 光明顶5v5</h1>
-        <div class="subtitle">开发集成入口</div>
+        <div class="subtitle">V6.3.21 开发集成入口 <span id="devStamp1"></span></div>
 
         <!-- 主入口 -->
         <div class="section">
@@ -171,7 +171,7 @@
 
         <!-- 新角色实战 demo：胖远桥（第3关）/ 灭绝师太（第7关）/ 谢逊（明教）——三个按钮已并入主入口 -->
 
-        <div class="footer">光明顶5v5 · 开发集成入口</div>
+        <div class="footer">光明顶5v5 · 开发集成入口 V6.3.21 <span id="devStamp2"></span></div>
     </div>
 
     <script>
@@ -959,6 +959,23 @@
                 renderStorageReport('已清 ' + n + ' 个跑批/评测日志键，腾出 ' + (freed / 1024).toFixed(1) + 'KB（进度/解锁/生涯全保留）');
             } catch (e) { alert('清理失败：' + e); }
         });
+
+        // 2026-09-20 时间戳：改原来副标题/页脚里写死的"12:15"（共两处）为实时值——
+        // 读 GitHub 仓库最新提交时间（真值，一推代码就变）。加载失败时不显示，不留过期数字。
+        (function () {
+            const s1 = document.getElementById('devStamp1');
+            const s2 = document.getElementById('devStamp2');
+            fetch('https://api.github.com/repos/luzhigui/new-acode-repo/commits?per_page=1')
+                .then(r => r.ok ? r.json() : null)
+                .then(arr => {
+                    const t = arr && arr[0] && arr[0].commit && arr[0].commit.committer && arr[0].commit.committer.date;
+                    if (!t) return;
+                    const txt = new Date(t).toLocaleString('zh-CN', { hour12: false });
+                    if (s1) s1.textContent = txt;
+                    if (s2) s2.textContent = txt;
+                })
+                .catch(() => {});
+        })();
 
     </script>
 
