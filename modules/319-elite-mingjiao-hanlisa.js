@@ -25,7 +25,7 @@
 // V2.4.12 | 2026-11-21 全轰回调：护盾 25%→30%、每格攻击力加成 30%→40%、前排分母 4→3（N/3）
 // V2.4.13 | 2026-11-21 承伤转化 0.8→1（全量入桶）、目标格 1.2N→1.1N（tierDen.direct 0.9091）
 // V2.4.13 | 2026-11-21 承伤桶改HP_LOSS_APPLIED单监听(所有实扣伤害都进,强化真转化改实际伤害)
-export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.13';
+export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.14';
 
 import { getBattleRng, getStat, recordHpAudit, moveUnitPosition, emitEvent, previewHeal, applyStatChange, poisonBlockedByHook } from '../core/214-battle-shared.js';
 import { isEffectivelyAlive } from '../core/203-battle-utils.js';
