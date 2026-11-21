@@ -1,5 +1,5 @@
 // modules/336-elite-sixsects-yuanzhen.js — 少林圆真·现原形（六大派精英）
-export const VER = 'modules/336-elite-sixsects-yuanzhen.js V1.1.0';
+export const VER = 'modules/336-elite-sixsects-yuanzhen.js V1.1.1';
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { installDeclaredSkills, buildMechanicDeclarations } from '../core/216-skill-mechanisms.js';
@@ -50,6 +50,9 @@ function transformToChengkun(self) {
     rebasePanel(self, tpl, ratio, '现原形');
     // 显示名单独一层：渲染 403 读 state._displayName，日志/机制仍按 self.name
     self.state._displayName = REVEAL_TEMPLATE;
+    // 身份也要跟着变：渲染 403/414 的伪装跟随（名字/图标/技能 logo）与成昆名片都按 isChengKun 判定，
+    //   只改面板不打标的话，现形后模仿对面 UI 不会跟随（2026-11-21 老板实测反馈）
+    self.isChengKun = true;
 }
 
 function reveal(eventBus, A, B, log, self) {
