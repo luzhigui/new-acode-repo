@@ -17,7 +17,6 @@ import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
 import { addMod, applyStatChange, getBattleRng } from '../core/214-battle-shared.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
-import { pushSkillAnnounce } from './305-elite-helpers.js';
 import { registerDodgeRule } from '../core/221-registry-dodge.js';
 
 // 本回合在场的自己（decl.camp 指明站在哪一方；三渡/谢逊只会出现在敌方 B 队）
