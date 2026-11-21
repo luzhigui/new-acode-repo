@@ -1,3 +1,7 @@
+// V6.14.0 | 2026-11-21：🩺 体检「有效性红线」——修三类假绿：
+//   ① 规则一次都没跑（执行0条）时，终局强制补一条「体检有效性」红并给横幅改成 ⚠（旧版只写绿✅完成，用户实跑 240s 得到 0 异常）；
+//   ② GAMEOVER 跑规则不再依赖「必须先看到 RUNNING」（快进/秒切场会漏，规则整批不执行）；
+//   ③ 同一关重开第二场时不再被 lastSampledStage 静默拦掉（旧版第二场起规则全跳过且不计 skip）。
 // V6.13.3 | 2026-11-17：回填 311 到规则表与执行数组（袋中单位不得进惑心换位候选池）
 // V6.13.2 | 2026-11-12 合流 D13 二轮：回填 317/318 到规则表与执行数组
 // V6.13.1 | 2026-11-12 合流 D12/D13：回填 295/296/315/316 到规则表与执行数组
@@ -289,6 +293,8 @@ import {
 
 let monitorActive = false, gameLoaded = false, scanTimer = null, isPaused = false;
 let detectedIssues = [], issueKeys = new Set(), lastSampledStage = 0;
+// V6.14.0：规则采样代际/关卡戳。旧版只比关卡号，同关重开的第二场被静默拦掉
+let lastRuleGen = -1, lastRuleStage = -1;
 let battleEnded = false, battleStartTime = 0, battleGen = 0;
 // 规则配方（?rules=hero:张无忌,mechanic:破防&...）：只跑目标规则，其余不参与统计；hero:张无忌/韦一笑 自动强制上场
 const RECIPE_TAGS = parseRecipeTags(window.location.search);
@@ -716,12 +722,19 @@ function periodicScan() {
         // 修复多局连打漏检：旧逻辑 battleEnded 置位后永不复位，第2场起规则体检全部跳过
         if (battleStartTime === 0 || battleEnded) {
             battleStartTime = Date.now(); battleEnded = false;
-            battleGen++; lastSampledStage = 0;
+            battleGen++; lastSampledStage = 0; lastRuleGen = -1;
         }
         runEngineChecks(ctx);
         runUIChecks(ctx, doc);
     }
-    if (ctx.gs === 'GAMEOVER' && battleStartTime > 0 && !battleEnded) {
+    // V6.14.0：旧条件还要 battleStartTime > 0（必须先被轮询看到 RUNNING）。
+    //   快进/秒切场常常一帧都看不到 RUNNING ⇒ 规则整批不跑、报告却显示 0 异常。
+    //   改成只看 GAMEOVER 状态；同关重开的新一场（关卡号没变也要算新一场）单独放行。
+    const _gsStage = ctx.currentStage || detectStage(doc) || 0;
+    const _reopenSameStage = (battleEnded && _gsStage !== lastRuleStage);
+    if (ctx.gs === 'GAMEOVER' && (!battleEnded || _reopenSameStage)) {
+        if (_reopenSameStage) { battleGen++; battleStartTime = Date.now(); }
+        if (battleStartTime === 0) battleStartTime = Date.now();
         battleEnded = true;
         // 战报生成时日志已完整：立即跑规则体检（快进模式下每场必跑，不等渲染时序）
         runRuleChecks(ctx, doc);
@@ -865,8 +878,13 @@ function runRuleChecks(ctx, doc) {
     const allyTeam = (ctx.UI && ctx.UI.allyTeam) || [];
     const enemyTeam = (ctx.UI && ctx.UI.enemyTeam) || [];
     const stage = detectStage(doc) || (ctx.currentStage || 0);
-    if (stage === lastSampledStage) return;
-    lastSampledStage = stage;
+    // V6.14.0：旧版只比 stage（同关重开第二场就被静默 return，既不算 pass 也不算 skip ⇒ 执行数消失），
+    //   现在按「代际 + 关卡」双键判重；真跳过也要留痕（记 skip 名单），不许静默。
+    if (stage === lastSampledStage && battleGen === lastRuleGen) {
+        for (const r of RULE_MODULES) { try { if (!ruleSkipNames.has(r.local)) { ruleSkipCount++; ruleSkipNames.add(r.local); } } catch (e) {} }
+        return;
+    }
+    lastSampledStage = stage; lastRuleGen = battleGen;
 
     let battleLog = ctx._enhancedBattleLog || [];
     if (battleLog.length === 0) {
@@ -1355,6 +1373,16 @@ function finalizeAutoReport(ctx, doc, reason) {
         }
         // sliceText：无头/导出档也带现场切片（V6.11.1）。此前 export 映射把 slice 丢掉，
         //   tools/health_auto_check.py 读到的 JSON 只有结论文字，无法复盘；文本已按 2KB 硬上限裁剪。
+        // ★ V6.14.0 体检有效性红线（用户实测：跑 240s 得到「异常0项、规则✅0」，报告还是绿✅）
+        //   规则0执行 = 规则层根本没验，绝不能算「没问题」。这条不依赖任何规则实现，保证每次点体检都有交代。
+        const _executedN = rulePassCount + ruleSkipCount;
+        if (_executedN === 0) {
+            detectedIssues.push({
+                stage: '-', type: '体检有效性',
+                detail: '本轮 0 条规则被执行（在册 ' + RULE_MODULES.length + ' 条）⇒ 规则层等于没验，这份报告不能代表「没问题」',
+                source: '系统', timestamp: new Date().toLocaleTimeString()
+            });
+        }
         const finalIssues = detectedIssues.map(i => ({
             stage: i.stage, type: i.type, detail: i.detail, source: i.source,
             sliceText: i.slice ? formatIssueSlice(i.slice) : undefined
@@ -1388,7 +1416,9 @@ function finalizeAutoReport(ctx, doc, reason) {
             factContractWarns: contractList
         };
         window.__healthResult = report;
-        statusLine.textContent = `自动模式 ✅ | ${Math.round(elapsed)}s | 异常${finalIssues.length}项 | 规则✅${rulePassCount} ⏭️${ruleSkipCount}`;
+        // ★ V6.14.0：横幅颜色/措辞跟着「有效性」走，不再无脑绿✅（执行0条或覆盖不足 = 本次结论无效）
+        const _invalid = (_executedN === 0) || report.coverage.verdict === 'COVERAGE_GAP';
+        statusLine.textContent = `自动模式 ${_invalid ? '⚠️未覆盖' : '✅'} | ${Math.round(elapsed)}s | 异常${finalIssues.length}项 | 规则✅${rulePassCount} ⏭️${ruleSkipCount}`;
         console.log('===== [AUTO-HEALTH-DONE] =====');
         console.log(JSON.stringify(report, null, 2));
         console.log('===== [AUTO-HEALTH-END] =====');
@@ -1399,8 +1429,12 @@ function finalizeAutoReport(ctx, doc, reason) {
             if (gameA) gameA.classList.remove('active');
             if (rep) rep.classList.add('active');
             const banner = document.createElement('div');
-            banner.style.cssText = 'color:#4caf50;font-weight:bold;padding:10px 12px;border:1px solid #4caf50;border-radius:8px;margin-bottom:10px;background:rgba(76,175,80,0.08);';
-            banner.textContent = `✅ 自动体检完成（${reason}）| 耗时 ${Math.round(elapsed)}s | 目标关${autoStageTarget} 到达${maxStageSeen} | 异常 ${finalIssues.length} 项 | 规则 ✅${rulePassCount} ⏭️${ruleSkipCount}`;
+            banner.style.cssText = _invalid
+                ? 'color:#ff9800;font-weight:bold;padding:10px 12px;border:1px solid #ff9800;border-radius:8px;margin-bottom:10px;background:rgba(255,152,0,0.10);'
+                : 'color:#4caf50;font-weight:bold;padding:10px 12px;border:1px solid #4caf50;border-radius:8px;margin-bottom:10px;background:rgba(76,175,80,0.08);';
+            banner.textContent = _invalid
+                ? `⚠️ 自动体检跑完，但结论无效（${reason}）| 耗时 ${Math.round(elapsed)}s | 目标关${autoStageTarget} 到达${maxStageSeen} | 异常 ${finalIssues.length} 项 | 规则 ✅${rulePassCount} ⏭️${ruleSkipCount}（执行 ${_executedN}/在册 ${RULE_MODULES.length}）`
+                : `✅ 自动体检完成（${reason}）| 耗时 ${Math.round(elapsed)}s | 目标关${autoStageTarget} 到达${maxStageSeen} | 异常 ${finalIssues.length} 项 | 规则 ✅${rulePassCount} ⏭️${ruleSkipCount}`;
             rep.prepend(banner);
         } catch (e) {}
     } catch (e) {
