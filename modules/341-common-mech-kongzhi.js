@@ -3,7 +3,8 @@
 //   ① 机制池从 gameData.characters[name].mechanics 取（216:108 的同一份数据）；
 //   ② 攻防变化用 registerSettlementHook('afterDamageApplied') 扫全场快照（HP_CHANGE 没有 eventBus.on 订阅口）；
 //   ③ 战报日志用结算 data.log；④ 新状态字段已同步注册 core/218。
-export const VER = 'modules/341-common-mech-kongzhi.js V1.0.0';
+// V1.0.1 | 2026-11-21 偷学参数嫁接(原主skills/mechanics并入偷学者配置,修缺参白偷)
+export const VER = 'modules/341-common-mech-kongzhi.js V1.0.1';
 
 import { registerSettlementHook, eventBus, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler, installMechanicByType } from '../core/219-mechanic-registry.js';
@@ -115,10 +116,30 @@ export const stealSkillHandler = {
                         pool.push({ name: u.name, ...m });
                     });
                 });
-                if (pool.length === 0) return;
+                if (pool.length === 0) return;
                 const picked = pool[getBattleRng().nextInt(0, pool.length - 1)];
+                // 2026-11-21 老板拍板「偷学试试吧有问题优化」：机制安装按偷学者名字读参
+                //   （getSkillParams/getMechanicField 都查 characters[空智]），空智自己没那些参数 = 白偷
+                //   （探针实锤：偷到彭莹玉 doubleFace 当场缺参失败）。修法=把原主的 skills[type] 与
+                //   mechanics 同 type 项嫁接进偷学者的运行时配置（同 type 幂等覆盖，配置是内存对象）。
+                const originCfg = gd && gd.characters && gd.characters[picked.name];
+                const selfCfg = gd && gd.characters && gd.characters[self.name];
                 try {
-                    // camp 必须沿用声明口径（'enemy'/'ally'）；不能传 unit.camp（'六大派'），否则阵营判定会走错分支
+                if (originCfg && selfCfg) {
+                    if (originCfg.skills && originCfg.skills[picked.type]) {
+                        selfCfg.skills = selfCfg.skills || {};
+                        selfCfg.skills[picked.type] = originCfg.skills[picked.type];
+                    }
+                    if (Array.isArray(originCfg.mechanics)) {
+                        const entry = originCfg.mechanics.find(m => m && m.type === picked.type);
+                        if (entry) {
+                            selfCfg.mechanics = selfCfg.mechanics || [];
+                            const i = selfCfg.mechanics.findIndex(m => m && m.type === picked.type);
+                            if (i >= 0) selfCfg.mechanics[i] = entry; else selfCfg.mechanics.push(entry);
+                        }
+                    }
+                }
+                try {
                     installMechanicByType(eventBus, picked.type, data.A, data.B, data.log, { ...picked, name: self.name, camp: decl.camp });
                     pushSkillAnnounce(data.log, self, '11门绝技', `📖 空智顿悟，偷学了敌人的【${picked.type}】！`, { floatText: '📖', floatUid: self.uid });
                 } catch (e) {
