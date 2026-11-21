@@ -178,7 +178,8 @@ export const SKILL_CUE_KINDS = Object.freeze({
     DISGUISE: 'disguise',       // 彭莹玉·双面观音：薄纱扫过 + 名字牌换女装名
     UNVEIL: 'unveil',           // 彭莹玉·双面观音：褪装 / 妆容碎屑
     MASK_PEEL: 'maskPeel',      // 彭莹玉·双面观音：被迷惑时面具揭落
-    SUMMON_MOVE: 'summonMove'   // 张中·召唤蹦蹦：挪空位残影 + 落点轻闪
+    SUMMON_MOVE: 'summonMove',  // 张中·召唤蹦蹦：挪空位残影 + 落点轻闪
+    BLAZE_BURST: 'blazeBurst'   // 炎魔狮王·炎爆：掌心凝聚火球 → 飞向目标 → 命中爆开
 });
 
 /** Buff 特效子类型：BUFF_EFFECT stageAction 的 effectType 唯一来源（不再用裸字符串） */

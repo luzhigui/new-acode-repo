@@ -7,11 +7,12 @@
 //   炎魔狮王：锁在 5 号位、永久无法行动；每回合开始随机对一名明教角色打出一发炎爆（28 点真实伤害）。
 // 注：引擎的 ON_ROUND_END 在每个出手后都会广播（并非整回合只一次），
 //   故「每回合」类效果统一挂 ON_ROUND_START，保证每回合各结算一次。
-export const VER = 'modules/342-elite-sixsects-san-du.js V1.1.0';
+// V1.1.1 | 2026-11-21 炎爆演出改挂 blazeBurst cue（凝球→飞行→爆开），撤掉只在目标头顶飘 🚀
+export const VER = 'modules/342-elite-sixsects-san-du.js V1.1.1';
 
 import { registerSettlementHook } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
-import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES } from '../infra/106-battle-enums.js';
+import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
 import { addMod, applyStatChange, getBattleRng } from '../core/214-battle-shared.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 import { registerDodgeRule } from '../core/221-registry-dodge.js';
@@ -100,8 +101,14 @@ export const blazeLionKingHandler = {
                 const victim = victims[getBattleRng().nextInt(0, victims.length - 1)];
                 applyStatChange(victim, 'hp', -28, self, '炎魔狮王·炎爆', true, false);
                 pushSkillAnnounce(data.log, self, '炎爆',
-                    `🚀 炎魔狮王张口喷出炎爆，随机命中 ${victim.name}，造成 28 点真实伤害！`,
-                    { floatText: '🚀', floatUid: victim.uid });
+                    `炎魔狮王掌心凝聚火球，一发炎爆轰向 ${victim.name}，造成 28 点真实伤害！`,
+                    {
+                        cue: {
+                            kind: SKILL_CUE_KINDS.BLAZE_BURST,
+                            self: { uid: self.uid, camp: self.camp, pos: self.pos },
+                            target: { uid: victim.uid, camp: victim.camp, pos: victim.pos }
+                        }
+                    });
             }
         });
     }

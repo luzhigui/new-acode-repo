@@ -1,5 +1,5 @@
 {
- "ver": "6584df760ba1809624577effd123603194fa9c8c15db180339c22ce00530b241",
+ "ver": "cbdb28daa3270a770084369f40da667f4cf43463012fa8d73ff869b9a7e67aad",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 157,
  "files": [
@@ -181,7 +181,7 @@
   ],
   [
    "fx/619-skill-cues.js",
-   "5f7b7b0fdbd264231a57ded8858bd57ff982e7e76ba29730dbddda66decb9ca4"
+   "49ad3ff621423fe199be0d42103f7fd86d0090d758eeb21e0d9d5982d4249b99"
   ],
   [
    "fx/620-sword-rain.js",
@@ -213,7 +213,7 @@
   ],
   [
    "infra/106-battle-enums.js",
-   "8b11b2e49d99c16699c12303f182cf4cd1194e4138dd34c3dde240dca8d83783"
+   "44d4a0f253f305730efdd4d809e5a8cbb1e7e74ac08b9d447119de56d1684dea"
   ],
   [
    "infra/107-fact-contract.js",
@@ -401,7 +401,7 @@
   ],
   [
    "modules/341-common-mech-kongzhi.js",
-   "182498fc7dd567c31b20e57eed814f0f0c04c225acaa281cd8a83a6a1a1241de"
+   "9b596a739dbe12e522d9f5011d64de31349481d1f65743d3ad89a5a07c96f436"
   ],
   [
    "modules/341-common-shield-steal.js",
@@ -409,7 +409,7 @@
   ],
   [
    "modules/342-elite-sixsects-san-du.js",
-   "60bfede534046f2f88a4fccd77b464868ce9ade2b36143ac1b8ddccb9a11487b"
+   "650829ac5a1214d4d3fc9c9f281aa2edac30656f560f006d03cccacc6e092547"
   ],
   [
    "player/501-player-text.js",

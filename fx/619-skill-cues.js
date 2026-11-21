@@ -3,7 +3,8 @@
 //   clock.animate 逻辑时间 + z-index 10004~10011），不引新配色体系。
 //   载荷全部是可序列化的 uid/camp/pos/数值 → 回放、联机从机都能播同一份演出。
 //   一条 cue 只在这里演出一次；快进由 fx/610 订阅侧统一拦（不阻塞战斗）。
-export const VER = 'fx/619-skill-cues.js V1.1.0';
+// V1.1.1 | 2026-11-21 新增 blazeBurst：炎魔狮王炎爆改为「掌心凝球→拖尾飞行→命中爆开」三段演出（纯 CSS 火球，不再只飘 emoji）
+export const VER = 'fx/619-skill-cues.js V1.1.1';
 
 import { clock } from '../infra/103-clock.js';
 import { SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
@@ -50,6 +51,7 @@ export function showSkillCue(cue) {
         case SKILL_CUE_KINDS.UNVEIL: return showUnveil(cue);
         case SKILL_CUE_KINDS.MASK_PEEL: return showMaskPeel(cue);
         case SKILL_CUE_KINDS.SUMMON_MOVE: return showSummonMove(cue);
+        case SKILL_CUE_KINDS.BLAZE_BURST: return showBlazeBurst(cue);
         default: return;
     }
 }
@@ -302,4 +304,78 @@ function showSummonMove(cue) {
         ring.style.transform = `translate(-50%,-50%) scale(${(1 + 3.2 * (1 - Math.pow(1 - p, 2))).toFixed(2)})`;
         ring.style.opacity = (0.9 * (1 - p)).toFixed(2);
     }).then(() => drop(ring));
+}
+
+// ── 炎魔狮王·炎爆：掌心凝聚火球 → 拖尾飞向目标 → 命中爆开 ──
+//   三段全部走逻辑时间：凝球 420ms、飞行 460ms、爆点 340ms（不阻塞战斗）。
+//   纯 CSS 火球（无 emoji），一眼能看出「从狮王手里打出去」而不是凭空在对方头上冒字。
+function showBlazeBurst(cue) {
+    const from = cellOf(cue.self);
+    const to = cellOf(cue.target);
+    if (!from || !to) return;
+
+    // ① 凝聚：火球在狮王身前由小到大亮起，带脉动
+    const orb = jot(`position:fixed;left:${from.x}px;top:${from.y}px;width:38px;height:38px;
+        transform:translate(-50%,-50%) scale(0.15);opacity:0;border-radius:50%;pointer-events:none;z-index:10006;
+        background:radial-gradient(circle at 38% 35%, #FFFBE0 0%, #FFD24A 30%, #FF8A1E 62%, #D8340A 88%, rgba(216,52,10,0) 100%);
+        box-shadow:0 0 18px 6px rgba(255,150,30,0.70), 0 0 46px 16px rgba(255,72,0,0.30);`);
+    clock.animate(420, p => {
+        orb.style.opacity = (p < 0.22 ? p / 0.22 : 1).toFixed(2);
+        const grow = Math.min(1, p / 0.82);
+        const pulse = 0.08 * Math.sin(p * Math.PI * 6) * grow;
+        orb.style.transform = `translate(-50%,-50%) scale(${(0.15 + 0.85 * grow + pulse).toFixed(3)})`;
+    }).then(() => {
+        drop(orb);
+        fly();
+    });
+
+    // ② 飞行：火球本体 + 拖尾，从狮王飞向目标
+    function fly() {
+        const dx = to.x - from.x, dy = to.y - from.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 1) return;
+        const ang = Math.atan2(dy, dx);
+        const ball = jot(`position:fixed;left:${from.x}px;top:${from.y}px;width:24px;height:24px;
+            transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;z-index:10007;
+            background:radial-gradient(circle at 38% 35%, #FFFBE6 0%, #FFD24A 32%, #FF7A12 68%, #C22A06 92%, rgba(194,42,6,0) 100%);
+            box-shadow:0 0 16px 6px rgba(255,160,40,0.75), 0 0 38px 14px rgba(255,70,0,0.32);`);
+        const tail = jot(`position:fixed;left:${from.x}px;top:${from.y}px;width:${Math.min(96, dist).toFixed(0)}px;height:9px;
+            transform-origin:0 50%;border-radius:5px;pointer-events:none;z-index:10006;
+            background:linear-gradient(90deg, rgba(255,210,74,0) 0%, rgba(255,150,30,0.55) 55%, rgba(255,244,180,0.95) 100%);
+            box-shadow:0 0 10px rgba(255,140,26,0.55);`);
+        const tailLen = Math.min(96, dist);
+        clock.animate(460, p => {
+            const e = 1 - Math.pow(1 - p, 2);   // 前快后慢：出膛快、临近略收
+            const bx = from.x + dx * e, by = from.y + dy * e;
+            ball.style.left = bx.toFixed(1) + 'px';
+            ball.style.top = by.toFixed(1) + 'px';
+            ball.style.transform = `translate(-50%,-50%) scale(${(1 + 0.18 * Math.sin(p * Math.PI)).toFixed(2)})`;
+            const len = tailLen * (0.35 + 0.65 * Math.sin(Math.min(1, p) * Math.PI));
+            tail.style.left = (bx - Math.cos(ang) * len).toFixed(1) + 'px';
+            tail.style.top = (by - Math.sin(ang) * len).toFixed(1) + 'px';
+            tail.style.width = len.toFixed(1) + 'px';
+            tail.style.transform = `rotate(${ang}rad)`;
+            tail.style.opacity = (0.9 * (1 - p * 0.45)).toFixed(2);
+        }).then(() => {
+            drop(ball); drop(tail);
+            impact();
+        });
+    }
+
+    // ③ 命中：橙色冲击环外扩 + 中心白闪
+    function impact() {
+        const ring = jot(`position:fixed;left:${to.x}px;top:${to.y}px;width:26px;height:26px;border-radius:50%;
+            border:3px solid rgba(255,178,64,0.95);pointer-events:none;z-index:10008;
+            box-shadow:0 0 18px rgba(255,120,20,0.80), inset 0 0 12px rgba(255,220,120,0.65);
+            transform:translate(-50%,-50%);`);
+        const flash = jot(`position:fixed;left:${to.x}px;top:${to.y}px;width:46px;height:46px;border-radius:50%;
+            pointer-events:none;z-index:10009;transform:translate(-50%,-50%);opacity:0.95;
+            background:radial-gradient(circle, rgba(255,255,235,0.95) 0%, rgba(255,196,90,0.55) 42%, rgba(255,120,20,0) 72%);`);
+        clock.animate(340, p => {
+            ring.style.transform = `translate(-50%,-50%) scale(${(0.5 + 2.6 * (1 - Math.pow(1 - p, 2))).toFixed(2)})`;
+            ring.style.opacity = (0.95 * (1 - p)).toFixed(2);
+            flash.style.transform = `translate(-50%,-50%) scale(${(0.6 + 0.9 * p).toFixed(2)})`;
+            flash.style.opacity = (0.95 * (1 - p)).toFixed(2);
+        }).then(() => { drop(ring); drop(flash); });
+    }
 }
