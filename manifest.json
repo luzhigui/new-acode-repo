@@ -1,11 +1,11 @@
 {
- "ver": "159b136e9e79c5503e05aac442af79323e22631a7535ce96ea9a7540304a942d",
+ "ver": "d6faa3902b9fceb6a6e91ae3a62174c4294cc8138d90a6508987c0dafff658a8",
  "gen": "tools/830-manifest-gen.mjs",
- "count": 154,
+ "count": 155,
  "files": [
   [
    "content/001-game-data.json",
-   "533fa70006b91b6029af0773401290d772bd523149f8ce3486d7ee443700781c"
+   "38abc504d9c45662bdd8732e9295d59ce2759b45e8f66b6effcafa69de8091ff"
   ],
   [
    "content/002-hex-enhance.json",
@@ -69,7 +69,7 @@
   ],
   [
    "core/214-battle-shared.js",
-   "3635ba17241ca97cadf5b305c9ff86458da610050ac0252ed3731c7bfaaeed4d"
+   "7684b4f2bef65f5532093d06e8fbe1f9cc255520b61d3cab534d58e9a46be959"
   ],
   [
    "core/215-buff-effects.js",
@@ -85,7 +85,7 @@
   ],
   [
    "core/218-state-keys.js",
-   "7c17b9c161d22a188c49be31e7df7b92d12d2e6c721f87c486b0d33940009aa5"
+   "3f48934327e1db8da73ae25ad3fdc8a696769455247a7c6de2e90a6bf5c3891d"
   ],
   [
    "core/219-mechanic-registry.js",
@@ -213,7 +213,7 @@
   ],
   [
    "infra/106-battle-enums.js",
-   "92cf9a083ae29979f35d616497c3e2d4a092f5e055f1fd379cd21c11433bc7aa"
+   "5b9473f3631acd1f39abe88f272bf45377e0783c0b8d04d8225975e25382ae9f"
   ],
   [
    "infra/107-fact-contract.js",
@@ -241,7 +241,7 @@
   ],
   [
    "modules/301-reg-mechanics.js",
-   "ff9c74524581731e8b3ba83ec94b6606b167097f502dc89b4768951c34bac4c7"
+   "13d5f0e4ea43061f4677b859216c360c1174e9be2d1883a09c48e78f6a20dbd2"
   ],
   [
    "modules/302-elite-skills.js",
@@ -277,7 +277,7 @@
   ],
   [
    "modules/310-elite-sixsects-songqingshu.js",
-   "c9fdf8ed334bc2abaa001f63c8ed0022dea123fe4c8a8c583b57299c8a73c133"
+   "482de3d27de5a57edaaeacd5d1713cfa68ab9c2d8eb87fd39108f2c0e064a924"
   ],
   [
    "modules/311-elite-sixsects-zhangsanfeng.js",
@@ -313,7 +313,7 @@
   ],
   [
    "modules/319-elite-mingjiao-hanlisa.js",
-   "d862c876d113d682c2208c6b76098a3e0da563995a3e46991cc367d8afe1a303"
+   "52a561fe1110c037913a8ab8f0a35e232acce8fac1bd09b82fb2d0b7ae2a7fe2"
   ],
   [
    "modules/320-elite-mingjiao-zhangwuji.js",
@@ -361,7 +361,7 @@
   ],
   [
    "modules/331-custom-effects.js",
-   "908495b29075ade8837e53d063a06e9322489dea199ac377cf2f134c5bc9bc7c"
+   "f0a6b91af12e606a0373245d2f268ac248d7fac2a55ed895ec1266216bc6a06c"
   ],
   [
    "modules/332-career-log.js",
@@ -393,7 +393,11 @@
   ],
   [
    "modules/339-elite-mingjiao-zhangzhong.js",
-   "feef2da1b17728cb912a3b7fa63d6b6926eb1b8fd27fc3e72aacfdc73edd66fa"
+   "0ea35cbd9c456ae55ad564f3cace111e7c8b461efff92e780a4b17345fb99c8b"
+  ],
+  [
+   "modules/340-common-mech-disciples.js",
+   "c440c2381194aea55fa9eb25729f4c19e96905016373c3a95ecea52b1628253b"
   ],
   [
    "modules/341-common-shield-steal.js",
@@ -461,7 +465,7 @@
   ],
   [
    "render/403-grid-render.js",
-   "dd7b523ec65495ccccb59400406b6c1a64d5eccd6afe40c1b7f2438c0465293c"
+   "57cf188b4c0d8a2e4142f86f34b6c7eba1313341b44212ce30d296cf3854f8de"
   ],
   [
    "render/404-grid-badges.js",

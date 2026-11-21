@@ -4,7 +4,7 @@ export const VER = 'modules/331-custom-effects.js V1.1.2';
 import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, FACT_TYPES, MECHANIC_TYPES } from '../infra/106-battle-enums.js';
-import { recordHpAudit } from '../core/214-battle-shared.js';
+import { recordHpAudit, poisonBlockedByHook } from '../core/214-battle-shared.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 
 // 机制注册表已下沉 core/18，本文件只负责注册具体机制
@@ -29,8 +29,16 @@ registerMechanicHandler(MECHANIC_TYPES.DOT_TICK, {
                 const source = decl.sourceName ? allUnits.find(u => u.name === decl.sourceName) : null;
                 allUnits.forEach(u => {
                     if (!u.alive) return;
-                    // 免疫毒素（庄铮·断锤形态）：触发前已带毒的历史残留也不再结算
-                    if (u.state && u.state._immunePoison) return;
+                    // 免疫毒素（庄铮·断锤形态/防化弟子）：毒不结算——直接抹掉，连抑疗一起消失；
+                    //   回调 core/214 钩子，供防化弟子（modules/340）按「拦一次毒回一次奶」记账
+                    if (u.state && u.state._immunePoison) {
+                        const it = u.state[decl.stateKey];
+                        if (it && it.remaining > 0) {
+                            u.state[decl.stateKey] = null;
+                            poisonBlockedByHook(u, { stateKey: decl.stateKey, declarations: data.declarations, log: data.log, A: data.A, B: data.B });
+                        }
+                        return;
+                    }
                     const st = u.state[decl.stateKey];
                     if (!st || st.remaining <= 0) return;
                     st.remaining--;

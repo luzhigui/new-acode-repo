@@ -50,6 +50,14 @@
             "executeThreshold": 0.18
           },
           "healTargetName": "宋青书"
+        },
+        {
+          "camp": "enemy",
+          "type": "dotTick",
+          "stateKey": "_baiGuHanDu",
+          "factKey": "XUAN_MING_DOT",
+          "reason": "寒毒",
+          "sourceName": "周芷若"
         }
       ],
       "skills": {
@@ -789,6 +797,52 @@
       ],
       "taunts": {
         "attack": ["看剑！", "接招！"],
+        "kill": []
+      }
+    },
+
+    "拼命弟子": {
+      "named": true,
+      "tags": ["明教", "战士", "普通"],
+      "m": 97, "poolTier": 97, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 19, "mingAll": true, "unitFlags": ["isDesperateDisciple"], "tool": {"m100Skill":3},
+      "skills": {
+        "basicStrike": {
+          "name": "基础挥砍",
+          "desc": "无法被治疗；每损失10%生命，攻击力+10%（永久）",
+          "params": {}
+        }
+      },
+      "mechanics": [
+        {
+          "camp": "ally",
+          "type": "desperate"
+        }
+      ],
+      "taunts": {
+        "attack": ["还能打！", "死不了！"],
+        "kill": []
+      }
+    },
+
+    "防化弟子": {
+      "named": true,
+      "tags": ["明教", "战士", "普通"],
+      "m": 97, "poolTier": 97, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 20, "mingAll": true, "unitFlags": ["isAntiPoisonDisciple"], "tool": {"m100Skill":3},
+      "skills": {
+        "basicStrike": {
+          "name": "基础挥砍",
+          "desc": "在场时明教全体免疫毒素；每次拦下毒，明教全体回复3%最大生命",
+          "params": {}
+        }
+      },
+      "mechanics": [
+        {
+          "camp": "ally",
+          "type": "antiPoison"
+        }
+      ],
+      "taunts": {
+        "attack": ["毒？没用。", "化掉了。"],
         "kill": []
       }
     },

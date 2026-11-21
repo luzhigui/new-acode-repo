@@ -12,5 +12,6 @@ import './335-common-heal-ally.js';
 import './337-elite-mingjiao-zhuangzheng.js';
 import './338-elite-mingjiao-pengyingyu.js';
 import './339-elite-mingjiao-zhangzhong.js';
+import './340-common-mech-disciples.js';   // M97 机制弟子：拼命 / 防化
 import './302-elite-skills.js';   // 飞行·猎杀成长：模块顶层 registerRoundHook，必须由本入口装载一次
-export const VER = 'modules/301-reg-mechanics.js V1.0.6';
+export const VER = 'modules/301-reg-mechanics.js V1.0.7';

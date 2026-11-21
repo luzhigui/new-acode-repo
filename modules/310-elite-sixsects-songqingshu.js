@@ -184,13 +184,16 @@ export const chainClawHandler = {
 
             if (hits.length > 0 && data && data.declarations) {
                 data.declarations.push({ type: EFFECT_TYPES.CLAW_CHAIN, source: unit, target, hits, execute: executeInfo });
-                // 白骨爪抑疗（2026-11-15 老板拍板）：爪命中挂截脉式抑疗 2 回合，
-                //   强度走减疗 66% 统一口径（CONFIG.XUANMING_POISON_HEAL_REDUCE，与寒毒同源单一来源）
-                if (target && target.alive && !target.state._jinMai) {
-                    target.state._jinMai = { rounds: 2, ratio: CONFIG.XUANMING_POISON_HEAL_REDUCE };
+                // 白骨爪寒毒（2026-11-21 老板口径）：原「截脉减疗 66%」改为寒毒入体——每回合损失 4% 最大生命、持续 3 回合。
+                //   毒桶独立（_baiGuHanDu）：由 modules/331 的 dotTick 公共原语结算，不需要寒离飒在场；
+                //   每回合结算走 content 的 dotTick 声明，本处只负责挂毒与战报/飘字。
+                if (target && target.alive) {
+                    const prev = target.state._baiGuHanDu;
+                    const stacks = (prev && prev.remaining > 0 ? (prev.stacks || 1) : 0) + 1;
+                    target.state._baiGuHanDu = { remaining: 3, dotPercents: [0.04], stacks };
                     pushSkillAnnounce(data.log, unit, '九阴白骨爪',
-                        `🐾 白骨爪寒毒入体：${target.name} 受疗 -66%（2回合）`,
-                        { line: false, floatText: '❌', floatUid: target.uid });
+                        `❄️ 白骨爪寒毒入体：${target.name} 每回合损失 4% 生命（3回合${stacks > 1 ? `，×${stacks}层` : ''}）`,
+                        { floatText: '❄️', floatUid: target.uid });
                 }
             }
             if (totalHeal > 0 && song && song.alive && data && data.declarations) {

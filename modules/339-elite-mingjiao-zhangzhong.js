@@ -10,8 +10,7 @@ export const VER = 'modules/339-elite-mingjiao-zhangzhong.js V1.4.0';
 import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES, ROLE_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
-import { getBattleRng } from '../core/214-battle-shared.js';
-import { recordHpAudit } from '../core/214-battle-shared.js';
+import { getBattleRng, recordHpAudit, poisonBlockedByHook } from '../core/214-battle-shared.js';
 import { spawnUnit, pickFreePos } from '../core/205-battle-horse.js';
 
 import { pushSkillAnnounce, requireSkillParams } from './305-elite-helpers.js';
@@ -117,8 +116,11 @@ export const summonBengBengHandler = {
                 if (target.isBengBeng && target.state._pendingDeath) return;              // 致死一击 → 死亡钩子管
                 const victim = unit.isBengBeng ? target : unit;                           // 谁被挂毒：蹦蹦的对手
                 if (!victim.alive) return;
-                // 免疫毒素（庄铮·断锤形态）：完全不上毒
-                if (victim.state && victim.state._immunePoison) return;
+                // 免疫毒素（庄铮·断锤形态/防化弟子）：毒没上身，回调防化记账（拦一次毒回一次奶）
+                if (victim.state && victim.state._immunePoison) {
+                    poisonBlockedByHook(victim, { stateKey: '_bengHanDu', declarations: data.declarations, log, A: data.A, B: data.B });
+                    return;
+                }
 
                 const duration = params.poisonDuration ?? 3;
                 const dotPercents = params.poisonDot || [0.04];
@@ -145,8 +147,15 @@ export const summonBengBengHandler = {
                 const allUnits = [...(data.A || []), ...(data.B || [])];
                 allUnits.forEach(u => {
                     if (!u.alive) return;
-                    // 免疫毒素（庄铮·断锤形态）：上毒入口已挡，此处兜住「触发前已带毒」的历史情况
-                    if (u.state && u.state._immunePoison) return;
+                    // 免疫毒素（庄铮·断锤形态/防化弟子）：毒抹掉（抑疗随之消失），回调防化记账
+                    if (u.state && u.state._immunePoison) {
+                        const it = u.state._bengHanDu;
+                        if (it && it.remaining > 0) {
+                            u.state._bengHanDu = null;
+                            poisonBlockedByHook(u, { stateKey: '_bengHanDu', declarations: data.declarations, log: data.log, A: data.A, B: data.B });
+                        }
+                        return;
+                    }
                     const st = u.state._bengHanDu;
                     if (!st || st.remaining <= 0) return;
                     st.remaining--;

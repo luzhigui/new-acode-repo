@@ -25,7 +25,7 @@
 // V2.4.12 | 2026-11-21 全轰回调：护盾 25%→30%、每格攻击力加成 30%→40%、前排分母 4→3（N/3）
 export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.12';
 
-import { getBattleRng, getStat, recordHpAudit, moveUnitPosition, emitEvent, previewHeal, applyStatChange } from '../core/214-battle-shared.js';
+import { getBattleRng, getStat, recordHpAudit, moveUnitPosition, emitEvent, previewHeal, applyStatChange, poisonBlockedByHook } from '../core/214-battle-shared.js';
 import { isEffectivelyAlive } from '../core/203-battle-utils.js';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { registerTargetFilter } from '../core/207-target-strategies.js';
@@ -161,6 +161,7 @@ export function createHanLiSaComponent() {
                     if (isEffectivelyAlive(target)) {
                         // 免疫毒素（庄铮·断锤形态）：完全不上寒毒
                         if (target.state && target.state._immunePoison) {
+                            poisonBlockedByHook(target, { stateKey: '_hlsHanDu', declarations: data.declarations, log: data.log });
                             pushInfo(data, `<span class="gold">❄️ 寒离飒右拳·寒冰：${target.name} 免疫寒气（断锤形态）</span>`);
                             announceFloat(data, '右拳·寒冰', '🚫 免疫寒气');
                         } else {
@@ -287,8 +288,15 @@ export function createHanLiSaComponent() {
                 // 寒毒结算（本组件自管，不依赖鹿杖客是否在场）
                 allUnits.forEach(u => {
                     if (!u.alive) return;
-                    // 免疫毒素（庄铮·断锤形态）：触发前已带毒的历史残留也不再结算
-                    if (u.state && u.state._immunePoison) return;
+                    // 免疫毒素（庄铮·断锤形态/防化弟子）：毒抹掉（抑疗随之消失），回调防化记账
+                    if (u.state && u.state._immunePoison) {
+                        const it = u.state._hlsHanDu;
+                        if (it && it.remaining > 0) {
+                            u.state._hlsHanDu = null;
+                            poisonBlockedByHook(u, { stateKey: '_hlsHanDu', declarations: data.declarations, log: data.log, A: data.A, B: data.B });
+                        }
+                        return;
+                    }
                     const st = u.state._hlsHanDu;
                     if (!st || st.remaining <= 0) return;
                     st.remaining--;

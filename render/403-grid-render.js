@@ -366,9 +366,12 @@ export function renderGrid(id, camp) {
         //   格子上只出一个 ❄️（旧版每源各拼一个，会看到两三个雪花）
         if ((unit.state._xuanmingPoison && unit.state._xuanmingPoison.remaining > 0)
             || (unit.state._hlsHanDu && unit.state._hlsHanDu.remaining > 0)
-            || (unit.state._bengHanDu && unit.state._bengHanDu.remaining > 0)) {
+            || (unit.state._bengHanDu && unit.state._bengHanDu.remaining > 0)
+            || (unit.state._baiGuHanDu && unit.state._baiGuHanDu.remaining > 0)) {
             eliteSkillIcon += ' ❄️';
         }
+        // 防化弟子：刚拦下一次毒（1 秒内）→ 挂 🧪 标记
+        if (unit.state._antiPoisonPulse && Date.now() - unit.state._antiPoisonPulse < 1000) eliteSkillIcon += ' 🧪';
         // 唐文亮·回春术层标记（老板需求）：🌿——不然看不出他攒着回血；层数不再显示（格子放不下），
         //   具体几层看战报行「回春术+N」
         if (unit.isTangWenLiang && Array.isArray(unit.state._hcStacks) && unit.state._hcStacks.length > 0) {

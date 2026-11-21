@@ -239,6 +239,14 @@ export function stealHealByHook(unit, amount, A, B, log) {
     if (!(amount > 0) || !_healStealHook) return amount;
     try { return _healStealHook(unit, amount, A, B, log); } catch (e) { return amount; }
 }
+// 毒被免疫拦下（331 dotTick / 319 寒毒 / 339 蹦蹦毒 三处统一回调）：防化弟子用它做「拦一次毒回一次奶」。
+//   core 不反向 import modules，故由 modules/340 注册。ctx 透传结算期的 declarations/log/A/B。
+let _poisonBlockedHook = null;
+export function setPoisonBlockedHook(fn) { _poisonBlockedHook = typeof fn === 'function' ? fn : null; }
+export function poisonBlockedByHook(target, ctx) {
+    if (!_poisonBlockedHook || !target) return;
+    try { _poisonBlockedHook(target, ctx || {}); } catch (e) { /* 机制侧异常不打断结算 */ }
+}
 
 function applyStatChange(target, field, delta, source, reason, record = true, isHeal = true, ignoreCap = false, ignoreHealReduce = false) {
     // ignoreHealReduce（2026-11-17 老板拍板）：真实吸血通道——跳过截脉/寒毒抑疗打折（庄铮断锤免疗不受此旗影响，那是免疫不是抑疗）
@@ -250,6 +258,8 @@ function applyStatChange(target, field, delta, source, reason, record = true, is
     //   老板口径 2026-11-09：免疫/异常状态单位不能被治疗（与斩杀同口径，同读 _dmgCap）。
     //   收口在所有 hp 正向落账处（吸血/回血/生生不息/布袋放生/休息回复…），不做逐出口修改。
     if (field === 'hp' && delta > 0 && isHeal && target.state && target.state._dmgCap > 0) return false;
+    // 拼命弟子：拒绝一切治疗（正/反向回血都算），与 _dmgCap 同口径收口在所有 hp 正向落账处
+    if (field === 'hp' && delta > 0 && isHeal && target.state && target.state._noHeal) return false;
     // 杨逍·点穴截脉（反治疗）：被点穴目标眩晕解除后 rounds 回合内，受到的治疗/吸血回复按 ratio 打折。
     //   单点收口在所有 hp 正向落账处——全库 10+ 个治疗出口（吸血/回血/生生不息/快乐回血/飞行再生/休息回复/
     //   反弹回复/乾坤衍生…），逐个改必漏；ratio 与 rounds 由 modules 侧从 content 写进 _jinMai，此处只读。

@@ -134,6 +134,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _firstTokenDone:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 蹦蹦寒毒（2026-11-10 毒归挂毒方：结构同 _hlsHanDu 多一个 stacks，modules/339 自结算，与寒离飒无关）
     _bengHanDu:              { type: STATE_FIELD_TYPES.OBJECT,  default: null },
+    // 白骨爪寒毒（周芷若）：与寒离飒/蹦蹦分桶，走 modules/331 dotTick 公共原语结算，不依赖寒离飒在场
+    _baiGuHanDu:             { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 金刚不坏护罩（空见）：{ sourceUid, sourceName }，免疫一次伤害；被正规攻击/溅射消耗后置 null
     _immuneShield:           { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 空见：已发出护罩次数 / 待发数量 / 五条件标记（opening/allyHurt/allyDead/selfHurt/selfLow）/ 升级标记
@@ -276,6 +278,12 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _ctrlImmune:             { type: STATE_FIELD_TYPES.BOOLEAN, default: false, tags: [STATE_TAGS.CC_IMMUNE] },
     // 庄铮·断锤形态免疫标记（modules/337 触发时挂；_immuneExecute 由 modules/310 白骨爪斩杀读取，挂毒入口读 _immunePoison）
     _immunePoison:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 拼命弟子：拒绝一切治疗（core/214 applyStatChange hp 正向统一收口读取）
+    _noHeal:                 { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 防化弟子：最近一次「拦毒转奶」的时间戳（render/403 据此挂 🧪 图标 1 秒）
+    _antiPoisonPulse:        { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 拼命弟子：当前攻击加成层数（每损失满 10% 生命 1 层），层数变化才重挂乘率
+    _desperateStacks:        { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 唐文亮·冲刺跳物理攻击动画标记（modules/26 置 true，结算完置 false）
     _isDashStrikeFx:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 寒离飒·瞄准窗口状态（player/49 瞄准标记步写，hanlisa.js 消费后清零；持久化同现状放 battle 级）

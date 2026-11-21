@@ -220,7 +220,11 @@ export const MECHANIC_TYPES = Object.freeze({
     YUANZHEN_REVEAL: 'yuanzhenReveal', // 少林圆真·现原形（modules/336）
     DUAN_CHUI: 'duanChui',             // 庄铮·断锤三式（modules/337）
     DOUBLE_FACE: 'doubleFace',         // 彭莹玉·双面观音（modules/338）
-    SUMMON_BENGBENG: 'summonBengBeng'  // 张中·召唤蹦蹦（modules/339）
+    SUMMON_BENGBENG: 'summonBengBeng', // 张中·召唤蹦蹦（modules/339）
+    // M97 机制弟子（modules/340）
+    WOODEN_DUMMY: 'woodenDummy',       // 木桩弟子：攻击归零、同列后方队友受伤转移 50%
+    DESPERATE: 'desperate',            // 拼命弟子：免疫治疗、每损失 10% 生命永久 +10% 攻击
+    ANTI_POISON: 'antiPoison'          // 防化弟子：全场毒素无效化，每次拦毒给明教全体回 3% 最大生命
 });
 
 /**
