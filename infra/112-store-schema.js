@@ -30,7 +30,7 @@ export const STORE_KEY_WHITELIST = Object.freeze(new Set([
     'battleStore', 'bugMode', 'bulletTimeActive', 'careerLogSuppress', 'chestCount', 'crashMode',
     'currentBattleState', 'currentDoubleStrikeUid', 'currentStage', 'debugMode',
     'dodgeEffectEnabled', 'enemyAutoHex', 'fastForwardActive', 'forceHanLiSa', 'forceMingUnit',
-    'forcePang', 'forceSectUnit', 'forceSoloWeakElite', 'forceWeakElite', 'forceWei', 'forceXiaoZhao',
+    'forceMechTest', 'forcePang', 'forceSectUnit', 'forceSoloWeakElite', 'forceWeakElite', 'forceWei', 'forceXiaoZhao',
     'forceXieXun', 'forceZhang', 'fxDashSlow', 'fxDodgeBullet', 'fxHanlisaAim', 'gameStarted',
     'glowColors', 'gs', 'hlsAimPlayedThisTurn', 'holyToken', 'isBattleStarting', 'isPaused',
     'logLevel', 'netGuestDone', 'netGuestReady', 'netPeerReady', 'netRole', 'panelPaused',
@@ -40,7 +40,7 @@ export const STORE_KEY_WHITELIST = Object.freeze(new Set([
     'xiaoZhaoPermanentBuffs'
 ]));
 
-/** 12 个集合/动态结构键（其余 53 个为标量/布尔/枚举） */
+/** 12 个集合/动态结构键（其余 54 个为标量/布尔/枚举） */
 export const STRUCTURED_STORE_KEYS = Object.freeze([
     'snapshot', 'UI', 'activeBuffs', 'battleHistory', 'battleLog', 'battleFacts',
     'usedBuffKeys', 'xiaoZhaoPermanentBuffs', 'xiaoZhaoBackup', 'battleStore',
@@ -103,6 +103,7 @@ export const STORE_SCHEMA = Object.freeze({
     fastForwardActive: { type: S.BOOLEAN },
     forceHanLiSa: { type: S.BOOLEAN, nullable: true },
     forceMingUnit: { type: S.STRING, nullable: true },
+    forceMechTest: { type: S.BOOLEAN, nullable: true },
     forcePang: { type: S.BOOLEAN, nullable: true },
     forceSectUnit: { type: S.STRING, nullable: true },
     forceSoloWeakElite: { type: S.BOOLEAN, nullable: true },

@@ -1,5 +1,5 @@
 {
- "ver": "9c6eb5349b4e8178d70b2da15b8b3c38fc41e3a7923e6e4fb69cf7dd687174cf",
+ "ver": "edd78ff756c14ea07b96c1a29a87be07da4234eb262772182b8fe843a42d4844",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 157,
  "files": [
@@ -237,7 +237,7 @@
   ],
   [
    "infra/112-store-schema.js",
-   "ec7837293f4140f2e821627e79f364baf91dae5e35ab8d6c88fc5d07bc7705d5"
+   "e932087fabafe0fa6ab69f514e1fa4bd18ca7574b0676fd4a96fb0eb068a893a"
   ],
   [
    "modules/301-reg-mechanics.js",
