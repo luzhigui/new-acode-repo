@@ -32,7 +32,7 @@ const isChild = process.argv.includes('--child');
 // ================================ 子进程：等父进程派活 ================================
 if (isChild) {
     await runChild();
-    process.exit(0);
+    await new Promise(() => {});   // 不许自己退：等父进程发 {type:'end'}
 }
 
 async function runChild() {
@@ -71,6 +71,15 @@ async function runChild() {
         };
         self.onmessage({ data: msg });
     });
+
+    // 子进程兜底：引擎抛出来的未捕获异常不许把进程直接打崩，报给父进程后退出（父进程会重排那片）
+    const fatal = (e) => {
+        const text = String((e && (e.stack || e.message)) || e);
+        try { process.send({ type: 'fatal', error: text }); } catch (err) { /* 父进程没了 */ }
+        setTimeout(() => process.exit(1), 30);
+    };
+    process.on('uncaughtException', fatal);
+    process.on('unhandledRejection', fatal);
 
     process.on('message', async (m) => {
         if (!m) return;
@@ -172,30 +181,72 @@ console.log(`# ${cmd} ｜ 每格 ${RUNS} 场 ｜ 关卡 ${STAGES.join(',')} ｜ 
 // 动态派活：谁先空出来谁领下一个 job —— 单位之间耗时差很大（35 回合的磨血局能比速杀慢十几倍），
 //   静态切分会把长尾全压在一个进程上（实测 5 进程只快 1.2 倍）；动态派活才能按实际速度摊平。
 const queue = allJobs.map((j, i) => ({ ...j, msg: { ...j.msg, jobId: i + 1 } }));
+const total = queue.length;
 const results = [];
 const procs = [];
+let doneCount = 0;
+const retried = new Set();
 await new Promise((resolve, reject) => {
     let exited = 0;
     let failed = false;
+    const state = new Map();   // child -> { alive, current }
     const assignTo = (child) => {
+        const st = state.get(child);
+        if (!st || !st.alive) return;
         const job = queue.shift();
         if (!job) { try { child.send({ type: 'end' }); } catch (e) { /* 已退出 */ } return; }
+        st.current = job;
         try { child.send({ type: 'job', key: job.key, stage: job.stage, msg: job.msg }); } catch (e) { /* 已退出 */ }
     };
+    const tick = () => process.stderr.write(`\r进度 ${doneCount}/${total} 片` + (doneCount === total ? '\n' : ''));
     for (let i = 0; i < pool; i++) {
         const child = fork(fileURLToPath(import.meta.url), ['--child'], { stdio: ['ignore', 'ignore', 'inherit', 'ipc'] });
         procs.push(child);
+        state.set(child, { alive: true, current: null });
+        // IPC 写失败（子进程已死）是异步 error 事件，不接住会把整个父进程打崩
+        child.on('error', () => { const st = state.get(child); if (st) st.alive = false; });
         child.on('message', (m) => {
             if (!m) return;
+            const st = state.get(child);
             if (m.type === 'ready') { assignTo(child); return; }
-            if (m.type === 'result') { results.push(m); assignTo(child); }
+            if (m.type === 'fatal') {
+                const job = st.current;
+                st.current = null;
+                if (job && !retried.has(job.msg.jobId)) {
+                    retried.add(job.msg.jobId);
+                    queue.push(job);
+                } else if (job) {
+                    results.push({ key: job.key, stage: job.stage, error: '子进程崩溃: ' + String(m.error).split('\n')[0].slice(0, 160) });
+                    doneCount++;
+                    tick();
+                }
+                return;
+            }
+            if (m.type === 'result') {
+                st.current = null;
+                results.push(m);
+                doneCount++;
+                tick();
+                assignTo(child);
+            }
         });
         child.on('exit', (code) => {
+            const st = state.get(child);
+            st.alive = false;
             exited++;
-            if (code !== 0 && !failed) { failed = true; reject(new Error(`子进程退出码 ${code}`)); return; }
+            // 子进程异常退出：把它手上的那片塞回队列重试一次（引擎偶发崩溃不该让整批作废）
+            if (code !== 0 && st.current && !retried.has(st.current.msg.jobId)) {
+                retried.add(st.current.msg.jobId);
+                queue.push(st.current);
+            }
+            if (code !== 0 && !failed) {
+                failed = true;
+                process.stderr.write(`\n[818] 子进程异常退出（code ${code}），已重排手上那片并继续\n`);
+            }
             if (exited === procs.length) resolve();
         });
     }
+    if (!pool) resolve();
 });
 
 printTable(cmd, results);
