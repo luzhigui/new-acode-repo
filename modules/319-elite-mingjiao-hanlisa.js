@@ -1,7 +1,7 @@
 // modules/319-elite-mingjiao-hanlisa.js — 明教精英「寒离飒」：战士 · 弱精英 M107（与韦一笑同池）· 恒定 2 号位
 //   ① 九阳神拳 / ② 寒冰神掌：每次普攻独立掷 50/50 —— 出九阳则回复自身最大生命 12%（同张无忌），
 //      否则出寒冰神掌给被打目标挂寒毒（3 回合每层 4% 最大生命、叠层无上限，再命中刷新）；同一种可连续出，不锁
-//   ③ 蓄意轰拳：凑齐「九阳 + 寒冰各至少出过一次」→ 本击后挂 25% 最大生命护盾并蓄力；下一回合跳过行动，
+//   ③ 蓄意轰拳：凑齐「九阳 + 寒冰各至少出过一次」→ 本击后挂 30% 最大生命护盾并蓄力；下一回合跳过行动，
 //      蓄力回合收尾（ON_ROUND_END·forced:true）轰出蓄意轰拳，基数 N = 最近两回合自身承受总伤害 ×80%：
 //      玩家瞄准敌方一格按九位九形取格——目标格 N×1.2（tierDen.direct=0.8333，2026-11-20 老板拍板回 1.4→1.2）、相邻格 N/4、更远格 N/6（全部真伤）；
 //      不瞄（V2.4.0 老板拍板，替换原随机前排兜底+行分档全屏）=按列穿深：每列最前排 N/3、列内第二人 N/4、其余敌人 N/5；
@@ -22,7 +22,8 @@
 // V2.4.10 | 2026-11-20 护盾回落 40%→25%、目标格 1.4N→1.2N（tierDen.direct 0.8333）、
 //   全轰每格攻击力加成 50%→30%（新参数 rowAtkRatio，不再硬编码 hlsAtk/2）
 // V2.4.11 | 2026-11-20 recentRounds 去掉 `|| 2` 字面量兜底，改 register 期显式校验（缺参数当场报错）
-export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.11';
+// V2.4.12 | 2026-11-21 全轰回调：护盾 25%→30%、每格攻击力加成 30%→40%、前排分母 4→3（N/3）
+export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.12';
 
 import { getBattleRng, getStat, recordHpAudit, moveUnitPosition, emitEvent, previewHeal, applyStatChange } from '../core/214-battle-shared.js';
 import { isEffectivelyAlive } from '../core/203-battle-utils.js';
@@ -366,7 +367,7 @@ export function createHanLiSaComponent() {
                         } else {
                             // V2.4.0 按列穿深（老板 2026-11-17 拍板）：每列最前排 N/3、列内第二人 N/4、其余所有敌人 N/5；
                             //   列 = {1,4,7}/{2,5,8}/{3,6,9}，前排 = pos 最小（同 getFronts 语义）；按位结算，不排浮空
-                            // 2026-11-18 老板拍板：按排两档——第一排 N/4 + 攻击力，第二排及以后 N/5 + 攻击力；
+                            // 2026-11-18 老板拍板：按排两档——第一排 N/3 + 攻击力，第二排及以后 N/5 + 攻击力（2026-11-21 前排 4→3）；
                             //   行 = floor((pos-1)/3)（1-3/4-6/7-9），第一排 = 存活敌人最靠前的行（空排自动跳过）
                             if (!xl.rowDen) throw new Error('缺技能参数: 寒离飒.xuLi.rowDen');
                             if (xl.rowAtkRatio == null) throw new Error('缺技能参数: 寒离飒.xuLi.rowAtkRatio');
