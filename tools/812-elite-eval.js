@@ -3,7 +3,8 @@ import { runParallel } from './817-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, ENEMY_VARIANTS, STATS_TH } from './827-tool-registry.js';
 import { VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
 
-export const VER = 'tools/812-elite-eval.js V3.13.4';
+export const VER = 'tools/812-elite-eval.js V3.13.5';
+// V3.13.5 | 2026-11-21 默认场次调整：每关总场次 1200 → 1800，控制变量场数 400 → 300（输入框初始值与 JS 兜底值同步）。
 // V3.13.4 | 2026-11-20 强精英表列顺序与主表·自然出场对齐：张无忌（Boss）放第一列，不再排最后。
 // V3.13.3 | 2026-11-20 首列变体标签去掉「·」：原来「第3关·胖远桥」中的点把首列撑到 4 字宽，
 //   改成两行「第3关 / 胖远桥」左对齐，首列 64px → 56px，把宽度让给精英列。
@@ -99,7 +100,7 @@ const soloResultEl = document.getElementById('eliteSoloResult');
 const noEliteBtn = document.getElementById('eliteNoEliteBtn'); // 2026-10-09 无精英基线
 const noEliteProgressEl = document.getElementById('eliteNoEliteProgress');
 const noEliteResultEl = document.getElementById('eliteNoEliteResult');
-const soloRunsInput = document.getElementById('eliteSoloRunsInput'); // 2026-10-09 单核表（强精英/无精英）专用场数（默认 400）：与普通表分开，免得忘改 1200 一跑就是 5 倍时长
+const soloRunsInput = document.getElementById('eliteSoloRunsInput'); // 2026-10-09 单核表（强精英/无精英）专用场数（默认 300）：与普通表分开，免得忘改 1800 一跑就是 5 倍时长
 
 const CHUNK = 50; // 每片局数：细粒度分片（2026-10-16 从 300 收窄）——填满线程池无尾部空转；种子用 startIndex 口径，分片粗细不改采样
 
@@ -267,7 +268,7 @@ try {
 
 startBtn.addEventListener('click', async () => {
     const stages = Array.from(document.querySelectorAll('.elite-stage-check:checked')).map(cb => parseInt(cb.value));
-    const RUNS = parseInt(runsInput.value) || 1200;
+    const RUNS = parseInt(runsInput.value) || 1800;
     if (stages.length === 0) { alert('请至少选择一个关卡'); return; }
 
     startBtn.disabled = true;
@@ -338,7 +339,7 @@ startBtn.addEventListener('click', async () => {
 
 async function runSoloGroup(list, ui) {
     const stages = Array.from(document.querySelectorAll('.elite-stage-check:checked')).map(cb => parseInt(cb.value));
-    const RUNS = parseInt(soloRunsInput.value) || 400;   // 单英雄表专用场数（默认 400，与普通表分开）
+    const RUNS = parseInt(soloRunsInput.value) || 300;   // 单英雄表专用场数（默认 300，与普通表分开）
     if (stages.length === 0) { alert('请至少选择一个关卡'); return; }
 
     ui.btn.disabled = true;
