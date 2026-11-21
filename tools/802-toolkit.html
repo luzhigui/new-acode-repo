@@ -197,20 +197,17 @@
            现补上与其他按钮一致的形状/字号/圆角，但各组业务配色全部恢复原样
            （金=主表 / 蓝=强精英 / 灰蓝=无精英 / 绿=弱精英 / 绿=存结果 / 蓝=载入 / 棕=清历史）。 */
         #eliteStartBtn, #eliteSoloBtn, #eliteNoEliteBtn, #weakEliteStartBtn,
-        #eliteSaveSnapBtn, #eliteLoadSnapBtn, #eliteDropSnapBtn, #weakEliteDropBtn {
+        #eliteDropSnapBtn, #weakEliteDropBtn {
             border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer;
         }
         #eliteStartBtn { background: #ffd700; color: #1a1a2e; }
         #eliteSoloBtn { background: #4fc3f7; color: #1a1a2e; }
         #eliteNoEliteBtn { background: #90a4ae; color: #1a1a2e; }
         #weakEliteStartBtn { background: #4caf50; color: #1a1a2e; }
-        #eliteSaveSnapBtn { background: #4caf50; color: #fff; }
-        #eliteLoadSnapBtn { background: #4fc3f7; color: #1a1a2e; padding: 10px 16px; }
         #eliteDropSnapBtn, #weakEliteDropBtn { background: #6d4c41; color: #ddd; padding: 10px 16px; }
         #eliteStartBtn:disabled, #eliteSoloBtn:disabled,
-        #eliteNoEliteBtn:disabled, #weakEliteStartBtn:disabled, #eliteSaveSnapBtn:disabled,
-        #eliteLoadSnapBtn:disabled, #eliteDropSnapBtn:disabled, #weakEliteDropBtn:disabled { opacity: 0.4; cursor: not-allowed; }
-        #eliteSnapSelect { padding: 8px; border-radius: 6px; border: 1px solid #555; background: #111; color: #eee; font-size: 12px; max-width: 270px; }
+        #eliteNoEliteBtn:disabled, #weakEliteStartBtn:disabled,
+        #eliteDropSnapBtn:disabled, #weakEliteDropBtn:disabled { opacity: 0.4; cursor: not-allowed; }
         #eliteSnapStatus, #weakEliteSnapStatus { color: #8bc34a; font-size: 12px; }
         .elite-progress { color: #4fc3f7; font-size: 12px; min-height: 20px; margin-bottom: 10px; }
         .elite-empty { color: #888; text-align: center; margin-top: 12px; }
@@ -492,10 +489,7 @@
             <button id="eliteSoloBtn" title="强精英逐一单核选中关卡：韦一笑/小昭·姊/小昭·妹/谢逊/寒离飒 + Boss 张无忌（M115），同一张表一起评">⚔ 强精英胜率</button>
             <button id="eliteNoEliteBtn" title="明教侧一个精英都不出的胜率（拒绝采样凑无精英局），作精英价值对照">🛡 无精英基线</button>
             <span style="color:#555">｜</span>
-            <button id="eliteSaveSnapBtn" title="跑完任意一张表会自动存一条该表快照；本按钮 = 把当前页面的三张表（主表·自然出场 / 强精英（含Boss） / 无精英）合并再存一条。最多留 10 条">💾 存结果</button>
-            <button id="eliteLoadSnapBtn" title="载入选中的历史快照，重新渲染对应的表（不重跑）">📂 载入</button>
-            <button id="eliteDropSnapBtn" title="删除全部历史快照（不影响页面上当前的表）">🗑 清空历史</button>
-            <select id="eliteSnapSelect" title="历史快照列表：时间｜关卡｜含哪几张表"></select>
+            <button id="eliteDropSnapBtn" title="清空已保存的评测结果（页面当前显示的表不受影响）">🗑 清空已存结果</button>
             <span id="eliteSnapStatus"></span>
         </div>
         <div class="elite-progress" id="eliteProgress"></div>

@@ -3,7 +3,9 @@ import { runParallel } from './817-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, ENEMY_VARIANTS, STATS_TH } from './827-tool-registry.js';
 import { VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
 
-export const VER = 'tools/812-elite-eval.js V3.13.5';
+export const VER = 'tools/812-elite-eval.js V3.14.0';
+// V3.14.0 | 2026-11-21 快照收口为「只存一份」：删掉历史下拉 / 💾 存结果 / 📂 载入三个控件，
+//   打开页面直接显示上次结果，新结果覆盖旧结果（同一张表取最新、不同表自动合并），只留「🗑 清空已存结果」。
 // V3.13.5 | 2026-11-21 默认场次调整：每关总场次 1200 → 1800，控制变量场数 400 → 300（输入框初始值与 JS 兜底值同步）。
 // V3.13.4 | 2026-11-20 强精英表列顺序与主表·自然出场对齐：张无忌（Boss）放第一列，不再排最后。
 // V3.13.3 | 2026-11-20 首列变体标签去掉「·」：原来「第3关·胖远桥」中的点把首列撑到 4 字宽，
@@ -104,17 +106,14 @@ const soloRunsInput = document.getElementById('eliteSoloRunsInput'); // 2026-10-
 
 const CHUNK = 50; // 每片局数：细粒度分片（2026-10-16 从 300 收窄）——填满线程池无尾部空转；种子用 startIndex 口径，分片粗细不改采样
 
-// ============ 2026-10-19 V2.9.0 结果快照：跑完自动存 + 手动补存，可载入回看 ============
+// ============ 结果快照：只留一份，打开页面自动显示 ============
 const SNAP_KEY = 'ming_elite_eval_snaps';
-const SNAP_LIMIT = 10;                                     // 最多留 10 条历史，超出丢最旧
+// V3.14.0：取消历史下拉/手动存/手动载入——只保留「最新一份」，新结果覆盖旧结果，打开页面即显示。
 const TABLE_LABEL = { elite: '主表·自然出场', solo: '强精英', boss: 'Boss·张无忌', none: '无精英基线' };
 // 表头说明（定义在 applySnap 之前：autoRestoreLatest 在模块顶层立即执行，若定义靠后，
 //   const 尚在 TDZ，任何含 solo/boss 的历史快照都会触发 Cannot access 'SOLO_NOTE' before initialization，
 //   被 try/catch 吞掉显示「上次结果载入失败」。2026-11-15 上移修复）
 const SOLO_NOTE = '强精英单挑 = force 该精英单核（抑制随机轮盘、海克斯开、胜=明教），含 Boss·张无忌（M115）。与上方「自然出场归因」表互补：这里看单核带队能力，上面看真实出场表现。';
-const snapSelect = document.getElementById('eliteSnapSelect');
-const snapSaveBtn = document.getElementById('eliteSaveSnapBtn');
-const snapLoadBtn = document.getElementById('eliteLoadSnapBtn');
 const snapDropBtn = document.getElementById('eliteDropSnapBtn');
 const snapStatusEl = document.getElementById('eliteSnapStatus');
 // 本次跑出的表（未存盘前只活在内存）：{ stages, runs, byStage, ts, seed, ver }
@@ -173,16 +172,7 @@ function snapLabel(s) {
     return `${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}｜关${stages}｜${kinds.map(k => TABLE_LABEL[k]).filter(Boolean).join('+')}${meta}`;
 }
 
-function refreshSnapSelect(keepId) {
-    // V3.9.0：只列含本工具能渲染的表（弱精英快照只存 parts.weak，由 846 页签负责，这里不列以免出现空标签）
-    const snaps = readSnaps().filter(s => s && s.parts && Object.keys(s.parts).some(k => TABLE_LABEL[k]));
-    snapSelect.innerHTML = snaps.length
-        ? snaps.map(s => `<option value="${s.id}">${snapLabel(s)}</option>`).join('')
-        : '<option value="">（暂无历史：跑完任意一张表会自动存）</option>';
-    if (keepId && snaps.some(s => s.id === keepId)) snapSelect.value = keepId;
-}
-
-// 存一条快照：keys = 要存的表（跑完自动存「刚跑完那一张」；手动按钮存当前内存里全部表）
+// 存快照：只保留一份——新结果与上一次的表合并（同一张表由新结果覆盖），旧的自动丢弃
 function saveSnap(keys) {
     const parts = {};
     for (const k of keys) {
@@ -198,19 +188,15 @@ function saveSnap(keys) {
         if (latest[k].hero) parts[k].hero = JSON.parse(JSON.stringify(latest[k].hero));
     }
     if (Object.keys(parts).length === 0) return { ok: false, msg: '⚠️ 还没跑过任何表，无可存' };
-    const snaps = readSnaps();
-    const rec = { id: 'snap_' + Date.now(), ts: Date.now(), parts };
-    snaps.unshift(rec);                                    // 新的排最前
-    if (snaps.length > SNAP_LIMIT) snaps.length = SNAP_LIMIT;
-    const err = writeSnaps(snaps);
-    if (err) return { ok: false, msg: `⚠️ 存盘失败（${(err && err.name) || err}）——本地存储配额已满，先「🗑 清空历史」再存` };
-    refreshSnapSelect(rec.id);
-    return { ok: true, msg: `✅ 已存快照（${Object.keys(parts).length} 张表），现存 ${snaps.length} 条历史` };
+    const all = readSnaps();
+    // 非本工具的表（如 846 的 weak 快照）原样保留，不动它们
+    const others = all.filter(s => !(s && s.parts && Object.keys(s.parts).some(k => TABLE_LABEL[k])));
+    const prev = all.find(s => s && s.parts && Object.keys(s.parts).some(k => TABLE_LABEL[k]));
+    const merged = prev ? { ...prev.parts, ...parts } : parts;
+    const err = writeSnaps([{ id: 'snap_' + Date.now(), ts: Date.now(), parts: merged }, ...others]);
+    if (err) return { ok: false, msg: `⚠️ 存盘失败（${(err && err.name) || err}）——先「🗑 清空历史」再跑` };
+    return { ok: true, msg: `✅ 已保存（覆盖上一份，共 ${Object.keys(merged).length} 张表）` };
 }
-
-snapSaveBtn.addEventListener('click', () => {
-    snapStatusEl.textContent = saveSnap(['elite', 'solo', 'none']).msg;
-});
 
 // 载入一条快照到页面（按钮和「打开页面自动恢复」共用）
 function applySnap(rec, auto) {
@@ -228,37 +214,19 @@ function applySnap(rec, auto) {
     return loaded > 0;
 }
 
-snapLoadBtn.addEventListener('click', () => {
-    const rec = readSnaps().find(s => s.id === snapSelect.value);
-    if (!rec) { snapStatusEl.textContent = '⚠️ 没选中历史快照'; return; }
-    applySnap(rec, false);
-});
-
 snapDropBtn.addEventListener('click', () => {
-    if (!confirm('确认删除全部历史快照？只删存盘的历史，不影响页面上当前的表')) return;
+    if (!confirm('确认清空已保存的结果？页面当前显示的表不受影响')) return;
     localStorage.removeItem(SNAP_KEY);
-    refreshSnapSelect();
-    snapStatusEl.textContent = '🗑 历史已清空';
+    snapStatusEl.textContent = '🗑 已清空保存的结果';
 });
 
-// V3.11.0：模块顶层的「历史下拉 + 自动恢复」全部关进 try/catch。这两步在监听注册之前执行，
-//   历史里只要有一条坏快照（缺 stages / 空 part / 旧格式）就会抛错打断整个模块：
-//   → 「▶ 开始评测」「⚔ 强精英」监听根本没挂上（点了没反应，刷新读到同一条坏快照还是没反应），
-//   → 而「🗑 清空历史」注册在前仍然可用，所以表现为「必须清空历史才能点」。
-//   与内存大小无关；内存占大只是让坏快照更容易产生。
-try {
-    refreshSnapSelect();
-} catch (e) {
-    console.error('[elite-eval] 历史下拉渲染失败（已跳过，不影响跑批）:', e);
-}
-
-// 打开页面自动恢复：默认把最近一条「本工具能渲染」的快照摆出来，不用手动选历史、不用重跑
+// 打开页面自动恢复：把保存的那一份直接摆出来，不用选、不用重跑
 (function autoRestoreLatest() {
     try {
         const snaps = readSnaps().filter(s => s && s.parts && Object.keys(s.parts).some(k => TABLE_LABEL[k]));
         if (!snaps.length) return;
         const newest = snaps.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0))[0];
-        if (applySnap(newest, true)) snapSelect.value = newest.id;
+        applySnap(newest, true);
     } catch (e) {
         console.error('[elite-eval] 自动载入上次结果失败（已跳过，按钮照常可用）:', e);
         snapStatusEl.textContent = `⚠️ 上次结果载入失败，已跳过（可点「🗑 清空历史」重来）：${(e && e.message) || e}`;
