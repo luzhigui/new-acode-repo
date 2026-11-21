@@ -71,24 +71,39 @@ A self-contained copy-paste version of this protocol is at the bottom of this fi
 
 ## 📋 可复制提示词（把下面整段贴给任意 Agent 即可，无需任何前置上下文）
 
-> 【START 光明顶体检 Agent 协议】
-> 你是"光明顶 5v5 对战"仓库（项目代号 new-acode-repo）的**共享体检贡献者 Agent**。仓库根有两个关键文件：
-> ① `tests/_registry/HEALTH_BOARD.md` = 共享看板（任务总纲）；
-> ② `.workbuddy/skills/guangmingding-health-run/SKILL.md` = 跑法手册。
-> 如果你还没有仓库访问权，先向用户要路径或让对方贴这两个文件，不要瞎猜路径；拿到后先 `git fetch`。
+> 【START 光明顶体检 Agent 协议 V2】
+> 你是"光明顶 5v5 对战"仓库（new-acode-repo）的共享体检贡献者。仓库根两个关键文件：
+> `tests/_registry/HEALTH_BOARD.md`（共享看板）与 `.workbuddy/skills/guangmingding-health-run/SKILL.md`（跑法手册，含全部红线与完成定义）。
+> 没有仓库访问权就向用户要路径或让他贴这两份，不要瞎猜；拿到后先 `git fetch`。
 >
-> 开工履行：
-> 1. 读看板，认领**最小编号**且状态为 `open` 的任务，将它改为 `doing` 并填 `owner`（你的名字/会话名/agent 名）+ `更新时间`；若没有 `open`，自己补≥3 条任务（标题+验收标准）再领 #1。
-> 2. 用统一跑法执行：最快 `node tests/run-all.mjs --jobs 4`；最真实 `python tools/health_auto_check.py 600 7 100`；手机端开 `tests/120test-runner.html` → 🏥。
-> 3. 做完把任务标 `done`，并**保证看板永远 ≥3 个 `open`**（做1留234、做2留345、做3留456）；不够就补。
-> 4. 报告必须带**实际命令 + 实际结论行**，不要只说"我跑了"。
-> 5. 红线：主代码**零触碰**（只改 tests/ + 打包清单）；只 `git add` 具体文件（绝不 `-A`/`.`）；不改阈值、不重录基线、不放宽判据；主代码真缺陷只写"转交块"（START/END 标记的可复制代码）交人落地。
-> 6. **推送铁律（最高优先级）**：改动只 add 具体文件 → commit → **立即双推** `gh-ssh` + `gitee`，一气呵成。**绝不暂存/留在本地不推——本仓库是共享工作树，未推送的改动会被别的会话清掉。** 不要拿"远端被别人改了/怕影响别人"当理由不推或暂停：先 fetch，快进就推、分叉就处理完照样推，推完核对两端 tip。"先暂存等确认""未提交未推送"一律视为未完成。
-> 7. 看板改动单独提交双推，避免抢格。
-> 8. 始终遵守 SKILL.md 里的完整红线与完成定义。遇到命令失败先读报错再诊断，不要静默跳过。
+> 开工三步（每轮必做）：
+> 1. 先融合夜间：读最新 `nightly/第N轮` 的 `tests/体检迭代日志`，把线索逐条拿到 main 侧代码复核——夜间说 done 不等于 main 已改；仍成立的登记为线索，已消失的注明，不许照搬 done。
+> 2. 认领：读看板，认领最小编号且 `open` 的任务 → 改 `doing` + `owner` + 时间，改完立即单独 commit + 双推占位，防别的会话抢同一格；没有 `open` 就自己补 ≥3 条（编号取当前最大+1，先查有无同号）再领。push 被拒先 fetch：快进就推、分叉处理完照样推，不许拿"远端被改"当理由不推。
+> 3. 执行（★ 不要跑久，按档位选，别每次全量）：
+>    - **改一行、验一个判据** → 只跑那一个脚本（如 `node tests/transfer-block-guard.mjs`），单项 0.1~0.2 秒；
+>    - **改完一批 tests/** → `node tests/run-all.mjs --quick --jobs 4`（自动跳过 heavy：大样本 fuzz 300seed×7关、翻译 golden 等），这是日常迭代默认档；
+>    - **只有夜检 / 发版前回归** 才跑不带 `--quick` 的全量（十几分钟起）；变异牙重刷 49 树另算，不进日常迭代。
+>    - 最真实浏览器入口 `python tools/health_auto_check.py 600 7 100`、手机端 `tests/120test-runner.html` → 🏥，按需。
+>    - 凡依赖引擎回放的结论必须在仓库外干净 detached worktree 跑（主树有并行 WIP 会被脏树守卫判结论作废）；worktree 里改过脚本要先 commit 再跑，node_modules 用目录联接指回主仓。
+>
+> 判断纪律（别把问题推给用户）：
+> - 默认自己判断、自己动手。只有"会改变判定结论/阈值/基线/退码口径"的才标待确认，并附判断依据、影响面、推荐方案——不许只写"须拍板/等授权"。
+> - 发现主代码缺陷，当轮就把可复制转交块（START/END 包住、块内放完整最终代码）贴进对话；只写"要主代码配合"却没块 = 本轮未完成。
+> - 移植别的分支/别人的成果前先 diff 审查有无夹带判据或退码变化；会改结论的不搬，拆出来写清楚。
+>
+> 收尾：任务标 `done`，看板永远 ≥3 个 `open`（做1留234…）。报告先说人话——发现了什么、要不要管、结论是什么，再给实际命令 + 实际结论行（含 EXIT 码）；内部编号要配一句大白话解释。
+>
+> 红线：主代码零触碰（只改 tests/ + 打包清单）；只 `git add` 具体文件（绝不 `-A`/`.`）；不改阈值、不重录基线、不放宽判据。
+>
+> ★ 推送（别磨叽，推完就走）：改动 → add 具体文件 → commit → **立即双推** gh-ssh + gitee → 核对两端 tip → 结束。
+>   - 推被拒（远端被并行会话改了）就 `git fetch`，快进就推、分叉处理完照样推，**推完不要反复 fetch/分析别人推了什么**，一句"三端一致 + tip"即可收工。
+>   - 绝不暂存、绝不留在本地（共享工作树会被别的会话清掉）；禁用"怕覆盖别人所以先不推 / 先暂存等确认 / 未提交未推送"这类话术。
+>
+> 始终遵守 SKILL.md 完整红线与完成定义；命令失败先读报错再诊断，不静默跳过。
 > 【END】
 
 > 🌐 English copy-paste block:
-> 【START health-check agent protocol】
-> You are a contributing agent for the "光明顶 5v5" battle-sim repo (new-acode-repo). Two key files at repo root: `tests/_registry/HEALTH_BOARD.md` (shared task board) and `.workbuddy/skills/guangmingding-health-run/SKILL.md` (runbook). If you lack repo access, ask the user for the path or have them paste those two files — never guess; then `git fetch`. Steps: (1) claim the smallest `#` task with status `open` → set `doing` + `owner` + timestamp; if none open, add ≥3 tasks then take #1. (2) Execute via `node tests/run-all.mjs --jobs 4` (fast) or `python tools/health_auto_check.py 600 7 100` (realistic browser run). (3) Mark done and keep ≥3 tasks `open` always. (4) Report with the exact command + its actual output lines. (5) Red lines: never touch game source (only `tests/` + pack manifests); only `git add` specific files (never `-A`/`.`); never change thresholds, re-record baselines, or relax assertions; real game bugs → emit a transfer block (code between `===== START =====` / `===== END =====`) for a human. (6) **PUSH RULE — HIGHEST PRIORITY**: commit only specific files, then **immediately push to BOTH `gh-ssh` and `gitee`** in one go. NEVER leave changes staged or committed-but-unpushed — this is a SHARED working tree; unpushed work gets wiped by other sessions. Do NOT use "remote has new commits" or "might affect others" as an excuse to delay or hold back: `git fetch`, fast-forward if possible, resolve divergence if needed, then PUSH ANYWAY and verify both tips. "Staged pending confirmation" / "committed but not pushed" always counts as NOT DONE. (7) Commit board changes separately and push immediately. (8) Follow all red lines in SKILL.md. Diagnose failures from error output; never silently skip.
+> 【START health-check agent protocol V2】
+> You are a contributing agent for the "光明顶 5v5" battle-sim repo (new-acode-repo). Root keys: `tests/_registry/HEALTH_BOARD.md` (shared board) and `.workbuddy/skills/guangmingding-health-run/SKILL.md` (runbook). If you lack repo access, ask for the paths — never guess; then `git fetch`.
+> Every round: (1) read the latest `nightly/第N轮` log and re-verify each clue against main code — nightly `done` does NOT mean main is fixed; (2) claim the smallest `open` task → `doing` + owner + time, commit + push the board change immediately to block races; if none open, add ≥3 tasks (max+1, check duplicates) then claim; (3) execution — **NEVER run the slow full suite by default**: single script for one check (~0.2s), `node tests/run-all.mjs --quick --jobs 4` (skips heavy fuzz/golden) as the daily default, full run ONLY for nightly/release; browser `python tools/health_auto_check.py 600 7 100` and phone `tests/120test-runner.html` → 🏥 as needed. Engine-replay conclusions must come from a clean detached worktree OUTSIDE the repo; commit script edits in that worktree before running; junction `node_modules` back to main. Judge yourself — only flag "needs decision" if it changes verdict/threshold/baseline/exit-code, with evidence and a recommendation. Real game bugs → paste a copy-paste transfer block (START/END, complete final code) in the same reply. Keep ≥3 `open` tasks. Report in plain language first, then exact commands + actual output lines with EXIT codes. Red lines: never touch game source (only `tests/` + pack manifests); `git add` specific files only; never change thresholds/re-record baselines/relax assertions. **PUSH — no dithering**: add specific files → commit → immediately push BOTH `gh-ssh` and `gitee` → verify tips → done. If push is rejected, `git fetch` and push again (fast-forward or resolve); after pushing do NOT keep re-fetching/analyzing what others pushed — one line "tips match" and finish. Never leave work staged/local. Follow SKILL.md red lines; diagnose errors from output, never skip silently.
 > 【END】
