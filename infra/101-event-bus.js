@@ -37,7 +37,11 @@ class EventBus {
         const listeners = this._listeners[signal];
         if (!listeners || listeners.length === 0) return Promise.resolve();
         const promises = [];
-        for (const { callback } of listeners) {
+        // 必须先拍快照再遍历：监听器执行中可能给同一信号追加新的监听器
+        //   （空智偷学 → installMechanicByType → 被偷机制的 install 又 registerSettlementHook(ON_ROUND_START)）。
+        //   直接 for..of 活数组会让迭代器看到追加项而永不终止 —— 实机表现为整场战斗卡死
+        //   （816 跑批 180s 无响应，栈停在 modules/305 pushSkillAnnounce）。
+        for (const { callback } of listeners.slice()) {
             try {
                 const result = callback(data);
                 // 异步监听器（返回 Promise）会被收集并等待；reject 也要进 _recordError，
