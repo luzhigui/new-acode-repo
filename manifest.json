@@ -1,11 +1,11 @@
 {
- "ver": "f8d2d23f1958dc73790b822681ef8b697a74d0ca8a104e52701fdf5526692c02",
+ "ver": "d0214d2a3b2ab38c7fc81448c6afd3a8ce6310fa6b808c7b103f23fd2fadb545",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 154,
  "files": [
   [
    "content/001-game-data.json",
-   "b8015cea749bf89003d4ad536a98828b1e4f24648cdc1a5401b5d5b12d883ca3"
+   "533fa70006b91b6029af0773401290d772bd523149f8ce3486d7ee443700781c"
   ],
   [
    "content/002-hex-enhance.json",
@@ -29,7 +29,7 @@
   ],
   [
    "core/204-buff-system.js",
-   "3d3b60b1511b7f2cc9d2375704696ef9fb8840fb96721796bbbd61989ea78658"
+   "94900a694b72d72db4e8c0a000da8e52f504623bd6cc17d15de34703f7a53a67"
   ],
   [
    "core/205-battle-horse.js",
@@ -53,7 +53,7 @@
   ],
   [
    "core/210-battle-round.js",
-   "fdf9b9e8badf68b455a40e737665afe5b3cdf08a0cd94bffc8697edcc4a5c8fa"
+   "1c48f96b7edb2b49452727b3b8f580bca2cc26689dba2de6d8cb7fdeb81ea8c6"
   ],
   [
    "core/211-battle-attack-steps.js",
@@ -109,7 +109,7 @@
   ],
   [
    "fx/601-fx-common-5v5-test.js",
-   "7a2fbf0a656c69cd30f36078e5bb7c7eed8873e141a52d07c853ae3f6c2dd2db"
+   "ffd470b8698fcb8f8f25e42081381bc122759e015363523e8159466c98ed1073"
   ],
   [
    "fx/602-fx-arrows-5v5-test.js",
@@ -313,7 +313,7 @@
   ],
   [
    "modules/319-elite-mingjiao-hanlisa.js",
-   "e0813d7cc1139fe31bec8e3e0d2d1458b1c24f3686bceeef34e6a0089037776f"
+   "d862c876d113d682c2208c6b76098a3e0da563995a3e46991cc367d8afe1a303"
   ],
   [
    "modules/320-elite-mingjiao-zhangwuji.js",
@@ -601,7 +601,7 @@
   ],
   [
    "ui/720-hanlisa-aim.js",
-   "c7947fdd4966557e642d66ca5ce2aad5376ee9e30c94f99bc49f968cd8ccb888"
+   "f62516786beacadd7e6a101f5c3dfb4035bee5e1a7bf754045d2e765a89dbd8e"
   ],
   [
    "ui/721-perf-panel.js",

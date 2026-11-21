@@ -1,6 +1,7 @@
 //   闪避气泡读 bubbleLife，均按当前 speed 档位取（core/23perf-params）
 // V6.3.21 | 2026-11-20 乘风突袭爪痕改「爪子挥击」：三道固定平行斜爪 + 两头尖 clip-path + 0.28s 快闪（原随机短线像毛笔刷）
-export const VER = 'fx/601-fx-common-5v5-test.js V6.3.21';
+// V6.3.22 | 2026-11-21 闪避反击大横幅字号下界 1.6rem→2.4rem（9vw）：11-20 两次手机适配把下界压到 1.6rem，窄屏 25px 过小
+export const VER = 'fx/601-fx-common-5v5-test.js V6.3.22';
 
 import { CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { snapshotUnitCell, snapshotUnitCellRobust, snapshotCellByPos } from './611-fx-ref-manager.js';
@@ -643,7 +644,9 @@ export function showCriticalBanner(text) {
         const banner = document.createElement('div');
         banner.textContent = text;
         // 闪避反击等大横幅：字号随屏宽缩放，最长不超 94vw（原 3.5rem 在手机上超出屏幕）
-        banner.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:clamp(1.6rem,6vw,3.5rem);font-weight:bold;color:#FFD700;z-index:10050;pointer-events:none;text-shadow:0 0 30px rgba(255,215,0,0.9), 0 0 10px black;white-space:nowrap;max-width:94vw;animation:bannerPop 2.5s ease-out forwards;';
+        // V6.3.22：下界 1.6rem → 2.4rem（2026-11-20 两次「手机适配」把下界压到 1.6rem，窄屏 25px 比原 56px 小一半，
+        //   老板连报两次）。9vw 保证手机约 35px、由下界托到 38px，桌面仍封顶 3.5rem。
+        banner.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:clamp(2.4rem,9vw,3.5rem);font-weight:bold;color:#FFD700;z-index:10050;pointer-events:none;text-shadow:0 0 30px rgba(255,215,0,0.9), 0 0 10px black;white-space:nowrap;max-width:94vw;animation:bannerPop 2.5s ease-out forwards;';
         document.body.appendChild(banner);
         clock.wait(2500).then(() => {
             if (banner.parentNode) banner.remove();
