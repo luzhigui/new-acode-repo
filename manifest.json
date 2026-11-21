@@ -1,5 +1,5 @@
 {
- "ver": "d9079e4fbbfcddb0a6c6abd0a925ebae9c252afe82565e7f595049d1ca8a6bc9",
+ "ver": "1dc8a3748ce253bf11264d4d467b1b90d55fb94afe20831fefd1dcd096634fa1",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 157,
  "files": [
@@ -29,7 +29,7 @@
   ],
   [
    "core/204-buff-system.js",
-   "94900a694b72d72db4e8c0a000da8e52f504623bd6cc17d15de34703f7a53a67"
+   "3d3b60b1511b7f2cc9d2375704696ef9fb8840fb96721796bbbd61989ea78658"
   ],
   [
    "core/205-battle-horse.js",
@@ -53,7 +53,7 @@
   ],
   [
    "core/210-battle-round.js",
-   "1c48f96b7edb2b49452727b3b8f580bca2cc26689dba2de6d8cb7fdeb81ea8c6"
+   "fdf9b9e8badf68b455a40e737665afe5b3cdf08a0cd94bffc8697edcc4a5c8fa"
   ],
   [
    "core/211-battle-attack-steps.js",
@@ -313,7 +313,7 @@
   ],
   [
    "modules/319-elite-mingjiao-hanlisa.js",
-   "78d5f988a1289a9f21db5947b53cb80b7ebc491dc07b3e2dcd525eabe5a33af5"
+   "028d431d4f2bbdbcba137e2a2936c4bd196ce4ca454ba780b2a03d8de27ee672"
   ],
   [
    "modules/320-elite-mingjiao-zhangwuji.js",

@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<!-- V1.1.1 | 2026-10-22 深夜 修「第二下瞎落」四连 bug：①过冲固定20px会把落前排的唐文亮顶出格区→改为位移22%且≤16px、不挪窝零过冲 ②换位只滑一格另一格瞬移重叠→被换走者也一起滑 ③伤害飘字参数传反全哑（看不见数字）→反正 ④第一拽后目标进前排就点不动→门禁放开（前排目标=不拽位照打，同真实机制）。上一版 V1.1.0 三口径（落身后首个空位/一黄一红连线对拉+平A/数值全真）保持不变
+     ① 落位规则改（老板原话）：不该把自己家前排换走——拽完落「前排后面的第一个空位」：2空落2、2占落3、3占落4、5……绝不换自己人；全满则原地不动
+     ② 演出重做：不要蓝块。先拉一条金线把两人连起来 → 两个「原本身份的格子」对拉（唐文亮金光=swap-flash、目标红框=swap-lock，都是游戏真 CSS）→ 落定 → 平A一拳（攻击线+白闪+真公式伤害）有力量感节奏感
+     ③ 数值全真：阵容=第3关 initBattleTeams seed11/15 探针实拍；冲刺真伤=当前生命45%（真公式）；平A=引擎公式直算 calcDamage(攻+rand(1..6), 防+rand(1..4))×1.45（七伤第7击，core/12+modules/26 同口径）
+     注：线上 fx/94 现行还是「蓝块鬼影」，本 demo 是新演出提案——采不采、主代码怎么改，老板眼睛拍板 -->
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>唐文亮·冲刺·七伤齐发 demo V1.1.1</title>
+<style>
+:root{
+  --c-gold:#b8860b; --c-gold-bright:#ffd700; --c-gold-orange:#ffaa00;
+  --c-brown:#5c4033; --c-brown-border:#8b7355; --c-tan:#b8a88a;
+  --c-parchment:#f5f0e0; --c-parchment-2:#e8d5b0; --c-panel:#fdf5e6;
+  --c-ming-blue:#1e6bb8; --c-sect-orange:#d2691e; --c-danger:#c0392b;
+  --c-green:#2e7d32;
+}
+*{box-sizing:border-box}
+html{background:#000}
+body{background:var(--c-parchment);font-family:'Segoe UI',monospace;display:flex;flex-direction:column;min-height:100vh;width:100%;max-width:520px;margin:0 auto;padding:6px 6px 10px;color:#333;user-select:none}
+.demo-head{background:linear-gradient(135deg,var(--c-parchment) 0%,var(--c-parchment-2) 100%);border-radius:6px;padding:6px 8px;margin-bottom:4px}
+.demo-head h2{color:var(--c-gold);font-size:.85rem;margin:0 0 2px;letter-spacing:-.5px}
+.demo-head .sub{font-size:8px;color:#777;line-height:1.4}
+.scene-bar{display:flex;gap:4px;margin:4px 0}
+.scene-bar button{flex:1;padding:4px 2px;border-radius:4px;border:1px solid var(--c-brown-border);background:var(--c-panel);font-size:9px;cursor:pointer;font-weight:bold}
+.scene-bar button.active{background:#007bff;color:#fff;border-color:#007bff}
+.battlefield{display:flex;flex-direction:column;gap:2px;padding-top:6px;position:relative}
+.team-row{display:flex;align-items:stretch;gap:4px;max-width:500px;margin:0 auto;width:100%}
+.camp-side{display:flex;flex-direction:column;align-items:center;flex:0 0 18px}
+.team-label{writing-mode:vertical-lr;font-weight:bold;font-size:13px;width:18px;text-align:center}
+.orange{color:var(--c-sect-orange)} .blue{color:var(--c-ming-blue)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,52px);gap:2px;flex:1;background:#d9d0b5;padding:3px;border-radius:6px}
+.cell{background:#e8e6e0;border:2px solid #bbb;border-radius:5px;padding:2px 4px;display:flex;align-items:center;gap:4px;font-size:9px;height:52px;position:relative;overflow:visible;transition:background .6s ease,border-color .6s ease}
+.cell-icon{font-size:13px;width:14px;text-align:center;flex-shrink:0}
+.cell-info{flex:1;display:flex;flex-direction:column;justify-content:center;overflow:hidden}
+.cell-name{font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px}
+.cell-stats{font-size:7px;color:#555;display:flex;gap:2px;flex-wrap:wrap}
+.gold{color:var(--c-gold);font-weight:bold}
+.name-purple{color:#8e44ad;font-weight:bold}
+.name-blue{color:#2e6fb7;font-weight:bold}
+.count-badge{display:inline-block;margin-left:2px;padding:0 3px;font-size:8px;font-weight:700;line-height:11px;border-radius:6px;vertical-align:baseline;background:rgba(0,0,0,.30);border:1px solid currentColor;white-space:nowrap}
+.count-badge.count-tw{color:#ff7d3d}
+.hp-bar-wrap{width:8px;height:100%;background:#ccc;border-radius:3px;flex-shrink:0;align-self:stretch;position:relative}
+.hp-bar-inner{position:absolute;bottom:0;width:100%;border-radius:3px;transition:height .5s ease,background .5s ease}
+.hp-text-green{color:var(--c-green)} .hp-text-orange{color:var(--c-sect-orange)} .hp-text-red{color:var(--c-danger)}
+.cell.dashable{border-color:#28a745;cursor:pointer}
+.cell.dashable:active{background:#d4edda}
+.cell.immune-mark{outline:2px dashed #8e44ad;outline-offset:-4px}
+.cell.target-picked{border-color:var(--c-gold-bright);box-shadow:0 0 10px var(--c-gold-bright)}
+/* ↓ 游戏真 CSS（index.html 原样）：换位金闪 / 红框锁定——本 demo 一黄一红的出处 */
+.swap-flash{animation:swapFlash .3s ease-in-out infinite}
+@keyframes swapFlash{0%,100%{box-shadow:0 0 15px gold;border-color:gold}50%{box-shadow:0 0 30px gold;border-color:#fff}}
+.swap-lock{border:3px solid #ff4500 !important;box-shadow:0 0 25px rgba(255,69,0,.8) !important;animation:lockPulse .8s ease-in-out infinite}
+@keyframes lockPulse{0%,100%{box-shadow:0 0 20px rgba(255,69,0,.6)}50%{box-shadow:0 0 35px rgba(255,69,0,1)}}
+.shake{animation:twShake .4s ease-in-out}
+@keyframes twShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+.moving{z-index:60}
+.log-container{display:flex;flex-direction:column;background:var(--c-parchment);border:2px solid var(--c-tan);border-radius:6px;overflow:hidden;margin-top:6px;min-height:110px;max-height:170px}
+.log-header{display:flex;justify-content:space-between;align-items:center;background:#d6c9a8;padding:4px 8px;font-weight:bold;font-size:11px;flex-shrink:0}
+#log{flex:1;overflow-y:auto;padding:4px 6px;font-size:10px;line-height:1.5}
+#log .tw-dash{color:var(--c-brown)}
+#log .tw-attack{color:var(--c-danger)}
+#log .immune{color:#8e44ad;font-weight:bold}
+#log .truth{background:#fff3d6;border-left:3px solid var(--c-gold);padding:1px 4px;margin:1px 0}
+.note-panel{margin-top:6px;background:var(--c-panel);border:1px solid var(--c-tan);border-radius:6px;padding:6px 8px;font-size:9px;line-height:1.6;color:#555}
+.note-panel b{color:var(--c-brown)}
+.dmg-float{position:fixed;z-index:10002;pointer-events:none;font-size:12px;font-weight:bold;color:var(--c-danger);animation:dmgUp 1.2s ease-out forwards;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+@keyframes dmgUp{0%{opacity:1;transform:translate(0,0) scale(1.2)}20%{opacity:1;transform:translate(0,-6px) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(4px,-22px) scale(.9)}}
+.zap-float{position:fixed;z-index:10002;pointer-events:none;font-size:20px;font-weight:900;animation:zapUp 1s ease-out forwards;text-shadow:0 0 8px rgba(255,215,0,.9)}
+@keyframes zapUp{0%{opacity:1;transform:translate(0,0) scale(1.3)}30%{opacity:1;transform:translate(0,-10px) scale(1)}100%{opacity:0;transform:translate(0,-26px) scale(.8)}}
+.demo-foot{margin-top:6px;font-size:8px;color:#999;text-align:center}
+</style>
+</head>
+<body>
+<div class="demo-head">
+  <h2>⚡ 唐文亮·冲刺·七伤齐发 — 演出提案 demo V1.1.1</h2>
+  <div class="sub">点 <b>绿框目标格</b>（明教后排）触发：金线连两人 → 真格子对拉（黄=唐文亮 / 红=目标）→ 落定 → 平A一拳。落位=「身后第一个空位」，不换自己人</div>
+</div>
+<div class="scene-bar">
+  <button id="btnScene1">① 普通拽位（第3关 seed11 实拍阵容）</button>
+  <button id="btnScene2">② 免疫挡拽（seed15 · 体检114原场景）</button>
+  <button id="btnReset" style="flex:.5">↺ 重置</button>
+</div>
+<div class="battlefield" id="battlefield">
+  <div class="team-row"><div class="camp-side"><span class="team-label orange">六大派</span></div><div class="grid" id="enemyGrid"></div></div>
+  <div class="team-row"><div class="camp-side"><span class="team-label blue">明 教</span></div><div class="grid" id="allyGrid"></div></div>
+</div>
+<div class="log-container">
+  <div class="log-header"><span>⚔ 战报（报幕同游戏格式）</span></div>
+  <div id="log"><div style="color:#888">选好目标后点绿框格开始…</div></div>
+</div>
+<div class="note-panel" id="notePanel"></div>
+<div class="demo-foot">V1.1.1 | 真值：initBattleTeams(3, seed 11/15) node 探针直出 | 平A=core/12 伤害公式直算 ×1.45 | 仅 demo，不进主库</div>
+<script>
+// ============ 真值：第3关 initBattleTeams 实拍（node 探针，攻防血未加工） ============
+const SCENES = {
+  1: { // seed 11 —— 普通拽位
+    ally: [
+      {pos:2, name:'明教弟子1', icon:'🦅', atk:29.1, def:13.9, hp:105},
+      {pos:5, name:'张无忌', icon:'🏹', tier:'gold', atk:41, def:28, hp:100},
+      {pos:6, name:'韦一笑', icon:'🦅', tier:'purple', atk:35.5, def:26.5, hp:88},
+      {pos:7, name:'明教岳山', icon:'🏹', atk:35, def:21, hp:88},
+      {pos:9, name:'明教洪午', icon:'⚔️', atk:34, def:25, hp:140}
+    ],
+    enemy: [
+      {pos:1, name:'清风', icon:'🛡️', atk:14, def:41, hp:153},
+      {pos:3, name:'昆仑弟子', icon:'🛡️', atk:7.9, def:33.1, hp:178},
+      {pos:4, name:'宋青书', icon:'🦅', tier:'purple', atk:31.9, def:15.1, hp:125},
+      {pos:8, name:'峨眉慧明', icon:'🏹', atk:28.4, def:15.6, hp:118},
+      {pos:9, name:'唐文亮', icon:'🪠', tier:'blue', atk:36.5, def:28.5, hp:142.5, isTW:true}
+    ]
+  },
+  2: { // seed 15 —— 免疫挡拽：张无忌 pos5、寒离飒（位移免疫）占 pos2
+    ally: [
+      {pos:1, name:'明教弟子1', icon:'🦅', atk:34.9, def:19.1, hp:78},
+      {pos:2, name:'寒离飒', icon:'⚔️', tier:'purple', atk:29.5, def:22.5, hp:182.5, ctrlImmune:true},
+      {pos:5, name:'张无忌', icon:'🏹', tier:'gold', atk:36.1, def:19.9, hp:132.5},
+      {pos:6, name:'明教弟子3', icon:'🦅', atk:32.5, def:21.5, hp:78},
+      {pos:9, name:'明教弟子2', icon:'🏹', atk:36.5, def:24.5, hp:70}
+    ],
+    enemy: [
+      {pos:1, name:'崆峒弟子', icon:'🛡️', atk:11.1, def:32.9, hp:170},
+      {pos:3, name:'崆峒唐文亮', icon:'🛡️', atk:11.3, def:35.7, hp:155},
+      {pos:4, name:'宋青书', icon:'🦅', tier:'purple', atk:32.8, def:20.2, hp:110},
+      {pos:5, name:'唐文亮', icon:'🪠', tier:'blue', atk:30.6, def:25.4, hp:165, isTW:true},
+      {pos:8, name:'宗维侠', icon:'🏹', tier:'blue', atk:39.6, def:25.4, hp:82.5}
+    ]
+  }
+};
+// 真值参数（content/200game-data.json 唐文亮.skills / roles.战士）
+const DASH = { cycle:7, dmgRatio:0.45, selfDmgRatio:0.45, dmgBonus:0.45, lowHpExtra:0.30, lowHpThreshold:0.30 };
+const WARRIOR_BONUS = { atk:3, def:3, maxHp:30 };
+
+// ============ 战场（DOM 顺序抄 render/32：敌阵 [7..1]、我阵 [1..9]，前排对前排） ============
+const ALLY_ORDER=[1,2,3,4,5,6,7,8,9], ENEMY_ORDER=[7,8,9,4,5,6,1,2,3];
+let scene=2, state={ally:[],enemy:[]}, busy=false;
+const $=id=>document.getElementById(id);
+const fmtHp=u=>Math.round(u.hp);
+const tierCls=u=>u.tier==='gold'?'gold':u.tier==='purple'?'name-purple':u.tier==='blue'?'name-blue':'';
+const badge=u=>u.isTW&&u.qiShang>0?`<span class="count-badge count-tw">${((u.qiShang-1)%7)+1}/7</span>`:'';
+function cellHtml(u){
+  if(!u) return '';
+  const pct=Math.max(0,Math.floor(u.hp/u.maxHp*100));
+  const cls=pct>70?'hp-text-green':(pct>40?'hp-text-orange':'hp-text-red');
+  const bar=pct>70?'#4caf50':(pct>40?'#ff9800':'#f44336');
+  return `<span class="cell-icon">${u.alive===false?'☠':u.icon}</span>
+    <div class="cell-info"><span class="cell-name ${tierCls(u)}">${u.name}${badge(u)}</span>
+    <span class="cell-stats">攻${Math.round(u.atk)} 防${Math.round(u.def)} <span class="${cls}">血${fmtHp(u)}</span></span></div>
+    <div class="hp-bar-wrap"><div class="hp-bar-inner" style="height:${pct}%;background:${bar}"></div></div>`;
+}
+function renderGrid(gridId, order, team){
+  const g=$(gridId); g.innerHTML='';
+  order.forEach(pos=>{
+    const u=team.find(x=>x.pos===pos);
+    const d=document.createElement('div');
+    d.className='cell'; d.dataset.pos=pos;
+    if(u){ d.innerHTML=cellHtml(u);
+      if(u.ctrlImmune) d.classList.add('immune-mark');
+      if(u.alive!==false && !u.isTW && team===state.ally){ d.classList.add('dashable'); d.title='点我=唐文亮冲刺目标（前排目标不拽位、照打）'; d.onclick=()=>pickTarget(u); }
+    }
+    g.appendChild(d);
+  });
+}
+function renderAll(){ renderGrid('allyGrid',ALLY_ORDER,state.ally); renderGrid('enemyGrid',ENEMY_ORDER,state.enemy); refreshNote(); }
+function loadScene(n){
+  scene=n; busy=false;
+  const s=SCENES[n];
+  state.ally=s.ally.map(u=>({...u,maxHp:u.hp,alive:true,qiShang:0,ctrlImmune:!!u.ctrlImmune,isTW:!!u.isTW}));
+  state.enemy=s.enemy.map(u=>({...u,maxHp:u.hp,alive:true,qiShang:0,ctrlImmune:!!u.ctrlImmune,isTW:!!u.isTW}));
+  $('btnScene1').classList.toggle('active',n===1); $('btnScene2').classList.toggle('active',n===2);
+  $('log').innerHTML=`<div style="color:#888">第3关 seed${n===1?'11':'15'} 真实阵容已就位——点明教侧绿框格（可反复点；前排目标=不拽位照打）。</div>`;
+  renderAll();
+}
+function getCell(camp,pos){ const grid=$(camp==='ally'?'allyGrid':'enemyGrid');
+  for(const c of grid.children) if(String(c.dataset.pos)===String(pos)) return c; return null; }
+function rectOf(camp,pos){ const el=getCell(camp,pos); if(!el) return null;
+  const r=el.getBoundingClientRect(); return {left:r.left,top:r.top,w:r.width,h:r.height,cx:r.left+r.width/2,cy:r.top+r.height/2}; }
+function animate(dur,cb){ return new Promise(res=>{ const t0=performance.now();
+  (function step(t){ const p=Math.min(1,(t-t0)/dur); cb(p); p<1?requestAnimationFrame(step):res(); })(t0); }); }
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const rand=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+
+// ============ 落位规则（老板口径，本 demo 新规则）：不换自己人，落身后第一个空位 ============
+// 拽完目标 → 从 frontPos+1 往后找第一个空位（2空落2、2占落3、3占落4……）；自己当前位=可用；全满=原地
+function findLanding(team, unit, frontPos){
+  for(let p=frontPos+1; p<=9; p++){
+    const occupant=team.find(u=>u!==unit && u.alive!==false && u.pos===p);
+    if(!occupant) return p;
+  }
+  return unit.pos; // 全满：原地不动（照实）
+}
+
+// ============ 演出三拍：连线 → 真格子对拉（黄/红）→ 落定平A ============
+function makeLine(){ // 金线：fx/94 连线同款金橙渐变
+  const d=document.createElement('div');
+  d.setAttribute('data-fx','temporary');
+  d.style.cssText=`position:fixed;left:0;top:0;height:3px;width:0;transform-origin:0 50%;
+    background:linear-gradient(90deg,rgba(255,214,96,.95),rgba(255,150,60,.95));
+    border-radius:2px;z-index:99998;pointer-events:none;box-shadow:0 0 6px rgba(255,180,80,.6);`;
+  document.body.appendChild(d); return d;
+}
+function placeLine(line, x1,y1, x2,y2){
+  const dx=x2-x1, dy=y2-y1, len=Math.hypot(dx,dy);
+  line.style.left=x1+'px'; line.style.top=y1+'px'; line.style.width=len+'px';
+  line.style.transform=`translateY(-50%) rotate(${Math.atan2(dy,dx)*180/Math.PI}deg)`;
+}
+function floatText(camp,pos,txt,cls){
+  const r=rectOf(camp,pos); if(!r) return;
+  const d=document.createElement('div'); d.className=cls; d.textContent=txt;
+  d.style.left=(r.left+r.w/2-10)+'px'; d.style.top=(r.top-6)+'px';
+  document.body.appendChild(d); setTimeout(()=>d.remove(),1300);
+}
+async function punchA(tw, target, twCamp, tgtCamp){ // 平A：攻击线一闪 + 目标白闪抖 + 真公式伤害
+  const from=rectOf(twCamp,tw.pos), to=rectOf(tgtCamp,target.pos);
+  const el=getCell(tgtCamp,target.pos), twEl=getCell(twCamp,tw.pos);
+  // 唐文亮向目标突进一小步（拳头打出去的力感）
+  const dirx0=(to.cx-from.cx)*0.12, diry0=(to.cy-from.cy)*0.12;
+  const dl=Math.hypot(dirx0,diry0)||1, cl=Math.min(dl,14); // 突进收敛≤14px：不冲出自家格区
+  const dirx=dirx0*cl/dl, diry=diry0*cl/dl;
+  if(twEl){ twEl.classList.add('moving'); twEl.style.transition='transform .12s ease-out';
+    twEl.style.transform=`translate(${dirx}px,${diry}px)`; }
+  // 攻击线（.arrow-line 真样式：2px 棕）
+  const al=document.createElement('div');
+  al.setAttribute('data-fx','temporary');
+  al.style.cssText=`position:fixed;height:2px;background:#8B4513;z-index:10001;pointer-events:none;`;
+  document.body.appendChild(al); placeLine(al, from.cx,from.cy, to.cx,to.cy);
+  al.style.boxShadow='0 0 8px rgba(139,69,19,.8)';
+  await animate(160,()=>{});
+  if(twEl){ twEl.style.transform='translate(0,0)'; }
+  // 命中：白闪 + 抖
+  if(el){ el.classList.add('shake');
+    await animate(260,p=>{ el.style.boxShadow=`0 0 ${24*(1-p)+4}px rgba(255,255,255,${0.95*(1-p)+.05})`; });
+    el.classList.remove('shake'); el.style.boxShadow=''; }
+  al.remove();
+  if(twEl){ twEl.style.transform=''; twEl.style.transition=''; twEl.classList.remove('moving'); }
+  // 真公式伤害：calcDamage(攻+rand(1..6), 防+rand(1..4)) × (1.45 / 低血 1.75)（core/12 + modules/26 同口径）
+  const atkAct=tw.atk+rand(1,6), defAct=target.def+rand(1,4);
+  const pen=defAct<=0?atkAct:atkAct*(atkAct/(atkAct+defAct));
+  const low=tw.hp/tw.maxHp<DASH.lowHpThreshold;
+  const mult=1+DASH.dmgBonus+(low?DASH.lowHpExtra:0);
+  const dmg=Math.floor(pen*mult*10)/10;
+  target.hp-=dmg; if(target.hp<=0){ target.hp=0; target.alive=false; }
+  renderAll();
+  floatText(tgtCamp,target.pos,`-${Math.round(dmg)}`,'dmg-float');
+  return { dmg:Math.round(dmg), low };
+}
+
+async function pickTarget(target){
+  if(busy) return; busy=true;
+  const tw=state.enemy.find(u=>u.isTW&&u.alive!==false); if(!tw){ busy=false; return; }
+  const twCamp='enemy', tgtCamp='ally';
+  // 出手计数快进（真实触发=第7次出手）
+  for(let i=0;i<7;i++){ tw.qiShang=Math.min(7,(tw.qiShang%7)+1); renderAll(); await animate(120,()=>{}); }
+  const frontPos=((target.pos-1)%3)+1;
+  const twFromPos=tw.pos, targetFromPos=target.pos;
+  const twCell=getCell(twCamp,twFromPos), tgtCell=getCell(tgtCamp,targetFromPos);
+  if(!twCell||!tgtCell){ busy=false; return; }
+
+  // —— 引擎结算（先算后演，演出只呈现真相）——
+  // 目标：拽到其前排（有占位者=换位；免疫=纹丝不动）
+  const relocateT=(unit,pos)=>{
+    if(!unit||unit.pos===pos) return true;
+    const team=state.ally;
+    const occupant=team.find(u=>u!==unit&&u.alive!==false&&u.pos===pos);
+    if(occupant){
+      if(unit.ctrlImmune||occupant.ctrlImmune) return false;
+      const a=unit.pos; unit.pos=occupant.pos; occupant.pos=a; swapVictim=occupant; return true; // 记下被换走者：动画一起滑，不再瞬移重叠
+    }
+    if(unit.ctrlImmune) return false;
+    unit.pos=pos; return true;
+  };
+  let swapVictim=null;
+  const targetMoved=target.pos>3?relocateT(target,frontPos):true;
+  // 唐文亮：新规则——落身后第一个空位，绝不换走自己人
+  const twLanding=findLanding(state.enemy, tw, frontPos);
+  const twMoved=twLanding!==tw.pos; if(twMoved) tw.pos=twLanding;
+  // 真伤
+  const toFoe=Math.max(1,Math.round(target.hp*DASH.dmgRatio));
+  target.hp-=toFoe; if(target.hp<=0){ target.hp=0; target.alive=false; }
+  const selfWant=Math.max(1,Math.round(tw.hp*DASH.selfDmgRatio));
+  const toSelf=Math.min(selfWant,Math.max(0,Math.floor(tw.hp)-1));
+  if(toSelf>0) tw.hp-=toSelf;
+  // 转战士
+  tw.icon='⚔️'; tw.atk+=WARRIOR_BONUS.atk; tw.def+=WARRIOR_BONUS.def; tw.maxHp+=WARRIOR_BONUS.maxHp;
+
+  // —— 拍一：连线（两人先被一条金线拴住）——
+  const line=makeLine();
+  const a=rectOf(twCamp,twFromPos), b=rectOf(tgtCamp,targetFromPos);
+  await animate(320,p=>{ placeLine(line, a.cx,a.cy, a.cx+(b.cx-a.cx)*p, a.cy+(b.cy-a.cy)*p); });
+
+  // —— 拍二：真格子对拉（唐文亮金光冲刺带过冲、目标红框被拽）——
+  const twTo=rectOf(twCamp,tw.pos), tgtTo=rectOf(tgtCamp,target.pos);
+  const sFrom=twCell.getBoundingClientRect(), tFrom=tgtCell.getBoundingClientRect();
+  const dx=twTo.cx-a.cx, dy=twTo.cy-a.cy, dist=Math.hypot(dx,dy)||1;
+  const ov=twMoved?Math.min(16,dist*0.22):0; // 过冲=位移22%且≤16px：前排落点不再被顶出格区；不挪窝=零过冲
+  const nx=dx/dist, ny=dy/dist;
+  twCell.classList.add('moving','swap-flash');   // 黄：换位金闪（真 CSS）
+  tgtCell.classList.add('moving'); if(targetMoved) tgtCell.classList.add('swap-lock'); // 红：锁定框（真 CSS）
+  // 被换走的占位者：其格子（DOM 还停在前排槽）一起滑去目标旧位——不再瞬移+动画中两格重叠
+  const occCell=swapVictim?getCell(tgtCamp,frontPos):null;
+  const occFrom=occCell?occCell.getBoundingClientRect():null, occTo=occCell?rectOf(tgtCamp,targetFromPos):null;
+  if(occCell) occCell.classList.add('moving');
+  const dur=560;
+  const twAnim=(twMoved
+    ? animate(dur,p=>{ // 冲：0→72% 冲到过冲点，72→100% 回弹落定
+        const tv=Math.min(1,p/.72), e=1-Math.pow(1-tv,3);
+        let x=(twTo.left-sFrom.left)*e+nx*ov*tv, y=(twTo.top-sFrom.top)*e+ny*ov*tv;
+        if(p>.72){ const bk=(p-.72)/.28; x-=nx*ov*bk; y-=ny*ov*bk; }
+        twCell.style.transform=`translate(${x}px,${y}px)`;
+      }).then(()=>{ twCell.style.transform=''; })
+    : Promise.resolve() // 原地不动：只闪金光，一格像素都不挪
+  );
+  const tgtAnim=(targetMoved
+    ? wait(90).then(()=>animate(dur-90,p=>{ const e=1-Math.pow(1-p,3); // 目标稍慢半拍跟上=被拽的节奏
+        tgtCell.style.transform=`translate(${(tgtTo.left-tFrom.left)*e}px,${(tgtTo.top-tFrom.top)*e}px)`; }))
+    : Promise.resolve()
+  ).then(()=>{ tgtCell.style.transform=''; });
+  const occAnim=(occCell&&occTo
+    ? wait(140).then(()=>animate(dur-140,p=>{ const e=1-Math.pow(1-p,3);
+        occCell.style.transform=`translate(${(occTo.left-occFrom.left)*e}px,${(occTo.top-occFrom.top)*e}px)`; }))
+    : Promise.resolve()
+  ).then(()=>{ if(occCell) occCell.style.transform=''; });
+  // 连线跟着两人走（拉到一块去）
+  const lineTrack=animate(dur,p=>{
+    const e=twMoved?1-Math.pow(1-Math.min(1,p/.72),3):0;
+    const x1=a.cx+(twTo.cx-a.cx)*e, y1=a.cy+(twTo.cy-a.cy)*e;
+    const e2=targetMoved?1-Math.pow(1-Math.max(0,(p-.16)/.84),3):0;
+    const x2=b.cx+(tgtTo.cx-b.cx)*e2, y2=b.cy+(tgtTo.cy-b.cy)*e2;
+    placeLine(line,x1,y1,x2,y2);
+  });
+  await Promise.all([twAnim,tgtAnim,occAnim,lineTrack]);
+  twCell.classList.remove('swap-flash','moving'); tgtCell.classList.remove('swap-lock','moving');
+  if(occCell) occCell.classList.remove('moving');
+  line.remove();
+
+  // —— 拍三：落定结算 + 平A ——
+  renderAll();
+  floatText(tgtCamp,targetFromPos,'⚡','zap-float');
+  floatText(tgtCamp,target.pos,`-${toFoe}`,'dmg-float');
+  floatText(twCamp,tw.pos,`-${toSelf}`,'dmg-float');
+  const dragText=targetMoved?`拽 ${target.name} 至 ${frontPos} 号位`:`${target.name} 免疫位移、纹丝不动`;
+  const landText=twMoved?`唐文亮落 ${tw.pos} 号位（身后首个空位）`:`唐文亮已在落位点、原地不动`;
+  let atkLine='';
+  if(target.alive!==false){
+    await wait(320);
+    const r=await punchA(tw,target,twCamp,tgtCamp);
+    atkLine=`<div class="tw-attack">⚔️ 唐文亮 平A ${target.name}：-${r.dmg}（攻${Math.round(tw.atk)}+方差 → 七伤第7击 ${r.low?'×1.75（临危）':'×1.45'}，core/12 公式直算）</div>`;
+  } else {
+    atkLine=`<div class="tw-attack">☠ ${target.name} 已被真伤击倒，平A落空</div>`;
+  }
+  const line1=`⚡ 唐文亮冲刺·七伤齐发：${dragText}，${landText}，双方各受当前生命 45% 真伤（目标 -${toFoe} / 自身 -${toSelf}），转近战战士`;
+  const log=$('log');
+  log.innerHTML=`<div class="tw-dash">${line1}</div>${atkLine}`+
+    (!targetMoved?`<div class="truth">▲ ${target.name} 真没动（免疫拽不动）：<span class="immune">本 demo 按新口径演出——拽不动就不画拖影</span>。线上现行 fx/94 载荷不带免疫标记、蓝块照样把目标拖过去，修不修等你拍板。</div>`:'')+
+    log.innerHTML;
+  tw.qiShang=0; renderAll();
+  busy=false;
+}
+function refreshNote(){
+  $('notePanel').innerHTML = scene===2
+    ? `<b>场景②（seed15）= 体检 114 抓 bug 原场景：</b>张无忌在 5 号位、寒离飒（紫框=位移免疫常驻）占 2 号位。<br>
+       · 点 <b>张无忌</b> → 前排被免疫者占 → 拽不动：红框抖一下、纹丝不动（新口径：不画假拖影）<br>
+       · 点 <b>明教弟子2</b>（9号位）→ 前排3空 → 拽位成功对照<br>
+       · 唐文亮本场景已在 5 号位=落位点，原地出拳（新规则：全满/已就位不挪窝）`
+    : `<b>场景①（seed11）：</b>点 <b>张无忌</b>（5号位）→ 他被拽到明教 2 号位（占位的弟子1 瞬间换去 5 号），唐文亮从 9 号冲刺落到 5 号（身后首个空位：3、4 都有人）——<b>不再换走自己家前排</b>；随后平A一拳（×1.45）。<br>
+       <b>机制速记：</b>积满 7 次出手触发（格子上的 n/7 徽章）；双方各吃当前生命 45% 真伤、自留 1 血；转近战战士（+3攻/+3防/+30血上限，每轮再叠）。`;
+}
+$('btnScene1').onclick=()=>loadScene(1);
+$('btnScene2').onclick=()=>loadScene(2);
+$('btnReset').onclick=()=>loadScene(scene);
+loadScene(2);
+</script>
+</body>
+</html>
