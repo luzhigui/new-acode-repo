@@ -286,7 +286,7 @@ import path from 'node:path';
 //     一击致死被避开的分支，不是缺口消失）。
 //   本件只做机械静态判定（读内容表阈值 + 读主代码判定序列 + 合成穷举），**不改主代码一行**，
 //   判红与否属拍板权 ⇒ 挂 OBSERVES + hard: true（确定型守门），不改 CHECKS 分母、不改退码口径。
-export const VER = 'tests/run-all.mjs V1.59.0';
+export const VER = 'tests/run-all.mjs V1.61.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');

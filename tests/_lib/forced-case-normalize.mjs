@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// V1.1.0 | 2026-11-21 第35轮：补版本日志行（VER 已抬 V1.1.0，此前日志停在 V1.0.0）。
 // tests/_lib/forced-case-normalize.mjs | V1.0.0 | 2026-11-01 夜间第 172 轮
 //
 // 「定向覆盖场次能按哪些强制开关」这一款的**唯一来源**（single source of truth）。
