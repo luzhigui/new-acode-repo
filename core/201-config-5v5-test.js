@@ -3,7 +3,8 @@
 //   禁止 JS/商店页再写第二份数字。
 // V6.9.12 | 2026-11-19 众志召唤池改为「带技能即入池」（skills 有真技能或 mechanics 非空），不再只看 summon 开关
 // V6.9.14 | 2026-11-20 | PCT_PARAM_KEYS 补登 protectMaxHpPct（说不得布袋保护回血 0.2 → 20%，缺登会显示 0.2%）
-export const VER = 'core/201-config-5v5-test.js V6.9.14';
+// V6.9.15 | 2026-11-21 注释口径同步：变体关不再只有第 3 关（第 6 关新增「常规 / 三渡」双变体）
+export const VER = 'core/201-config-5v5-test.js V6.9.15';
 // V6.9.11 | 2026-11-17 废弃 ZHANG_EXCLUSIVE_CHANCE（值保留 0.2，仅防旧引用报错，主代码已无调用点）：
 //   老板改口径——张无忌三个专属不再走「开局独立概率弹窗」，改与普通海克斯等概率进普通池、任何回合都能抽到；
 //   抽中家族任一成员即整族一起进候选，选完整族终身不再出现。家族规则实现见 modules/329（familyOf/pickBuffChoices）。
@@ -496,7 +497,8 @@ const CONFIG = {
     get ENEMY_POS_TEMPLATES() {
         return getGameData().encounters.enemyPosTemplates;
     },
-    // 关卡阵容变体：encounters.squadVariants[stage] 存在时，29battle-init 每局随机抽一组（第三关：宋青书 / 胖远桥）
+    // 关卡阵容变体：encounters.squadVariants[stage] 存在时，330-battle-init 每局随机抽一组
+    //   现有变体关：第 3 关（宋青书 / 胖远桥）、第 6 关（常规阵 / 三渡金刚伏魔阵）
     get ENCOUNTER_VARIANTS() {
         return getGameData().encounters.squadVariants || {};
     },

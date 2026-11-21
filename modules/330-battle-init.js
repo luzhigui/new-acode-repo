@@ -11,7 +11,8 @@
 // V7.9.2 | 2026-11-20 阵容存档升级多档：list/save/use/delete/clear 五个 API，旧 v1 单档兼容读取
 // V7.9.5 | 2026-11-21 补版本日志行（VER 常量已抬，漏写本行致 ver-drift 判领先，跨了两个版本）。
 // V7.9.3 | 2026-11-20 阵容存档含对面六大派：saveAllyLineup 存双方、建队按档还原 enemyTeam（旧档无对面则照常随机）
-export const VER = 'modules/330-battle-init.js V7.9.5';
+// V7.9.6 | 2026-11-21 注释口径同步：变体关不再只有第 3 关（第 6 关新增「常规 / 三渡」双变体）；forcePang 报错去掉「第三关」
+export const VER = 'modules/330-battle-init.js V7.9.6';
 
 // ── RNG 抽签契约版本（initBattleTeams 内随机数消耗的「次数 + 顺序」指纹）──
 // 为什么必须有：V7.6.7 把明教骰子 3→7、六大派骰子 2→6 时没有任何版本标记，
@@ -426,7 +427,8 @@ export function initBattleTeams(currentStage, _rng) {
 
     // 六大派阵容生成
     let enemySquad = C.ENEMY_SQUADS && C.ENEMY_SQUADS[currentStage] ? C.ENEMY_SQUADS[currentStage] : null;
-    // 第三关阵容轮换：encounters.squadVariants[stage] 存在时随机抽一组（走 _rng，PVP 双端同源）
+    // 关卡阵容轮换：encounters.squadVariants[stage] 存在时随机抽一组（第3关 宋青书/胖远桥，第6关 常规/三渡）
+    //   走 _rng，PVP 双端同源
     // 变体升级为 { squad, posTemplate? }：阵容与站位成套下发；posTemplate 缺省才回落关卡级 ENEMY_POS_TEMPLATES
     const squadVariants = C.ENCOUNTER_VARIANTS[currentStage];
     let variantPosTemplate = null;
@@ -439,7 +441,7 @@ export function initBattleTeams(currentStage, _rng) {
         let variant = squadVariants[roll];
         if (forcePang) {
             const target = squadVariants.find(v => v.squad.some(it => it && it.name === '胖远桥'));
-            if (!target) throw new Error('forcePang 生效，但第三关没有含「胖远桥」的阵容变体');
+            if (!target) throw new Error('forcePang 生效，但当前关卡没有含「胖远桥」的阵容变体');
             variant = target;
         }
         enemySquad = variant.squad;
