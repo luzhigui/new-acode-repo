@@ -116,7 +116,7 @@ export const stealSkillHandler = {
                         pool.push({ name: u.name, ...m });
                     });
                 });
-                if (pool.length === 0) return;
+                if (pool.length === 0) return;
                 const picked = pool[getBattleRng().nextInt(0, pool.length - 1)];
                 // 2026-11-21 老板拍板「偷学试试吧有问题优化」：机制安装按偷学者名字读参
                 //   （getSkillParams/getMechanicField 都查 characters[空智]），空智自己没那些参数 = 白偷
