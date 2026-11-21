@@ -28,9 +28,13 @@
             padding-left: 10px; border-left: 3px solid #ffd700;
         }
         .btn-grid { display: grid; gap: 10px; }
-        /* 2026-11-21 统一按钮版式：等高、文字不换行、行内留缝，窄屏不再出现两行/三行参差 */
-        .btn-row { display: flex; gap: 8px; margin-bottom: 10px; }
+        /* 2026-11-21 统一按钮版式：等高、文字不换行；同一行保持连体（首尾外圆角 + 中间细分隔线），不拆成小块 */
+        .btn-row { display: flex; gap: 0; margin-bottom: 10px; }
         .btn-row:last-child { margin-bottom: 0; }
+        .btn-row .big-btn { border-radius: 0; }
+        .btn-row .big-btn:first-child { border-radius: 10px 0 0 10px; }
+        .btn-row .big-btn:last-child { border-radius: 0 10px 10px 0; }
+        .btn-row .big-btn:not(:last-child) { border-right: 1px solid rgba(0,0,0,0.22); }
         .big-btn {
             display: flex; align-items: center; justify-content: center;
             width: 100%; min-height: 46px; padding: 10px 8px;
