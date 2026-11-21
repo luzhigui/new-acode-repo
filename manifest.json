@@ -1,5 +1,5 @@
 {
- "ver": "d9079e4fbbfcddb0a6c6abd0a925ebae9c252afe82565e7f595049d1ca8a6bc9",
+ "ver": "9f674ccc4e137b1530bc105387ed7e47807919b23ee5b596f458681b56610372",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 157,
  "files": [
@@ -313,7 +313,7 @@
   ],
   [
    "modules/319-elite-mingjiao-hanlisa.js",
-   "78d5f988a1289a9f21db5947b53cb80b7ebc491dc07b3e2dcd525eabe5a33af5"
+   "9ad15ce9c23f86ff102678d1608d40b0a0d02cc259972f7c2e330df068bce3ee"
   ],
   [
    "modules/320-elite-mingjiao-zhangwuji.js",
