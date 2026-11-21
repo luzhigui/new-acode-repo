@@ -10,7 +10,7 @@ import { getSkillDesc, getGameData, isNamedCharacter, hasSkills } from '../core/
 import { baseHeroName } from '../core/202-unit.js';
 import { ROLE_TYPES } from '../infra/106-battle-enums.js';
 
-export const VER = 'render/414-role-cards.js V2.0.2';
+export const VER = 'render/414-role-cards.js V2.1.0';
 
 // 显示名唯一出口（#16，老板 2026-11 定调）：数据名 / 机制键 / 归属判据一律不动，
 //   只把展示用的全名换算成短名 —— 金毛狮王谢逊 →「金毛狮王」（格子、幻影、战报/日志同源）。
@@ -151,9 +151,8 @@ const SKILL_HIDDEN = new Set(['holyTokenLuck']);
 // 格子（render/403）与冲刺克隆体（fx/616）都必须用本函数取色档。
 //   以前两处各自内联一份逐字相同的判据，注释都写“同一套”，靠人手同步——
 //   加新档位（如 m≥120 橙金）时改一处漏一处，格子和克隆体就会不同色。
-// 色档规则（老板拍板 黑蓝紫金）：
-//   绿 = M100 带技能的普通兵（说不得/周颠/武当莲舟/峨眉素问等）
-//   金 = m≥112（boss 档）· 紫 = m≥107（精英档）· 蓝 = m≥104 且具名（弱精英档）· 其余黑（不返回 class）
+// 色档规则（老板拍板 黑蓝紫金红）：
+//   红 = m≥120（炎魔狮王等传说档）· 金 = m≥112（boss 档）· 紫 = m≥107（精英档）· 蓝 = m≥104 且具名（弱精英档）· 其余黑（不返回 class）
 // 参数说明：name 传「展示名」（成昆幻影要传被模仿者的名字，让克隆体和格子都跟随模仿者档位）；
 //          m 传「判断档位的 m 值」（同样跟随成昆幻影而被覆盖的场景）。
 export function getNameColorTier(name, m) {
@@ -161,6 +160,7 @@ export function getNameColorTier(name, m) {
     const base = baseHeroName(raw);
     const mm = (typeof m === 'number') ? m : 0;
     if (mm === 100 && hasSkills(base)) return 'name-green';
+    if (mm >= 120) return 'name-red';
     if (mm >= 112) return 'gold';
     if (mm >= 107) return 'name-purple';
     if (mm >= 104 && isNamedCharacter(base)) return 'name-blue';

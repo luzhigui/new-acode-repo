@@ -849,7 +849,7 @@ export function showHanlisaAim(c, hls, payload, resolve) {
 #hlsAimOv .cell-stats { font-size: 7px; color: #555; display: flex; flex-wrap: wrap; gap: 2px; min-width: 0; overflow: hidden; }
 #hlsAimOv .hp-bar-wrap { width: 8px; height: 100%; background: #ccc; border-radius: 3px; flex-shrink: 0; align-self: stretch; position: relative; }
 #hlsAimOv .hp-bar-inner { position: absolute; bottom: 0; width: 100%; border-radius: 3px; }
-#hlsAimOv .cell-name.name-blue { color: #2e6fb7; } #hlsAimOv .cell-name.name-purple { color: #8e44ad; } #hlsAimOv .cell-name.name-gold { color: #b8860b; }
+#hlsAimOv .cell-name.name-blue { color: #2e6fb7; } #hlsAimOv .cell-name.name-purple { color: #8e44ad; } #hlsAimOv .cell-name.name-gold { color: #b8860b; } #hlsAimOv .cell-name.name-red { color: #ff3b30; }
 #hlsAimOv .hp-text-green { color: #2e7d32; } #hlsAimOv .hp-text-orange { color: #d2691e; } #hlsAimOv .hp-text-red { color: #c0392b; }
 #hlsAimOv .cu { display: flex; align-items: center; gap: 4px; width: 100%; min-width: 0; will-change: transform; }
 #hlsAimOv .fxLayer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }

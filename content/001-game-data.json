@@ -210,7 +210,7 @@
 
     "渡厄": {
       "named": false, "tags": ["六大派", "少林", "精英"],
-      "m": 104, "poolTier": 104, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": false,
+      "m": 115, "poolTier": 115, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": false,
       "mechanics": [
         { "camp": "enemy", "type": "monkFixedBuff", "buffType": "defense" }
       ]
@@ -218,7 +218,7 @@
 
     "渡劫": {
       "named": false, "tags": ["六大派", "少林", "精英"],
-      "m": 104, "poolTier": 104, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": false,
+      "m": 115, "poolTier": 115, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": false,
       "mechanics": [
         { "camp": "enemy", "type": "monkFixedBuff", "buffType": "doubleAttack" }
       ]
@@ -226,7 +226,7 @@
 
     "渡难": {
       "named": false, "tags": ["六大派", "少林", "精英"],
-      "m": 104, "poolTier": 104, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": false,
+      "m": 115, "poolTier": 115, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": false,
       "mechanics": [
         { "camp": "enemy", "type": "monkFixedBuff", "buffType": "dodge" }
       ]
@@ -1626,9 +1626,9 @@
         {
           "squad": [
             { "name": "炎魔狮王", "role": "炎魔", "m": 171 },
-            { "name": "渡厄", "role": "防战", "m": 104 },
-            { "name": "渡劫", "role": "战士", "m": 104 },
-            { "name": "渡难", "role": "飞行", "m": 104 }
+            { "name": "渡厄", "role": "防战", "m": 115 },
+            { "name": "渡劫", "role": "战士", "m": 115 },
+            { "name": "渡难", "role": "飞行", "m": 115 }
           ],
           "posTemplate": {}
         }
@@ -1659,9 +1659,9 @@
       ],
       "6": [
         { "name": "成昆", "role": "防战", "m": 112, "skill": "phantomThunder" },
-        { "name": "渡厄", "role": "防战", "m": 104, "skill": "monkFixedBuff" },
-        { "name": "渡劫", "role": "战士", "m": 104, "skill": "monkFixedBuff" },
-        { "name": "渡难", "role": "飞行", "m": 104, "skill": "monkFixedBuff" },
+        { "name": "渡厄", "role": "防战", "m": 115, "skill": "monkFixedBuff" },
+        { "name": "渡劫", "role": "战士", "m": 115, "skill": "monkFixedBuff" },
+        { "name": "渡难", "role": "飞行", "m": 115, "skill": "monkFixedBuff" },
         { "name": "炎魔狮王", "role": "炎魔", "m": 171, "skill": "blazeBurst" }
       ],
       "7": [
