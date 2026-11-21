@@ -25,6 +25,20 @@ export function getPoolSize(override) {
 //   现在每个 job 下发后计时，超时未回报即终止全池并抛出带 job 标签的错误（能直接看出是哪一关/哪个单位）。
 const JOB_TIMEOUT_MS = 180000;
 
+// V1.3.1 | 2026-11-21 版本偏差自愈：站点刚重新部署时，页面里的旧代码会碰到新游戏数据
+//   （数据里多出未注册的机制 → core/216 抛「未知顶层机制」）。这不是逻辑错误，也不该让用户看到红字：
+//   自动整页刷新一次（HTML 重新拉最新、工具脚本带 ?t= 重新拉、引擎再按新版本装配），60s 内只刷一次防循环。
+function maybeReloadOnVersionSkew(err) {
+    const msg = String((err && err.message) || err || '');
+    if (!/未知顶层机制|未在 core\/219 注册/.test(msg)) return false;
+    let last = 0;
+    try { last = parseInt(sessionStorage.getItem('mf_ver_skew_ts'), 10) || 0; } catch (e) { return false; }
+    if (Date.now() - last < 60000) return false;
+    try { sessionStorage.setItem('mf_ver_skew_ts', String(Date.now())); } catch (e) { return false; }
+    setTimeout(() => location.reload(), 600);
+    return true;
+}
+
 export async function runParallel({ jobs, kind, nextJobMsg, onJobDone, onAllDone, poolSize, workerUrl = SHARED_WORKER_URL }) {
     return new Promise((resolve, reject) => {
         const workers = [];
@@ -43,6 +57,7 @@ export async function runParallel({ jobs, kind, nextJobMsg, onJobDone, onAllDone
             aborted = true;
             clearAllTimers();
             workers.forEach(x => x.terminate());
+            maybeReloadOnVersionSkew(err);
             reject(err);
         };
 
