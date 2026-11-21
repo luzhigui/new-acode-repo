@@ -42,7 +42,7 @@ export const wuChiHandler = {
                 if (dAtk < 2 && dDef < 2) continue;
                 const rng = getBattleRng();
                 if (rng.next() >= 0.3) continue;                    // 30% 触发率，防刷屏
-                const roll = rng.nextInt(0, 7);
+                const roll = rng.nextInt(0, 5);          // 6 种顿悟 + 1 种走火入魔
                 let text = '';
                 switch (roll) {
                     case 0:
@@ -63,16 +63,8 @@ export const wuChiHandler = {
                         text = '💚 武痴顿悟：回复1点生命';
                         break;
                     case 4:
-                        self.state._acted = false;
+                        self.state._acted = false;               // 214 的 getNextAvailableUnit 读它
                         text = '💨 武痴顿悟：恢复行动力';
-                        break;
-                    case 5:
-                        self.state._dodgeChance = (self.state._dodgeChance || 0) + 1;
-                        text = '👟 武痴顿悟：闪避+1%';
-                        break;
-                    case 6:
-                        self.state._missChanceBonus = (self.state._missChanceBonus || 0) - 1;
-                        text = '🎯 武痴顿悟：未命中-1%';
                         break;
                     default:
                         self.state._stunned = true;
