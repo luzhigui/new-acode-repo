@@ -3,8 +3,9 @@
 // 「唐文亮 + 1/7 + 2 个 logo」挤爆格子；现在胶囊算 1 个名额，最多再显示最新 1 个 logo
 // V7.1.15 | 2026-11-21 补版本日志行（VER 常量已抬，漏写本行致 ver-drift 判领先）。
 // V7.1.16 | 2026-11-22 三渡 logo：2 号位严阵以待 🛡️、渡难流云身法 💨（两者不走团队 buff，原先格子无图标）
+// V7.1.17 | 2026-11-22 渡劫概率连击补 ⚡（不走轮盘，step.doubleStrikeUid 里没有他）
 // V7.1.14 | 2026-11-19 寒毒图标去重：玄冥毒/寒离飒/蹦蹦三源同时挂时格子上只出一个 ❄️
-export const VER = 'render/403-grid-render.js V7.1.16';
+export const VER = 'render/403-grid-render.js V7.1.17';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHpText, fmtAtk } from '../infra/102-core-utils.js';
 import { eventBus } from '../infra/101-event-bus.js';
@@ -333,6 +334,8 @@ export function renderGrid(id, camp) {
             const sanDuIcons = [];
             if (unit.state._sanDuFortify && !buffIcons.includes('🛡️')) sanDuIcons.push('🛡️');
             if (unit.state._sanDuLiuYun && !buffIcons.includes('💨')) sanDuIcons.push('💨');
+            // 渡劫·概率连击：不走轮盘抽签，step.doubleStrikeUid 里没有他，2.1.1 起用常驻旗补 ⚡
+            if (unit.state._sanDuDoubleStrike && !buffIcons.includes('⚡')) sanDuIcons.push('⚡');
             if (sanDuIcons.length) buffIcons = (buffIcons ? buffIcons + ' ' : '') + sanDuIcons.join(' ');
         }
         // 小昭·妹永久海克斯 logo（老板需求）：有全局激活海克斯优先显示全局（上面 buffIcons 已填）；

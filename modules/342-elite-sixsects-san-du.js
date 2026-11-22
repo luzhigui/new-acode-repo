@@ -18,7 +18,8 @@
 // V2.0.0 | 2026-11-22 老板口径落地：渡劫改 80% 概率连击；删 7/9 热血奋战（只留回血 30）；2 号位严阵以待补受击反弹 40%+战报/横幅/飘字；流云/严阵以待补回合播报；两个 40% 共用同一常量
 // V2.0.1 | 2026-11-22 修V2雷:概率连击掷骰nextFloat不存在(EventBus吞TypeError=连击静默死),改全仓惯例nextInt(1,100)
 // V2.1.0 | 2026-11-22 老板口径：三渡与炎魔全体免疫控制；炎魔双发炎爆——回合开始 18 点，轮到自己蓄力、回合收尾 28 点
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.1.0';
+// V2.1.1 | 2026-11-22 渡劫概率连击格子补 ⚡ logo（_sanDuDoubleStrike 常驻旗，同流云💨/严阵🛡️ 出口）
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.1.1';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -102,6 +103,8 @@ export const monkFixedBuffHandler = {
             });
         } else if (decl.buffType === 'doubleAttack') {
             // 渡劫·概率连击：命中/闪避后 80% 概率追加一次（每回合只掷一次骰，不 100% 必发）
+            // 格子 ⚡：连击不是轮盘抽的，step.doubleStrikeUid 里没有他 → 用常驻旗给格子补 logo
+            self.state._sanDuDoubleStrike = true;
             const submitSecond = (data) => {
                 if (!data || data.unit !== self || !self.alive) return;
                 if (self.state._doubleStrikeRolled) return;
