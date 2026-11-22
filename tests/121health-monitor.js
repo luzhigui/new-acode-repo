@@ -1,3 +1,6 @@
+// V6.14.1 | 2026-11-22：快速跑完默认档位 300(原速2x)→50(8x)：
+//   旧默认 240s 只爬到第 3 关、目标 7 永远到不了，规则可验场次极少；同时按钮高亮按档位选
+//   （50→btnSpeed8x / 150→btnSpeed4x），修掉「点 4x 却写 50/300」的倍速一致性失配。
 // V6.14.0 | 2026-11-21：🩺 体检「有效性红线」——修三类假绿：
 //   ① 规则一次都没跑（执行0条）时，终局强制补一条「体检有效性」红并给横幅改成 ⚠（旧版只写绿✅完成，用户实跑 240s 得到 0 异常）；
 //   ② GAMEOVER 跑规则不再依赖「必须先看到 RUNNING」（快进/秒切场会漏，规则整批不执行）；
@@ -10,7 +13,7 @@
 //   （本文件不再 import 123static-scan.js / 不绑 btnModeStatic / 不留第二份 renderStaticReport）；
 //   ② 报告加 coverage 字段与「覆盖不足」显形：在册/执行/未触发/跳过率一次写清，
 //     不再把「规则大面积没触发」呈现成「代码没问题」。判据、规则表、回放口径一字未动。
-export const VER = 'tests/121health-monitor.js V6.14.0';
+export const VER = 'tests/121health-monitor.js V6.14.1';
 // V6.12.1 | 2026-11-09 白天合入：保留夜间第 196 轮的表驱动逐条容错骨架，把白天新增的 39 条规则补回 RULE_MODULES 表与 allRules（两边都动过 121，直接取任一边都会让规则掉出执行面）。
 // V6.12.0 | 2026-11-08 夜间第 196 轮：规则装载从 123 条**静态 import** 改为 RULE_MODULES 表 + 动态 import 逐条容错。
 //   动因：249~252 四个规则文件上游从未提交，静态 import 让整个模块解析失败 —— 浏览器侧 120test-runner.html
@@ -333,7 +336,7 @@ let pendingIssueCounts = {};
 // 与手动自检模式（120test-runner.html 交互）并行：auto=1 时无人值守自动跑完整关卡，
 // 结束（跑完目标关或超时）后在 window.__healthResult 暴露完整报告，供自动化工具快速读取
 // start=起始关：默认从第2关开始（第1关无精英无机制，跑了白跑；第2关起有内容），可用 start=1..7 覆盖
-let autoMode = false, autoBudgetMs = 240000, autoStageTarget = 7, autoSpeedVal = 300;
+let autoMode = false, autoBudgetMs = 240000, autoStageTarget = 7, autoSpeedVal = 50;
 let autoStartStage = 2;
 let hexModeResolved = 'dual'; // 双海克斯体检默认开启（2026-11-04 起）；?hexMode=single 退回单海克斯
 let autoStartedAt = 0, autoTargetReached = false, autoDone = false, maxStageSeen = 0, autoTargetDoneAt = 0;
@@ -343,7 +346,9 @@ try {
     if (autoMode) {
         autoBudgetMs = (parseInt(_p.get('budget'), 10) || 240) * 1000;
         autoStageTarget = parseInt(_p.get('stages'), 10) || 7;
-        autoSpeedVal = parseInt(_p.get('speed'), 10) || 300; // 游戏 speed 值（ui/77 V1.1.1 全局×2）：50=8x, 150=4x, 300=原速(2x), 400=取消档
+        autoSpeedVal = parseInt(_p.get('speed'), 10) || 50; // 游戏 speed 值（ui/77 V1.1.1 全局×2）：50=8x, 150=4x, 300=原速(2x), 400=取消档
+// V6.14.1：默认 300(原速2x) 下 240s 只爬到第3关、目标7永远到不了 ⇒ 覆盖极低。
+//   默认改 50(8x)，同样预算能多打几关，规则才有足够场次可验。
     }
     // 起始关：手动体检与一键自动体检统一生效；默认第2关（2026-10-07 老板拍板 3→2），可用 start=1..7 覆盖
     autoStartStage = Math.min(7, Math.max(1, parseInt(_p.get('start'), 10) || 2));
@@ -605,8 +610,10 @@ export async function initMonitor() {
                             const dbgBtn = doc.getElementById('debugToggle');
                             if (dbgBtn) dbgBtn.click();
                         }
-                        const sp4 = doc.getElementById('btnSpeed4x');
-                        if (sp4 && !sp4.classList.contains('active')) sp4.click();
+                        // V6.14.1：按 autoSpeedVal 选对应档位按钮（50→8x / 150→4x），
+                        //   旧代码固定点 4x 却把 speed 写成 300/50，倍速一致性检查必然失配。
+                        const spBtn = doc.getElementById(autoSpeedVal <= 50 ? 'btnSpeed8x' : 'btnSpeed4x');
+                        if (spBtn && !spBtn.classList.contains('active')) spBtn.click();
                     }
                 } catch (e) {}
                 // 自动后台模式：快进(1ms/步) + 计时，结束后输出报告，保证快速出结果
