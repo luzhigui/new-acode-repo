@@ -3,7 +3,8 @@
 //           322 新增时漏登记 ⇒ Unit.clone 的 assertStateFullyRegistered 抛错，带小昭·姊的对局
 //           （主游戏 + 816/808/809/811/812 全部跑批）在第 2 轮 stepper clone 时全炸。
 // V2.11.4 | 2026-11-20 | 补登记 _zhiQuNote（341 写入/204·210·217 读取后清，漏登记 ⇒ Unit.clone 撞 assertStateFullyRegistered）
-export const VER = 'core/218-state-keys.js V2.11.4';
+// V2.11.5 | 2026-11-22 补登记 _sanDuHotBlood(三渡阵位热血奋战旗)
+export const VER = 'core/218-state-keys.js V2.11.5';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -171,6 +172,7 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _untargetable:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false, tags: [STATE_TAGS.UNTARGETABLE] },
     _hotBloodCount:          { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _doubleStriked:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _sanDuHotBlood:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 三渡阵位热血奋战旗（342 阵位授予 7/9 号位）
     _zhangSwitched:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _fortifyStacks:          { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _fortifyIncrement:       { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },

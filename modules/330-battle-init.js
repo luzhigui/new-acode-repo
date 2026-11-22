@@ -13,7 +13,8 @@
 // V7.9.3 | 2026-11-20 阵容存档含对面六大派：saveAllyLineup 存双方、建队按档还原 enemyTeam（旧档无对面则照常随机）
 // V7.9.6 | 2026-11-21 注释口径同步：变体关不再只有第 3 关（第 6 关新增「常规 / 三渡」双变体）；forcePang 报错去掉「第三关」
 // V7.9.7 | 2026-11-21 新增 forceSanDu：dev-index 🐲 按钮强制抽含炎魔狮王的第 6 关三渡变体（找不到照常随机）
-export const VER = 'modules/330-battle-init.js V7.9.7';
+// V7.9.8 | 2026-11-22 空智(M104,少林)入六大派M104精英池(老板拍板)
+export const VER = 'modules/330-battle-init.js V7.9.8';
 
 // ── RNG 抽签契约版本（initBattleTeams 内随机数消耗的「次数 + 顺序」指纹）──
 // 为什么必须有：V7.6.7 把明教骰子 3→7、六大派骰子 2→6 时没有任何版本标记，
@@ -32,7 +33,7 @@ export const RNG_CONTRACT_VERSION = 'rng-contract-v2';
 //   导出给 tools/820 参数实验室的「关卡角色过滤」用——工具里不再抄一份名单，避免两边漂移。
 export const SIX_SECTS_WEAK_ELITE_POOLS = Object.freeze({
     M107: ['张三丰', '宋青书', '周芷若', '胖远桥', '灭绝师太'],
-    M104: ['何太冲', '唐文亮', '空见'],
+    M104: ['何太冲', '唐文亮', '空见', '空智'],
     M100: ['俞莲舟', '素问', '少林圆真']
 });
 
