@@ -16,7 +16,10 @@
 //
 // 与已删三个旧工具的关系：模板战力（靶子饱和、不能排序）、交叉积分赛（积分受对手强弱污染）、
 //   关卡精英评分（只反映七关场景）都被本榜取代；2026-11-19 用户拍板全删。
-export const VER = 'tools/851-elite-bench.js V1.0.0';
+export const VER = 'tools/851-elite-bench.js V1.0.1';
+// V1.0.1 | 2026-11-22 空智（只写 mechanics、没有 skills）纳入榜单：
+//   原入选条件是「skills 非空」，空智的武痴/偷学全在 mechanics → 被漏掉；
+//   现在 skills 或 mechanics 任一非空即算精英。pickGeneric 同步排除 mechanics 单位，避免空智被当普通兵替身。
 
 import { runParallel } from './817-shared-worker-runner.js';
 import { loadGameData, getGameData } from '../core/201-config-5v5-test.js';
@@ -85,7 +88,9 @@ function collectCands() {
     const chars = getGameData()?.characters || {};
     for (const [n, c] of Object.entries(chars)) {
         if (c.camp !== '明教' && c.camp !== '六大派') continue;
-        if (Object.keys(c.skills || {}).length === 0) continue;
+        // V1.0.1：空智这类「只写 mechanics、没有 skills」的精英也要进榜（武痴/偷学全在 mechanics）
+        const hasSkill = Object.keys(c.skills || {}).length > 0 || (Array.isArray(c.mechanics) && c.mechanics.length > 0);
+        if (!hasSkill) continue;
         const role = c.role || ROLES.find(r => (c.tags || []).includes(r)) || null;
         if (n === '鹤笔翁') continue;
         if (n === '鹿杖客') {
@@ -122,6 +127,7 @@ function pickGeneric(camp, role) {
     for (const [n, c] of Object.entries(chars)) {
         if (c.camp !== camp) continue;
         if (Object.keys(c.skills || {}).length !== 0) continue;
+        if (Array.isArray(c.mechanics) && c.mechanics.length) continue;   // V1.0.1 空智（mechanics 精英）不算普通兵替身
         const r = c.role || ROLES.find(x => (c.tags || []).includes(x));
         if (r !== role) continue;
         const m = c.m || 0;
