@@ -1,12 +1,13 @@
 // core/212-battle-attack-chain.js — 攻击流程主干（选敌 → 命中/闪避 → 伤害 → 应用 → 构建攻击组 + 闪避效果）
 // 边裁与纯工具（computeDodgeChance / snapshotUnitForFact / resolveDeaths / resolveAfterDamageEffects /
 //   resolveDamageImmune / isUnitStunned）在 213-battle-attack-edge.js。
+// V1.0.20 | 2026-11-22 伤害行右值改取本击落血当刻 hpAfterHit（applyStatChange 前），同帧回血不再把伤害行变成「53 → 56」
 // V1.0.19 | 2026-11-21 补版本日志行（VER 常量已抬，漏写本行致 ver-drift 判领先）。
 // V1.0.18 | 2026-11-17 FIX-2026-1117-11：近战打前排=硬规则。selectAttackTarget 的手动/候选池两路
 //   统一过 core/203 的 getMeleeLegalTargetSet/isMeleeLegalTarget，手动拖拽再也选不到后排。
 //   声明层（BEFORE_SELECT_TARGET 指定 targetResult）与 core/209 锁定目标/换目标旁路不在本次范围：
 //   实测在 emit 后追加 isMeleeLegalTarget 会破坏同种子双跑复现性（seed=5 stage=3），故不在此处加闸。
-export const VER = 'core/212-battle-attack-chain.js V1.0.19';
+export const VER = 'core/212-battle-attack-chain.js V1.0.20';
 
 import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
 // 小昭运行时改名为「小昭·姊/妹」，查任何以角色名为键的数据表都要退回主名（否则圣火令气运永不生效）
@@ -405,6 +406,8 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     // 被单次受伤上限吃掉的那部分：战报的伤害行/飘字必须扣掉它（旧版仍印截断前的 53，
     //   而血量只掉 1）。只记账不影响结算——dmg 本身仍按原值供吸血/反伤/破防计。
     const cappedLoss = Math.max(0, hpLossBeforeCap - hpLoss);
+    // 本击落血当刻血量：必须在 applyStatChange 之前取——背水一战等受击钩子在 applyStatChange 内部同步抬
+    //   maxHp/回血（战士加成 maxHp+30），调用后 target.hp 已不是「刚扣完血」的值。
     let hpAfter = target.hp - hpLoss;
     let dead = hpAfter <= 0;
     applyStatChange(target, 'hp', -hpLoss, unit, '攻击伤害');
@@ -524,7 +527,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         }
     }
 
-    return { dmg, dead, cappedLoss, horseReboundDeclarations, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, atkAct, defAct, hpBonus, fortifyDeclarations, _shield: target.state._shield || 0, _shieldExtra: target.state._shieldExtra || 0, _permShield: target.state._permShield || 0, shieldAbsorbed };
+    return { dmg, dead, cappedLoss, hpAfterHit: hpAfter, horseReboundDeclarations, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, atkAct, defAct, hpBonus, fortifyDeclarations, _shield: target.state._shield || 0, _shieldExtra: target.state._shieldExtra || 0, _permShield: target.state._permShield || 0, shieldAbsorbed };
 }
 
 // 步骤5：构建攻击事实
@@ -548,6 +551,9 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
         bonusEntries.forEach(e => pendingEntries.push(e));
     }
 
+    // 伤害行右值取「本击扣血落定当刻」（hpAfterHit），同帧回血（背水抬上限等）由独立回血行承担，
+    //   否则会出现「造成 27 伤害，53 → 56」自相矛盾。
+    const targetHpAfterHit = dmgResult.hpAfterHit !== undefined ? dmgResult.hpAfterHit : target.hp;
     const snap = {
         attackerPos: unit.pos,
         targetPos: target.pos,
@@ -568,8 +574,8 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
         // 被动出手原因（纯展示）：反击/跟随/随动/联动/追击——render 层徽章与飘字的依据
         linkReason: unit.state?._linkReason || null,
         targetDefDisplay: Math.floor(getStat(target, 'def')),
-        targetHpAfter: fmtHp(target.hp),
-        targetHpAfterReal: target.hp,
+        targetHpAfter: fmtHp(targetHpAfterHit),
+        targetHpAfterReal: targetHpAfterHit,
         targetAlive: target.alive
     };
 

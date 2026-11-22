@@ -1,6 +1,7 @@
 // core/209-battle-attack.js — 攻击主流程（选敌 → 命中/闪避 → 伤害 → 裁定 → 额外攻击/连锁 → 死亡结算）
+// V6.4.19 | 2026-11-22 静默回血基线预置为 hpAfterHit（本击扣血当刻），回血行与伤害行数字同源
 // V6.4.18 | 2026-11-19 | fact 出口收口（T-EP-1）：IMMUNE 事实裸 log.push → pushFact
-export const VER = 'core/209-battle-attack.js V6.4.18';
+export const VER = 'core/209-battle-attack.js V6.4.19';
 
 import { CONFIG } from './201-config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked, canBeTargeted } from './203-battle-utils.js';
@@ -546,6 +547,13 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     }
 
     log.push(group);
+
+    // 静默回血基线对齐伤害行右值：本击扣血落定当刻（hpAfterHit，背水等同帧抬上限/回血之前）。
+    //   不预置的话，受击钩子抬上来的血会被算成「从扣血前涨了」，回血行与本行伤害的数字打架。
+    //   致死一击不预置（hpAfterHit ≤ 0），避免 clamp 到 0 的 HP_CHANGE 被误判成一次回血。
+    if (dmgResult.hpAfterHit !== undefined && dmgResult.hpAfterHit > 0 && !dmgResult.dead && target && target.uid != null) {
+        healTrace.set(target.uid, dmgResult.hpAfterHit);
+    }
 
     // 组内静默回血补账：扫本轮新增的 HP_CHANGE 事件，血涨且组内没有该 uid 的回血行 → 补一条带账字段的日志行。
     //   hpBefore 取该 uid 上一事件（没有就取本帧起点快照），healAmount 取实际血量差，不做二次取整。
