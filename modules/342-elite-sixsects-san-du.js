@@ -21,7 +21,8 @@
 // V2.1.1 | 2026-11-22 渡劫概率连击格子补 ⚡ logo（_sanDuDoubleStrike 常驻旗，同流云💨/严阵🛡️ 出口）
 // V2.1.2 | 2026-11-22 炎爆/蓄力强制自成一组：回合开始那发 18 紧跟回合头时也画分隔符（separatorForce 放行）
 // V2.1.3 | 2026-11-22 老板口径：炎爆（开局 18 / 收尾 28）可被闪避，但不触发闪避反击——只判闪避率，不走进攻链
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.1.3';
+// V2.1.4 | 2026-11-22 金刚伏魔阵回血日志改绿色（tone:'heal'）；飘字 💚 本就在（V1.1.4 补），确认可用
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.1.4';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -170,7 +171,8 @@ export const monkFixedBuffHandler = {
                 if (healed > 0) {
                     pushSkillAnnounce(data && data.log, self, '金刚伏魔阵',
                         `${self.name} 金刚伏魔阵回复 ${Math.round(healed)} 点生命（${Math.round(hpBefore)} → ${Math.round(self.hp)}）`,
-                        { floatText: '💚', floatUid: self.uid });
+                        // 回血=绿色日志 + 绿色飘字（老板 2026-11-22 口径：恢复类走绿色，伤害/加防才金色）
+                        { floatText: '💚', floatUid: self.uid, tone: 'heal' });
                 }
             }
         });
