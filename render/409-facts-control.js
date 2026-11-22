@@ -1,7 +1,8 @@
 ﻿// render/409-facts-control.js — 效果域·控制位移族 fact 渲染器
 //   控制位移族（乘风波及/击退/眩晕/行动跳过/惑心换位/蝶变/蛛飞）16 条整块迁入。
 //   与 render/417-actions-translate-control.js 同族名——加新控制 fact 时「翻译器去 38c、渲染器来 35c」一眼对上。
-export const VER = 'render/409-facts-control.js V1.0.6';
+// V1.0.7 | 2026-11-22 蓄意轰拳击退/退无可退自成一组：返回行带 needsSeparator，不再贴上一家攻击组尾巴
+export const VER = 'render/409-facts-control.js V1.0.7';
 
 import { registerFactRenderer } from './406-fact-registry.js';
 import { makeFXSnapshot, fmtHpText, fmtNum, fmtAtk } from '../infra/102-core-utils.js';
@@ -21,10 +22,12 @@ export function renderWindAssaultSplashFact(fact) {
 }
 
 export function renderWindAssaultPushFact(fact) {
+    // 蓄意轰拳系列自成一组：前面补分隔符（老板 2026-11-22：击退播报不能贴在上一家攻击组尾巴上）
+    const sep = typeof fact.label === 'string' && fact.label.indexOf('蓄意轰拳') === 0;
     if (fact.behindUnit) {
-        return {type:'buff-push', pushTargetUid: fact.target.uid, behindUid: fact.behindUnit.uid, oldPos: fact.oldPos, newPos: fact.behindPos, behindOldPos: fact.behindOldPos, buffType: BUFF_SUBTYPES.PUSH, text:`<span class="gold" style="font-size:1.1em;">${fact.label}击退！${fact.target.name}从${fact.oldPos}号位击退至${fact.behindPos}号位，${fact.behindUnit.name}被迫从${fact.behindOldPos}号位移至${fact.oldPos}号位</span>`};
+        return {type:'buff-push', needsSeparator: sep, pushTargetUid: fact.target.uid, behindUid: fact.behindUnit.uid, oldPos: fact.oldPos, newPos: fact.behindPos, behindOldPos: fact.behindOldPos, buffType: BUFF_SUBTYPES.PUSH, text:`<span class="gold" style="font-size:1.1em;">${fact.label}击退！${fact.target.name}从${fact.oldPos}号位击退至${fact.behindPos}号位，${fact.behindUnit.name}被迫从${fact.behindOldPos}号位移至${fact.oldPos}号位</span>`};
     }
-    return {type:'buff-push', pushTargetUid: fact.target.uid, behindUid: null, oldPos: fact.oldPos, newPos: fact.behindPos, buffType: BUFF_SUBTYPES.PUSH, text:`<span class="gold" style="font-size:1.1em;">${fact.label}击退！${fact.target.name}从${fact.oldPos}号位被击退至${fact.behindPos}号位</span>`};
+    return {type:'buff-push', needsSeparator: sep, pushTargetUid: fact.target.uid, behindUid: null, oldPos: fact.oldPos, newPos: fact.behindPos, buffType: BUFF_SUBTYPES.PUSH, text:`<span class="gold" style="font-size:1.1em;">${fact.label}击退！${fact.target.name}从${fact.oldPos}号位被击退至${fact.behindPos}号位</span>`};
 }
 
 export function renderWindAssaultFailFact(fact) {
@@ -33,7 +36,8 @@ export function renderWindAssaultFailFact(fact) {
 
 // 击退退无可退 → 眩晕（乘风突袭 / 胖远桥·年轻气盛共用）
 export function renderPushStunFact(fact) {
-    return {type:'info', text:`<span class="gold" style="font-size:1.1em;">${fact.label}退无可退！${fact.target.name}已在${fact.pos}号位，被震得头晕目眩（本回合无法行动）</span>`};
+    const sep = typeof fact.label === 'string' && fact.label.indexOf('蓄意轰拳') === 0;
+    return {type:'info', needsSeparator: sep, text:`<span class="gold" style="font-size:1.1em;">${fact.label}退无可退！${fact.target.name}已在${fact.pos}号位，被震得头晕目眩（本回合无法行动）</span>`};
 }
 
 // 行动跳过
