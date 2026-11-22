@@ -10,12 +10,14 @@
 // V1.1.2 | 2026-11-21 炎爆从「回合开始」改到 ROUND_SETTLED（回合结束前）；ON_ROUND_START 只负责每回合重新压 _stunned
 // V1.1.3 | 2026-11-22 炎爆播报带needsSeparator自成一组(修贴上组尾巴)
 // V1.1.4 | 2026-11-22 金刚伏魔阵回复补播报+飘字(老板报:回血无日志无飘字)
-export const VER = 'modules/342-elite-sixsects-san-du.js V1.1.4';
+// V1.1.5 | 2026-11-22 三渡重排版(老板拍板):渡厄个人技换圣火令(常驻side buff),2号位严阵以待/7,9号位热血奋战(阵位授予)
+export const VER = 'modules/342-elite-sixsects-san-du.js V1.1.5';
 
 import { registerSettlementHook } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
-import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
+import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES, SKILL_CUE_KINDS, BUFF_TYPES } from '../infra/106-battle-enums.js';
 import { addMod, applyStatChange, getBattleRng } from '../core/214-battle-shared.js';
+import { CONFIG } from '../core/201-config-5v5-test.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 import { registerDodgeRule } from '../core/221-registry-dodge.js';
 
@@ -33,13 +35,48 @@ export const monkFixedBuffHandler = {
         if (!self) return;
 
         if (decl.buffType === 'defense') {
-            // 渡厄·金刚不坏：防御 +40%（ttl:'round' 每回合重挂，避免永久 mod 逐回合叠加）
+            // 渡厄·圣火令（2026-11-22 老板拍板重排版）：个人技从「严阵以待防御」换成圣火令——
+            //   往敌方 side._activeBuffs 塞一张常驻圣火令（applyTeamRoundBuffs 210 双方都跑 →
+            //   敌方全队自动吃圣火令管线：加成/战报行/播报免费）。防御本体没丢：二号位获得严阵以待（阵位授予钩子）。
+            if (!Array.isArray(B._activeBuffs)) B._activeBuffs = [];
+            if (!B._activeBuffs.some(b => b && b.key === BUFF_TYPES.HOLY_FLAME && b.sanDuOwned)) {
+                const rng = getBattleRng();
+                const cols = [rng.nextInt(1, 3)];
+                const rows = [];
+                while (rows.length < 2) { const r = rng.nextInt(1, 3); if (!rows.includes(r)) rows.push(r); }
+                rows.sort((a, b) => a - b);
+                B._activeBuffs.push({ key: BUFF_TYPES.HOLY_FLAME, target: CAMP_TYPES.ENEMY, remaining: CONFIG.MAX_ROUND, permanent: true, name: '圣火令', cols, rows, sanDuOwned: true });
+            }
+            // 圣火令几何每回合重掷（与海克斯「每回合重掷」口径一致）；priority 19 先于阵位授予与本回合施加
+            registerSettlementHook({
+                when: SIGNAL_TYPES.ON_ROUND_START,
+                priority: 19,
+                handler: () => {
+                    const buff = (B._activeBuffs || []).find(b => b && b.key === BUFF_TYPES.HOLY_FLAME && b.sanDuOwned);
+                    if (!buff) return;
+                    const rng = getBattleRng();
+                    buff.cols = [rng.nextInt(1, 3)];
+                    const rows = [];
+                    while (rows.length < 2) { const r = rng.nextInt(1, 3); if (!rows.includes(r)) rows.push(r); }
+                    rows.sort((a, b) => a - b);
+                    buff.rows = rows;
+                }
+            });
+            // 阵位常驻授予（2026-11-22 老板拍板）：2 号位=严阵以待（防 +40%，原渡厄个人防御落到阵位）；
+            //   7/9 号位=热血奋战（挂 _sanDuHotBlood 旗，204 热血管线同享）
             registerSettlementHook({
                 when: SIGNAL_TYPES.ON_ROUND_START,
                 priority: 20,
                 handler: () => {
-                    if (!self.alive) return;
-                    addMod(self, 'def', { source: '严阵以待', value: 0.4, ttl: 'round', op: 'mul', group: 'monkDef' });
+                    const team = (decl.camp === CAMP_TYPES.ALLY ? (A || []) : (B || []));
+                    team.forEach(u => {
+                        if (!u.alive || u.pos == null) return;
+                        if (u.pos === 2) {
+                            addMod(u, 'def', { source: '严阵以待', value: 0.4, ttl: 'round', op: 'mul', group: 'sanDuPosDef' });
+                        } else if (u.pos === 7 || u.pos === 9) {
+                            u.state._sanDuHotBlood = true;
+                        }
+                    });
                 }
             });
         } else if (decl.buffType === 'doubleAttack') {

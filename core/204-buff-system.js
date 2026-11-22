@@ -9,7 +9,8 @@
 // V6.9.11 | 2026-11-19 死亡即时剔除：摄魂点名池/乘风溅射/飞箭雨/流星溅射/飞行再生统一改用 203 isEffectivelyAlive
 //   （hp 归零即 _pendingDeath，不能等 resolveDeaths 才排除；否则飞行再生会给尸体回血、选人还会选中刚死的人）。
 // V6.9.12 | 2026-11-20 众志成城九人满员提示进战斗日志（原 line:false 只在横幅出现）
-export const VER = 'core/204-buff-system.js V6.9.12';
+// V6.9.13 | 2026-11-22 热血门放行三渡阵位旗(_sanDuHotBlood)
+export const VER = 'core/204-buff-system.js V6.9.13';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -472,7 +473,8 @@ export function submitHotBloodDeclaration(data) {
     const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
     const isBrother = unit.isXiaoZhaoBrother;
     // 热血奋战仅在持有该 buff 或小昭·妹永久海克斯激活时触发
-    const active = hasBuff(unitBuffs, BUFF_TYPES.HOT_BLOOD);
+    // 2026-11-22 三渡阵位热血奋战：7/9 号位敌方单位挂 _sanDuHotBlood 旗（342 阵位授予），同享热血管线
+    const active = hasBuff(unitBuffs, BUFF_TYPES.HOT_BLOOD) || !!(unit.state && unit.state._sanDuHotBlood);
     const brotherActive = isBrother && query('xiaoPermanentActive', unit, unitBuffs, BUFF_TYPES.HOT_BLOOD);
     if (!active && !brotherActive) return;
     const enhanceHB = hasSister ? query('xiaoHexEnhance', allySide, unitBuffs, BUFF_TYPES.HOT_BLOOD) : null;
