@@ -1,5 +1,5 @@
 {
- "ver": "a507f44cbe483e4be1b77e298f06f801b3dac834871151e4be65cbf11536595f",
+ "ver": "3bd7b308eac7547afb2fba284660b020f3def5e748658533a7b80aea463b3fd3",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 157,
  "files": [
@@ -409,7 +409,7 @@
   ],
   [
    "modules/342-elite-sixsects-san-du.js",
-   "8bdbd7377ce3c2485573a75c55b5146e13ab4720c464bb81671e13c301a3d820"
+   "b25c0efd45ba01b050907cb7aeddee2336346b7956887bea17d810f481397bd6"
   ],
   [
    "player/501-player-text.js",
