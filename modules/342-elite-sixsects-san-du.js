@@ -13,7 +13,8 @@
 // V1.1.5 | 2026-11-22 三渡重排版(老板拍板):渡厄个人技换圣火令(常驻side buff),2号位严阵以待/7,9号位热血奋战(阵位授予)
 // V1.1.6 | 2026-11-22 老板钉死口径对调:三样个人技绑和尚(严阵以待回渡厄),圣火令改2号位阵位授予(空位熄灭)
 // V1.1.7 | 2026-11-22 老板二钉:圣火令降级移除;金刚不坏(40%防)回渡厄个人;阵位=2严阵以待/7,9热血奋战
-export const VER = 'modules/342-elite-sixsects-san-du.js V1.1.7';
+// V1.1.8 | 2026-11-22 渡厄个人技改名首当其冲(金刚不坏让给空见金钟罩,老板拍板)
+export const VER = 'modules/342-elite-sixsects-san-du.js V1.1.8';
 
 import { registerSettlementHook } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -36,15 +37,15 @@ export const monkFixedBuffHandler = {
         if (!self) return;
 
         if (decl.buffType === 'defense') {
-            // 渡厄·金刚不坏（个人技，2026-11-22 老板钉死口径）：概率连击/流云身法/金刚不坏(+40%防)三样绑和尚个人；
-            //   给位置的是严阵以待（2 号位）与热血奋战（7/9 号位）。圣火令已按老板拍板降级移除。
-            //   防 +40%（ttl:'round' 每回合重挂，避免永久 mod 逐回合叠加）；源名金刚不坏，与阵位严阵以待在战报里区分
+            // 渡厄·首当其冲（个人技，2026-11-22 老板钉死口径）：概率连击/流云身法/首当其冲(+40%防)三样绑和尚个人；
+            //   给位置的是严阵以待（2 号位）与热血奋战（7/9 号位）。圣火令已降级移除；金刚不坏是空见金钟罩，避让改名（老板 08:43）。
+            //   防 +40%（ttl:'round' 每回合重挂，避免永久 mod 逐回合叠加）；源名首当其冲，与阵位严阵以待在战报里区分
             registerSettlementHook({
                 when: SIGNAL_TYPES.ON_ROUND_START,
                 priority: 20,
                 handler: () => {
                     if (!self.alive) return;
-                    addMod(self, 'def', { source: '金刚不坏', value: 0.4, ttl: 'round', op: 'mul', group: 'monkDef' });
+                    addMod(self, 'def', { source: '首当其冲', value: 0.4, ttl: 'round', op: 'mul', group: 'monkDef' });
                 }
             });
             // 阵位授予（认位不认人）：2 号位=严阵以待（防 +40%，与 204 严阵同值）；7/9 号位=热血奋战（挂旗走 204 热血管线）
