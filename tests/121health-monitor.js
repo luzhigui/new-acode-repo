@@ -1,3 +1,5 @@
+// V6.14.2 | 2026-11-22：规则对账——本场参与判决的规则若 pass/skip/fail 一个都没走，
+//   报告列红名单并在异常里补「规则真空转」，coverage 带 neverRun；不再让真空规则混在「0 异常」里。
 // V6.14.1 | 2026-11-22：快速跑完默认档位 300(原速2x)→50(8x)：
 //   旧默认 240s 只爬到第 3 关、目标 7 永远到不了，规则可验场次极少；同时按钮高亮按档位选
 //   （50→btnSpeed8x / 150→btnSpeed4x），修掉「点 4x 却写 50/300」的倍速一致性失配。
@@ -13,7 +15,7 @@
 //   （本文件不再 import 123static-scan.js / 不绑 btnModeStatic / 不留第二份 renderStaticReport）；
 //   ② 报告加 coverage 字段与「覆盖不足」显形：在册/执行/未触发/跳过率一次写清，
 //     不再把「规则大面积没触发」呈现成「代码没问题」。判据、规则表、回放口径一字未动。
-export const VER = 'tests/121health-monitor.js V6.14.1';
+export const VER = 'tests/121health-monitor.js V6.14.2';
 // V6.12.1 | 2026-11-09 白天合入：保留夜间第 196 轮的表驱动逐条容错骨架，把白天新增的 39 条规则补回 RULE_MODULES 表与 allRules（两边都动过 121，直接取任一边都会让规则掉出执行面）。
 // V6.12.0 | 2026-11-08 夜间第 196 轮：规则装载从 123 条**静态 import** 改为 RULE_MODULES 表 + 动态 import 逐条容错。
 //   动因：249~252 四个规则文件上游从未提交，静态 import 让整个模块解析失败 —— 浏览器侧 120test-runner.html
@@ -308,6 +310,9 @@ let rulePassCount = 0, ruleSkipCount = 0;
 let ruleSkipNames = new Set();
 // 已覆盖规则（pass/skip 之外的命中）名单：多轮累计覆盖时用，避免 pass 计数跨轮重复累加失真
 let rulePassNames = new Set();
+// V6.14.2：本场参与规则 / 返回 fail 的规则，用来算「一次判决都没给出」的规则（既有 pass/skip/fail 之外的真空白）
+let ruleFailNames = new Set();
+let lastRuleNames = [];
 
 // fact 契约红字收集（2026-10-07）：infra/58 validateFactContract 缺字段时打 console.error，
 // 浏览器侧此前只是控制台噪声（node 侧 rules-replay V6.4.0 已收进退出码）——这里同样劫持收集，
@@ -539,7 +544,7 @@ export async function initMonitor() {
         btnStopMonitor.disabled = false; btnStopMonitor.textContent = '⏸️ 暂停';
         isPaused = false; monitorActive = true; gameLoaded = false;
         detectedIssues = []; issueKeys.clear(); pendingIssueCounts = {}; lastSampledStage = 0;
-        rulePassCount = 0; ruleSkipCount = 0; ruleSkipNames.clear(); rulePassNames.clear();
+        rulePassCount = 0; ruleSkipCount = 0; ruleSkipNames.clear(); rulePassNames.clear(); ruleFailNames.clear(); lastRuleNames = [];
         factContractWarns.clear();  // fact 契约红字计数随体检重启归零
         battleEnded = false; battleStartTime = 0;
         runStartedAt = Date.now(); stagesRun = new Set();  // 重置报告元数据（每次启动体检重新计时/记关）
@@ -674,7 +679,7 @@ export async function initMonitor() {
 
     btnClearReport.addEventListener('click', () => {
         showConfirm('确定清空所有异常记录吗？', () => {
-            detectedIssues = []; issueKeys.clear(); ruleSkipNames.clear(); updateReport(); updateStatusLine();
+            detectedIssues = []; issueKeys.clear(); ruleSkipNames.clear(); rulePassNames.clear(); ruleFailNames.clear(); lastRuleNames = []; updateReport(); updateStatusLine();
         });
     });
 
@@ -927,6 +932,8 @@ function runRuleChecks(ctx, doc) {
         .filter(fn => typeof fn === 'function');
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);
+    // V6.14.2：记下本场真正参与判决的规则名，报告里用它对账「谁一次判决都没给」
+    lastRuleNames = rules.map(r => r.name || '?');
 
     // 空日志防线：规则靠日志才有意义，GAMEOVER 时仍为空 = 数据链断，显式报红防假绿
     if (battleLog.length === 0) {
@@ -951,6 +958,7 @@ function runRuleChecks(ctx, doc) {
         try {
             const result = rule.test(ctx, battleLog, beforeAllies, beforeEnemies, finalAllies, finalEnemies, facts);
             if (result && result.fail) {
+                ruleFailNames.add(rule.name);
                 const msgs = (result.msg || '').split(' | ');
                 for (const m of msgs) if (m.trim()) recordIssue(ctx, null, m.substring(0, 30), m.trim(), '规则');
             } else if (result === 'skip') {
@@ -1317,6 +1325,14 @@ function updateReport() {
         backBtn.style.display = 'inline-block';
         reportArea.appendChild(backBtn);
     }
+    // V6.14.2：真空白名单——本场参与判决的规则里，既没 pass、没 skip、也没 fail 的
+    const neverRun = lastRuleNames.filter(n => !rulePassNames.has(n) && !ruleSkipNames.has(n) && !ruleFailNames.has(n));
+    if (neverRun.length > 0) {
+        const neverDiv = document.createElement('div');
+        neverDiv.style.cssText = 'color:#ff5252;font-size:11px;margin-top:8px;padding:6px 8px;border:1px solid #ff5252;border-radius:6px;';
+        neverDiv.textContent = '❓ 一次判决都没给出的规则 ' + neverRun.length + ' 条（既没验过也没报跳过，属真空转）：' + neverRun.join('、');
+        reportArea.appendChild(neverDiv);
+    }
     // 未覆盖规则名单：skip 不静默。列在这里提醒本轮阵容/事件没触发对应检查，不代表通过
     if (ruleSkipNames.size > 0) {
         const skipDiv = document.createElement('div');
@@ -1390,6 +1406,15 @@ function finalizeAutoReport(ctx, doc, reason) {
                 source: '系统', timestamp: new Date().toLocaleTimeString()
             });
         }
+        // V6.14.2：三条判决路径（pass/skip/fail）都没走到的规则 = 真空转，必须见红，别用「0 异常」盖过去
+        const _neverRun = lastRuleNames.filter(n => !rulePassNames.has(n) && !ruleSkipNames.has(n) && !ruleFailNames.has(n));
+        if (_neverRun.length > 0) {
+            detectedIssues.push({
+                stage: '-', type: '规则真空转',
+                detail: '本场 ' + _neverRun.length + ' 条规则一次判决都没给出（pass/skip/fail 全无）：' + _neverRun.join('、'),
+                source: '系统', timestamp: new Date().toLocaleTimeString()
+            });
+        }
         const finalIssues = detectedIssues.map(i => ({
             stage: i.stage, type: i.type, detail: i.detail, source: i.source,
             sliceText: i.slice ? formatIssueSlice(i.slice) : undefined
@@ -1406,6 +1431,8 @@ function finalizeAutoReport(ctx, doc, reason) {
             ruleSkip: ruleSkipCount,
             rulePassNames: [...rulePassNames],
             ruleSkippedNames: [...ruleSkipNames],
+            ruleFailNames: [...ruleFailNames],
+            ruleNeverRunNames: _neverRun,
             // V6.13.0：机器可读的覆盖口径，供 health_auto_check.py 与后续守门判断「是不是没覆盖到」。
             coverage: {
                 registered: RULE_MODULES.length,
@@ -1414,6 +1441,7 @@ function finalizeAutoReport(ctx, doc, reason) {
                 pass: rulePassCount,
                 skip: ruleSkipCount,
                 skipRate: (rulePassCount + ruleSkipCount) ? Math.round(ruleSkipCount / (rulePassCount + ruleSkipCount) * 100) : 100,
+                neverRun: _neverRun.length,
                 issues: finalIssues.length,
                 verdict: ((rulePassCount + ruleSkipCount) < RULE_MODULES.length
                     || (rulePassCount + ruleSkipCount) === 0
