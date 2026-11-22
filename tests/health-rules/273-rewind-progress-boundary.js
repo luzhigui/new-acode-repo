@@ -15,7 +15,7 @@ export const VER = 'tests/health-rules/273-rewind-progress-boundary.js V1.0.0';
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { enterReview, exitReview, startPlay, resumePlay, pausePlay, prevStep, nextStep, prevCue, nextCue, fastForward } from '../../ui/727-rewind-core.js';
+import { enterReview, exitReview, startPlay, resumePlay, pausePlay, prevStep, nextStep, prevCue, nextCue, fastForward } from '../../tools/839-rewind/727-rewind-core.js';
 
 function srcOf(fn) { return String(fn); }
 
@@ -24,7 +24,7 @@ export const rule273 = {
     name: '进度跳转边界(步拨/段拨/快进不越界)',
     test: function(ctx, log) {
         let file = '';
-        try { file = readFileSync(fileURLToPath(new URL('../../ui/727-rewind-core.js', import.meta.url)), 'utf8'); }
+        try { file = readFileSync(fileURLToPath(new URL('../../tools/839-rewind/727-rewind-core.js', import.meta.url)), 'utf8'); }
         catch (e) { return { fail: true, msg: '读不到 ui/727 源码：' + (e && e.message || e) }; }
 
         const srcs = {

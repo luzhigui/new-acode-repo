@@ -12,7 +12,7 @@
 //   ⑥ pausePlay 只打停点标记；resumePlay 必须放行 playRelease 或重回 startPlay。
 export const VER = 'tests/health-rules/258-rewind-state-cleanup.js V1.0.0';
 
-import { enterReview, exitReview, startPlay, resumePlay, pausePlay, prevStep, nextStep, prevCue, nextCue, fastForward } from '../../ui/727-rewind-core.js';
+import { enterReview, exitReview, startPlay, resumePlay, pausePlay, prevStep, nextStep, prevCue, nextCue, fastForward } from '../../tools/839-rewind/727-rewind-core.js';
 
 function srcOf(fn) { return String(fn); }
 

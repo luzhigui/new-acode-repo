@@ -12,7 +12,7 @@ export const VER = 'tests/health-rules/274-rewind-speed-boundary.js V1.0.0';
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { enterReview, exitReview, startPlay, resumePlay, fastForward } from '../../ui/727-rewind-core.js';
+import { enterReview, exitReview, startPlay, resumePlay, fastForward } from '../../tools/839-rewind/727-rewind-core.js';
 import { setSpeed, restoreSpeedFromScroll } from '../../ui/718-speed-controls.js';
 
 function srcOf(fn) { return String(fn); }
@@ -22,7 +22,7 @@ export const rule274 = {
     name: '倍速切换边界(进场快照/退出无条件还原)',
     test: function(ctx, log) {
         let file727 = '';
-        try { file727 = readFileSync(fileURLToPath(new URL('../../ui/727-rewind-core.js', import.meta.url)), 'utf8'); }
+        try { file727 = readFileSync(fileURLToPath(new URL('../../tools/839-rewind/727-rewind-core.js', import.meta.url)), 'utf8'); }
         catch (e) { return { fail: true, msg: '读不到 ui/727 源码：' + (e && e.message || e) }; }
 
         const enter = srcOf(enterReview);

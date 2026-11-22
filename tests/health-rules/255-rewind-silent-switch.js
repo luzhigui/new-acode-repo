@@ -14,7 +14,7 @@
 //   ⑥ 零调用点守卫：504 的 FX 调用点数不得低于 5（守卫被连调用点一起删掉时不许假绿）。
 export const VER = 'tests/health-rules/255-rewind-silent-switch.js V1.0.0';
 
-import { enterReview, exitReview, startPlay, resumePlay, fastForward } from '../../ui/727-rewind-core.js';
+import { enterReview, exitReview, startPlay, resumePlay, fastForward } from '../../tools/839-rewind/727-rewind-core.js';
 import { playStepInterleaved } from '../../player/504-player-play-step.js';
 
 var FX_CALL = /applyStageActionToFX\s*\(/;

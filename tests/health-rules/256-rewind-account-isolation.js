@@ -10,7 +10,7 @@
 //   ④ player/504 只能 get/push 全局 battleLog / battleFacts，不得 set（否则会把回看行写进真账）。
 export const VER = 'tests/health-rules/256-rewind-account-isolation.js V1.0.0';
 
-import { enterReview, exitReview } from '../../ui/727-rewind-core.js';
+import { enterReview, exitReview } from '../../tools/839-rewind/727-rewind-core.js';
 import { playStepInterleaved } from '../../player/504-player-play-step.js';
 
 function srcOf(fn) { return String(fn); }

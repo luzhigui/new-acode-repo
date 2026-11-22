@@ -14,7 +14,7 @@ export const VER = 'tests/health-rules/253-rewind-write-surface.js V1.0.0';
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { enterReview, exitReview, startPlay, resumePlay, pausePlay, prevStep, nextStep, prevCue, nextCue, fastForward } from '../../ui/727-rewind-core.js';
+import { enterReview, exitReview, startPlay, resumePlay, pausePlay, prevStep, nextStep, prevCue, nextCue, fastForward } from '../../tools/839-rewind/727-rewind-core.js';
 
 function srcOf(fn) { return String(fn); }
 function read(rel) { return readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8'); }
@@ -26,7 +26,7 @@ export const rule253 = {
     test: function(ctx, log) {
         let src727 = '', src504 = '';
         try {
-            src727 = read('../../ui/727-rewind-core.js');
+            src727 = read('../../tools/839-rewind/727-rewind-core.js');
             src504 = read('../../player/504-player-play-step.js');
         } catch (e) {
             return { fail: true, msg: '读不到 ui/727 或 player/504 源码：' + (e && e.message || e) };

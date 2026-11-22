@@ -11,7 +11,7 @@
 //   ⑤ 跳步/粗拨必须夹在合法区间内（nextStep 不得越过末步、prevStep 不得小于 0）。
 export const VER = 'tests/health-rules/257-rewind-play-from-current.js V1.0.0';
 
-import { startPlay, resumePlay, prevStep, nextStep } from '../../ui/727-rewind-core.js';
+import { startPlay, resumePlay, prevStep, nextStep } from '../../tools/839-rewind/727-rewind-core.js';
 
 function srcOf(fn) { return String(fn); }
 

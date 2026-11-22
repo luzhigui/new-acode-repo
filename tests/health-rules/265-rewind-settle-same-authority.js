@@ -10,7 +10,7 @@
 //   ④ 727 退出还原时优先用 c._rewindLastStep（上次真播/定位的末步），没有才退回录制末步。
 export const VER = 'tests/health-rules/265-rewind-settle-same-authority.js V1.0.0';
 
-import { enterReview, exitReview } from '../../ui/727-rewind-core.js';
+import { enterReview, exitReview } from '../../tools/839-rewind/727-rewind-core.js';
 import { playStepInterleaved } from '../../player/504-player-play-step.js';
 
 function srcOf(fn) { return String(fn); }
