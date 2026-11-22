@@ -37,6 +37,12 @@ export function checkSixsectsStructure(entryCode, compSources) {
         }
         if (!imports.has(im[2])) imports.set(im[2], []);
         imports.get(im[2]).push(...list);
+    // 第38轮：side-effect import `import './3xx-elite-...'` 也算挂上注册链——
+    //   组件内部自行 registerMechanicHandler（如 342 三渡/炎魔狮王），不需要入口引用导出名。
+    //   老正则只认 named import，会把这类合法组件误判「死文件」。
+    for (const im of entryCode.matchAll(/import\s*'\.\/(3\d{2}-elite-sixsects-[^']+)'\s*;/g)) {
+        if (!imports.has(im[1])) imports.set(im[1], []);
+    }
     }
     if (imports.size === 0) problems.push('零触发守卫：入口未解析出任何组件 import（解析失配？）');
 
@@ -58,8 +64,12 @@ export function checkSixsectsStructure(entryCode, compSources) {
         }
         if (exported.size === 0) { problems.push(`零触发守卫：${f} 未解析出任何导出（解析失配？）`); continue; }
         const remoteNames = new Set((imports.get(f) || []).map(x => x.remote));
+        // 自注册组件（文件内自行调 registerMechanicHandler 等）不需要入口引用导出名——
+        //   export 只是给外部/测试用，机制已由组件在模块求值时注册；老口径会误判死导出。
+        const selfRegisters = /(?<![\w$.])register(?:MechanicHandler|Elite|LinkPartners)\s*\(/.test(code);
         for (const name of exported) {
             if (name === 'VER') continue; // 版本元数据不算组件逻辑
+            if (selfRegisters) continue;  // 自注册组件：导出面不由入口引用决定
             if (!remoteNames.has(name)) problems.push(`(c) 死导出：${f} 的 export ${name} 未被入口引用（导出了没人用 = 逻辑没执行）`);
         }
         for (const { remote } of (imports.get(f) || [])) {
@@ -177,7 +187,9 @@ async function main() {
     const modFiles = (await readdir(modDir)).filter(f => /^3\d{2}-elite-sixsects-.+\.js$/.test(f)).sort();
     const compSources = {};
     for (const f of modFiles) compSources[f] = stripLineComments(await readFile(new URL(f, modDir), 'utf8'));
-    const entry26 = stripLineComments(await read('../modules/308-elite-sixsects.js'));
+    // 第38轮：入口同时取 308（六大派 named import）+ 301（统一装配 side-effect import）两份源码合并对账——
+    //   单看 308 会把挂在 301 的 342 误判死文件；单看 301 又会把 308 里 named 引用的组件误判死导出。
+    const entry26 = stripLineComments(await read('../modules/308-elite-sixsects.js')) + '\n' + stripLineComments(await read('../modules/301-reg-mechanics.js'));
     const sixProblems = checkSixsectsStructure(entry26, compSources);
 
     const hard = [];
