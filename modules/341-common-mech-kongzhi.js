@@ -6,8 +6,8 @@
 // V1.0.1 | 2026-11-21 偷学参数嫁接(原主skills/mechanics并入偷学者配置,修缺参白偷)
 // V1.0.2 | 2026-11-22 偷学播报改中文技能名（原主 skills.name 优先，禁止裸枚举 bagTrap）
 // V1.0.3 | 2026-11-22 偷学幂等：同一机制 type 只 install 一次（原每回合重复 install 叠加钩子，一次事件被处理多次）
-// V1.0.6 | 2026-11-22 武痴顿悟播报补触发原因（因 某人 攻击/防御 ±N），解决"看不出为什么触发"
-export const VER = 'modules/341-common-mech-kongzhi.js V1.0.6';
+// V1.0.7 | 2026-11-22 武痴改为"属性变化立即判定"：回合开始群体 buff 结算完即检查，不再积压到下一刀
+export const VER = 'modules/341-common-mech-kongzhi.js V1.0.7';
 
 import { registerSettlementHook, eventBus, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler, installMechanicByType } from '../core/219-mechanic-registry.js';
@@ -95,6 +95,8 @@ export const wuChiHandler = {
             }
         };
         registerSettlementHook({ when: 'afterDamageApplied', priority: L.AFTER_DAMAGE_APPLIED.REBOUND, handler: check });
+        // 回合开始的群体加成（吸星/生生不息/严阵以待等）结算完立刻判定，不再积压到"下一刀"才被当成本次变化
+        registerSettlementHook({ when: SIGNAL_TYPES.ON_ROUND_START, priority: 900, handler: check });
         registerSettlementHook({
             when: SIGNAL_TYPES.ON_ROUND_START,
             priority: 10,
