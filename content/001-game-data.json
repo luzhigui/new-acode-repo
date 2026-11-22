@@ -1070,6 +1070,16 @@
 
       "m": 104, "poolTier": 104, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 1, "titleOrder": 1,
 
+      "skills": {
+        "wuChi": {
+          "name": "武痴",
+          "desc": "场上任何单位攻防单次变化达到 2 点时，有 30% 概率随机顿悟一种：攻击+1 / 防御+1 / 生命上限+1 / 回复 1 点生命 / 恢复行动力 / 走火入魔（自身眩晕且本回合武痴失效）。"
+        },
+        "stealSkill": {
+          "name": "十一门绝技·偷学",
+          "desc": "每回合开始从敌方机制池随机偷学一种敌人绝技并立刻装上，持续到本回合结束；不会偷同类偷学/武痴，防套娃。"
+        }
+      },
       "mechanics": [
         { "camp": "enemy", "type": "wuChi" },
         { "camp": "enemy", "type": "stealSkill" }

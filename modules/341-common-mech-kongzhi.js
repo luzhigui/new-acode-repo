@@ -4,7 +4,8 @@
 //   ② 攻防变化用 registerSettlementHook('afterDamageApplied') 扫全场快照（HP_CHANGE 没有 eventBus.on 订阅口）；
 //   ③ 战报日志用结算 data.log；④ 新状态字段已同步注册 core/218。
 // V1.0.1 | 2026-11-21 偷学参数嫁接(原主skills/mechanics并入偷学者配置,修缺参白偷)
-export const VER = 'modules/341-common-mech-kongzhi.js V1.0.1';
+// V1.0.2 | 2026-11-22 偷学播报改中文技能名（原主 skills.name 优先，禁止裸枚举 bagTrap）
+export const VER = 'modules/341-common-mech-kongzhi.js V1.0.2';
 
 import { registerSettlementHook, eventBus, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler, installMechanicByType } from '../core/219-mechanic-registry.js';
@@ -140,7 +141,10 @@ export const stealSkillHandler = {
                 }
                 try {
                     installMechanicByType(eventBus, picked.type, data.A, data.B, data.log, { ...picked, name: self.name, camp: decl.camp });
-                    pushSkillAnnounce(data.log, self, '11门绝技', `📖 空智顿悟，偷学了敌人的【${picked.type}】！`, { floatText: '📖', floatUid: self.uid });
+                    // 战报必须写中文：原主 skills[type].name 优先（如 bagTrap→布袋），没登记名才退回通用叫法，禁止裸枚举
+                    const skillCfg = originCfg && originCfg.skills && originCfg.skills[picked.type];
+                    const skillLabel = (skillCfg && skillCfg.name) || '敌方秘技';
+                    pushSkillAnnounce(data.log, self, '11门绝技', `📖 空智顿悟，偷学了敌人的【${skillLabel}】！`, { floatText: '📖', floatUid: self.uid });
                 } catch (e) {
                     console.warn('[341] 空智偷学技能失败:', e);
                 }
