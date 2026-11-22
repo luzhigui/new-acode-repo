@@ -10,7 +10,7 @@ import { getSkillDesc, getGameData, isNamedCharacter, hasSkills } from '../core/
 import { baseHeroName } from '../core/202-unit.js';
 import { ROLE_TYPES } from '../infra/106-battle-enums.js';
 
-export const VER = 'render/414-role-cards.js V2.1.0';
+export const VER = 'render/414-role-cards.js V2.1.1';
 
 // 显示名唯一出口（#16，老板 2026-11 定调）：数据名 / 机制键 / 归属判据一律不动，
 //   只把展示用的全名换算成短名 —— 金毛狮王谢逊 →「金毛狮王」（格子、幻影、战报/日志同源）。
@@ -135,7 +135,8 @@ const SKILL_ICONS = {
     rageOnHit: '💢', righteousFace: '🐷', youngBlood: '🔥',
     blazeBurst: '🚀',
     normalAttack: '✋', counterAttack: '⚔️', thirdStrike: '🗡️', summonZhou: '👭',
-    bagTrap: '🧳', damageReflect: '⚡'
+    bagTrap: '🧳', damageReflect: '⚡',
+    monkDefense: '🛡️', monkDoubleAttack: '⚡', monkLiuYun: '💨', jinGangFuMo: '🧘'
 };
 
 // 某些角色需要额外追加的固定排版（比如联动机制不是技能，是常驻被动）

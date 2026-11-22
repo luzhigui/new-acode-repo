@@ -213,7 +213,17 @@
       "m": 115, "poolTier": 115, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": false,
       "mechanics": [
         { "camp": "enemy", "type": "monkFixedBuff", "buffType": "defense" }
-      ]
+      ],
+      "skills": {
+        "monkDefense": {
+          "name": "首当其冲",
+          "desc": "每回合开始时防御 +40%。站 2 号位时获得「严阵以待」：防御再 +40%，受到攻击时反弹实际承伤的 40%"
+        },
+        "jinGangFuMo": {
+          "name": "金刚伏魔阵",
+          "desc": "站 7~9 号位时，每回合开始回复 30 点生命；免疫眩晕、击退、换位等控制"
+        }
+      }
     },
 
     "渡劫": {
@@ -221,7 +231,17 @@
       "m": 115, "poolTier": 115, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": false,
       "mechanics": [
         { "camp": "enemy", "type": "monkFixedBuff", "buffType": "doubleAttack" }
-      ]
+      ],
+      "skills": {
+        "monkDoubleAttack": {
+          "name": "概率连击",
+          "desc": "每次出手后有 80% 概率追加一次攻击（格子显示 ⚡）"
+        },
+        "jinGangFuMo": {
+          "name": "金刚伏魔阵",
+          "desc": "站 7~9 号位时，每回合开始回复 30 点生命；免疫眩晕、击退、换位等控制"
+        }
+      }
     },
 
     "渡难": {
@@ -229,7 +249,17 @@
       "m": 115, "poolTier": 115, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": false,
       "mechanics": [
         { "camp": "enemy", "type": "monkFixedBuff", "buffType": "dodge" }
-      ]
+      ],
+      "skills": {
+        "monkLiuYun": {
+          "name": "流云身法",
+          "desc": "闪避率 +25%（格子显示 💨）"
+        },
+        "jinGangFuMo": {
+          "name": "金刚伏魔阵",
+          "desc": "站 7~9 号位时，每回合开始回复 30 点生命；免疫眩晕、击退、换位等控制"
+        }
+      }
     },
 
     "炎魔狮王": {
