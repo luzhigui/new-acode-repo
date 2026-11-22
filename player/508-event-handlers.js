@@ -1,4 +1,4 @@
-export const VER = 'player/508-event-handlers.js V6.1.0';
+export const VER = 'player/508-event-handlers.js V6.1.1';
 
 import { isBlocked } from '../core/203-battle-utils.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
@@ -68,6 +68,8 @@ export async function handleRoundEnd(c, entry, log, i) {
 
 export function shouldStartNewGroup(entry, lastType) {
     if (!lastType) return false;
+    // 显式强制分隔（炎爆这类独立伤害事件）优先：它和「第N回合开始」不是一类东西，必须单独成段
+    if (entry.separatorForce) return true;
     // 回合开始后紧跟的攻击组不画分隔符：没有系统消息（buff 摘要/蛛变/召唤）垫场时，
     //   「第N回合开始」下一行直接是攻击组，中间再插一条「- - - - -」读起来多余。
     //   有系统消息时 lastType 是它们的类型（info/buff-summary…），此处不拦，分隔符照常画——

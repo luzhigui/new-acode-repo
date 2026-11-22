@@ -19,7 +19,8 @@
 // V2.0.1 | 2026-11-22 修V2雷:概率连击掷骰nextFloat不存在(EventBus吞TypeError=连击静默死),改全仓惯例nextInt(1,100)
 // V2.1.0 | 2026-11-22 老板口径：三渡与炎魔全体免疫控制；炎魔双发炎爆——回合开始 18 点，轮到自己蓄力、回合收尾 28 点
 // V2.1.1 | 2026-11-22 渡劫概率连击格子补 ⚡ logo（_sanDuDoubleStrike 常驻旗，同流云💨/严阵🛡️ 出口）
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.1.1';
+// V2.1.2 | 2026-11-22 炎爆/蓄力强制自成一组：回合开始那发 18 紧跟回合头时也画分隔符（separatorForce 放行）
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.1.2';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -184,7 +185,9 @@ export const blazeLionKingHandler = {
         self.state._ctrlImmune = true;
 
         // 炎爆统一出口：随机挑一名明教非召唤单位，真伤 + 火球演出 + 战报
-        function fireBurst(dmg, data, title) {
+        //   forceSeparator：回合开始那发紧跟「第N回合开始」头，播放层默认不画分隔符（省墨），
+        //   但炎爆是独立伤害事件，必须强制自成一组，所以单独抬一个 separatorForce 放行。
+        function fireBurst(dmg, data, title, forceSeparator) {
             if (!self.alive) return;
             const pool = (((data && data.A) || A) || []).filter(u => u && u.alive && u.camp === CAMP_TYPES.ALLY && !u.isSummon);
             if (pool.length === 0) return;
@@ -198,7 +201,8 @@ export const blazeLionKingHandler = {
                         self: { uid: self.uid, camp: self.camp, pos: self.pos },
                         target: { uid: victim.uid, camp: victim.camp, pos: victim.pos }
                     },
-                    needsSeparator: true
+                    needsSeparator: true,
+                    separatorForce: forceSeparator || undefined
                 });
         }
 
@@ -211,7 +215,7 @@ export const blazeLionKingHandler = {
                 self.state._stunned = true;
                 self.state._blazeCharged = false;
                 // 回合开始固定一发 18
-                fireBurst(18, data, '炎爆');
+                fireBurst(18, data, '炎爆', true);
             }
         });
 
@@ -222,7 +226,7 @@ export const blazeLionKingHandler = {
             handler: (data) => {
                 if (!self.alive || !data || data.unit !== self) return;
                 self.state._blazeCharged = true;
-                pushSkillAnnounce(data.log, self, '蓄力', `🔥 炎魔狮王烈焰凝聚，蓄力待发…`, { floatText: '🔥', floatUid: self.uid });
+                pushSkillAnnounce(data.log, self, '蓄力', `🔥 炎魔狮王烈焰凝聚，蓄力待发…`, { floatText: '🔥', floatUid: self.uid, needsSeparator: true });
             }
         });
 

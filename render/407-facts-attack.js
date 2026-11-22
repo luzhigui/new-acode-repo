@@ -7,7 +7,7 @@ import { getStat } from '../core/214-battle-shared.js';
 import { FACT_TYPES, CAMP_TYPES, DROP_TYPES } from '../infra/106-battle-enums.js';
 import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } from './406-fact-registry.js';
 // V1.5.16 | 2026-11-22 SKILL_ANNOUNCE 支持 tone:'heal' → 绿色（武痴回复生命等回复类播报）
-export const VER = 'render/407-facts-attack.js V1.5.16';
+export const VER = 'render/407-facts-attack.js V1.5.17';
 
 // 攻击流程
 export function renderMissFact(fact) {
@@ -348,8 +348,9 @@ export function renderSkillAnnounceFact(fact) {
     // needsSeparator 由发射方按需声明（当前仅标枪·突进 true）：播放层 shouldStartNewGroup 读它画「- - - - -」，
     //   让这条播报自成一段、不与上一单位的攻击组粘连。其余 SKILL_ANNOUNCE（何太冲/灭绝/鹰王报幕）不带此字段，行为不变。
     // tone:'heal' → 绿色（回复生命类播报，如武痴顿悟·回复1点生命）；其余金色。
+    // separatorForce：显式强制分隔（炎爆这类独立伤害事件），连「第N回合开始」之后的省墨规则也不让位。
     const toneCls = fact.tone === 'heal' ? 'green' : 'gold';
-    return { type:'info', text:`<span class="${toneCls}">${fact.note}</span>`, needsSeparator: fact.needsSeparator === true };
+    return { type:'info', text:`<span class="${toneCls}">${fact.note}</span>`, needsSeparator: fact.needsSeparator === true, separatorForce: fact.separatorForce === true };
 }
 
 // 击杀行
