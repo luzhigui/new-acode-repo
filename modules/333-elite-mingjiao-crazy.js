@@ -3,7 +3,8 @@
 // 死亡时传给攻击者，找不到给周颠，周颠死了随机传。
 // 带「癫」时：必中，且无视目标闪避（从而不会触发闪避反击）。
 // V1.1.4 | 2026-11-19 grant/revoke 导出给 311：张三丰持癫乱回后传染走同一出口
-export const VER = 'modules/333-elite-mingjiao-crazy.js V1.1.4';
+// V1.1.5 | 2026-11-22 传染拦截免疫控制者（寒离飒等）：isCCImmune 挡住，癫留在本人身上并播报
+export const VER = 'modules/333-elite-mingjiao-crazy.js V1.1.5';
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -12,6 +13,7 @@ import { getBattleRng } from '../core/214-battle-shared.js';
 import { canBeTargeted } from '../core/203-battle-utils.js';
 import { buildTargetCandidates } from '../core/207-target-strategies.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
+import { isCCImmune } from '../core/218-state-keys.js';
 
 // 统一管理癫的赋予与撤销，同时控制必中与无视闪避
 // 导出给 311 张三丰用：持癫乱回后传染同一出口（2026-11-19 老板拍板），状态字段单点维护不散抄
@@ -96,6 +98,11 @@ export const crazyHandler = {
                 pushCrazyOpening(data, unit);
                 const target = data.target;
                 if (target && target.alive && target.uid !== unit.uid) {
+                    // 免疫控制者（寒离飒等）不吃「癫」：传染被挡，癫留在本人身上
+                    if (isCCImmune(target)) {
+                        if (data.log) pushSkillAnnounce(data.log, unit, '癫', `🤪 ${unit.name} 想传染「癫」给 ${target.name}，但对方免疫控制，传染失败`, { floatText: '🛡️', floatUid: target.uid });
+                        return;
+                    }
                     revokeCrazy(unit);
                     grantCrazy(target);
                     if (data.log) pushSkillAnnounce(data.log, unit, '癫', `🤪 ${unit.name} 将「癫」传染给了 ${target.name}`, { floatText: '🤪', floatUid: target.uid });

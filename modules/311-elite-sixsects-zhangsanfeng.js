@@ -7,7 +7,8 @@
 // V6.28.2 | 2026-11-19 第二关加强：生生不息回血 16%→19.2%、转攻防系数各 +20%、付费触发消耗攻 2→3；
 //   严阵以待第 12 回合后反弹 40%→60%（回合计数改为一直累加，不再触发后冻结）
 // V6.28.3 | 2026-11-19 太极归一期间生生不息回复量翻倍（普通与持癫两分支同口径）
-export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.28.3';
+// V6.28.4 | 2026-11-22 持癫乱回选池排除免疫控制者（寒离飒等不再接到「癫」）
+export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.28.4';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 import { applyStatChange, addMod, getStat, getBattleRng, previewHeal, removeModsByGroup, emitHpChange } from '../core/214-battle-shared.js';
 import { getBenefitTargets, canBeTargeted, hasBuff } from '../core/203-battle-utils.js';
@@ -18,6 +19,7 @@ import { FX_SIGNALS } from '../infra/105-fx-signals.js';
 import { pushSkillAnnounce, selfOrFindAlive, requireSkillParams, pushFact } from './305-elite-helpers.js';
 import { grantCrazy, revokeCrazy } from './333-elite-mingjiao-crazy.js';
 import { healModReasons } from '../core/217-effect-handlers.js';
+import { isCCImmune } from '../core/218-state-keys.js';
 // 张三丰（六大派·防战）：不攻击的续航核心
 // 技能1 生生不息 / 技能3 八卦阵 / 技能5 第三回合严阵以待
 // 技能4 不争（仅剩一人判负）在 core/11 的胜负判定里
@@ -170,7 +172,8 @@ export function createZhangSanfengComponent() {
             function triggerCrazyBreath(unit, log, cost) {
                 if (!unit || !unit.alive) return;
                 const heal = Math.floor(unit.maxHp * s.healPct) * (taijiActive() ? 2 : 1);   // 太极归一期间回复量翻倍
-                const pool = [...A, ...B].filter(u => u && u.alive && u.uid !== unit.uid && canBeTargeted(u));
+                // 免疫控制者（寒离飒等）不接「癫」：直接从乱灌池排除
+                const pool = [...A, ...B].filter(u => u && u.alive && u.uid !== unit.uid && canBeTargeted(u) && !isCCImmune(u));
                 let receiver = null;
                 let receiverHealed = 0;
                 let receiverReduce = 0;      // 抑疗后被灌者应发额度（无接盘者 = 0）
