@@ -1,7 +1,8 @@
 // modules/337-elite-mingjiao-zhuangzheng.js — 明教·天鹰教 庄铮「断锤三式」
+// V1.0.11 | 2026-11-22 触发瞬间清 _stunned（_ctrlImmune 不治已有眩晕，反手被 isControlled 挡成「反击未产出」）
 // V1.0.10 | 2026-11-21 保命落血精确收到 keepHp：上限带加成（carry 等）时等比缩后血量可能 > keepHp，补血分支不触发
 // V1.0.9 | 2026-11-20 触发后单次上限 _dmgCap 丢失自愈（防「一次掉 4 点」）
-export const VER = 'modules/337-elite-mingjiao-zhuangzheng.js V1.0.10';
+export const VER = 'modules/337-elite-mingjiao-zhuangzheng.js V1.0.11';
 
 import { processUnitAttack } from '../core/209-battle-attack.js';
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
@@ -64,6 +65,10 @@ export const duanChuiHandler = {
                 _immuneExecute: true,
                 _immunePoison: true
             });
+            // 触发瞬间清掉已挂的眩晕：_ctrlImmune 只拦后续施加，不会治已有的 _stunned；
+            //   不清的话反手 processUnitAttack 会被 isControlled 挡住（STUN_SKIP → 返回 false），
+            //   实机表现就是「断锤反击未产出」告警（2026-11-22 修）。
+            self.state._stunned = false;
             // 触发瞬间攻击力真减半：N = 当前 getStat(atk) 的一半（不取整），写入 -N 使减半后恰为原值一半
             //   （29.4 → 14.7）；此后每次出手 +N 递增（14.7 → 29.4 → 44.1）。取整只在显示层，不在计算里截断。
             const atkNow = getStat(self, 'atk');
