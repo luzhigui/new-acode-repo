@@ -7,7 +7,8 @@
 // V1.0.2 | 2026-11-22 偷学播报改中文技能名（原主 skills.name 优先，禁止裸枚举 bagTrap）
 // V1.0.3 | 2026-11-22 偷学幂等：同一机制 type 只 install 一次（原每回合重复 install 叠加钩子，一次事件被处理多次）
 // V1.0.7 | 2026-11-22 武痴改为"属性变化立即判定"：回合开始群体 buff 结算完即检查，不再积压到下一刀
-export const VER = 'modules/341-common-mech-kongzhi.js V1.0.7';
+// V1.0.8 | 2026-11-22 回合开始触发的武痴播报带 needsSeparator，自成一段（不再被并进下一个单位攻击组→"延后触发"观感）
+export const VER = 'modules/341-common-mech-kongzhi.js V1.0.8';
 
 import { registerSettlementHook, eventBus, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler, installMechanicByType } from '../core/219-mechanic-registry.js';
@@ -29,7 +30,7 @@ export const wuChiHandler = {
             if (u.alive) lastStats.set(u.uid, { atk: getStat(u, 'atk'), def: getStat(u, 'def') });
         });
 
-        const check = (data) => {
+        const check = (data, fromRoundStart) => {
             if (!data) return;
             const all = allOf(data);
             const self = all.find(u => u.name === decl.name);
@@ -89,6 +90,8 @@ export const wuChiHandler = {
                 if (text) pushSkillAnnounce(log, self, '武痴', text, {
                     floatText: '📖',
                     floatUid: self.uid,
+                    // 回合开始触发时自成一段：否则会被播放层并进下一个单位的攻击组，看着像"延后触发"（老板 2026-11-22 钉）
+                    needsSeparator: fromRoundStart === true || undefined,
                     tone: (text.indexOf('回复') >= 0 || text.indexOf('恢复行动力') >= 0) ? 'heal' : undefined,
                     restoreActed: text.indexOf('恢复行动力') >= 0
                 });
@@ -96,7 +99,7 @@ export const wuChiHandler = {
         };
         registerSettlementHook({ when: 'afterDamageApplied', priority: L.AFTER_DAMAGE_APPLIED.REBOUND, handler: check });
         // 回合开始的群体加成（吸星/生生不息/严阵以待等）结算完立刻判定，不再积压到"下一刀"才被当成本次变化
-        registerSettlementHook({ when: SIGNAL_TYPES.ON_ROUND_START, priority: 900, handler: check });
+        registerSettlementHook({ when: SIGNAL_TYPES.ON_ROUND_START, priority: 900, handler: (data) => check(data, true) });
         registerSettlementHook({
             when: SIGNAL_TYPES.ON_ROUND_START,
             priority: 10,
