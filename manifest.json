@@ -1,5 +1,5 @@
 {
- "ver": "24399e1b850da1e31048ce98a3e5976cb9fc88879b4c5695504cf22505850016",
+ "ver": "a507f44cbe483e4be1b77e298f06f801b3dac834871151e4be65cbf11536595f",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 157,
  "files": [
@@ -29,7 +29,7 @@
   ],
   [
    "core/204-buff-system.js",
-   "94900a694b72d72db4e8c0a000da8e52f504623bd6cc17d15de34703f7a53a67"
+   "3bb51d9109b6ed570b4872439738158fc572b58d30483b81faa18bc59d83d977"
   ],
   [
    "core/205-battle-horse.js",
@@ -85,7 +85,7 @@
   ],
   [
    "core/218-state-keys.js",
-   "e89a9fb7251d4c09166274c200dce61dd424ff1ed9503352036dbd8b43a7c772"
+   "8f4b984f930b96a97df345e38c743defe1ea8e1bb473c6c70f5a246aa4d2915c"
   ],
   [
    "core/219-mechanic-registry.js",
@@ -409,7 +409,7 @@
   ],
   [
    "modules/342-elite-sixsects-san-du.js",
-   "5838ddec8a981e272f8116a5c07d6ffef18a1fe733e9c1dadf5ba301ae91665d"
+   "8bdbd7377ce3c2485573a75c55b5146e13ab4720c464bb81671e13c301a3d820"
   ],
   [
    "player/501-player-text.js",
