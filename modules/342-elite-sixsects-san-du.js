@@ -17,7 +17,8 @@
 // V1.1.9 | 2026-11-22 修复重复三份的 doubleAttack 分支(首个空块吃掉分支，渡劫必发双击完全失效)
 // V2.0.0 | 2026-11-22 老板口径落地：渡劫改 80% 概率连击；删 7/9 热血奋战（只留回血 30）；2 号位严阵以待补受击反弹 40%+战报/横幅/飘字；流云/严阵以待补回合播报；两个 40% 共用同一常量
 // V2.0.1 | 2026-11-22 修V2雷:概率连击掷骰nextFloat不存在(EventBus吞TypeError=连击静默死),改全仓惯例nextInt(1,100)
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.0.1';
+// V2.1.0 | 2026-11-22 老板口径：三渡与炎魔全体免疫控制；炎魔双发炎爆——回合开始 18 点，轮到自己蓄力、回合收尾 28 点
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.1.0';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -44,6 +45,8 @@ export const monkFixedBuffHandler = {
     install({ A, B, decl }) {
         const self = findSelf(A, B, decl);
         if (!self) return;
+        // 三渡免疫控制（2026-11-22 老板口径）：眩晕/击退/换位一律不吃，守卫在 core/12+13
+        self.state._ctrlImmune = true;
 
         if (decl.buffType === 'defense') {
             // 渡厄·首当其冲（个人技，绑人）：防御 +40%（ttl:'round' 每回合重挂，避免永久 mod 逐回合叠加）
@@ -168,44 +171,67 @@ export const monkFixedBuffHandler = {
 };
 
 // ── 炎魔狮王：被金刚伏魔圈锁死 ──
+// V2.1.0：免疫控制；双发炎爆——回合开始固定 18 点，轮到自己蓄力，回合收尾（ROUND_SETTLED）再打 28 点
 export const blazeLionKingHandler = {
     fields: {},
     install({ A, B, decl }) {
         const self = findSelf(A, B, decl);
         if (!self) return;
+        // 炎魔免疫控制（2026-11-22 老板口径）：眩晕/击退/换位一律不吃
+        self.state._ctrlImmune = true;
+
+        // 炎爆统一出口：随机挑一名明教非召唤单位，真伤 + 火球演出 + 战报
+        function fireBurst(dmg, data, title) {
+            if (!self.alive) return;
+            const pool = (((data && data.A) || A) || []).filter(u => u && u.alive && u.camp === CAMP_TYPES.ALLY && !u.isSummon);
+            if (pool.length === 0) return;
+            const victim = pool[getBattleRng().nextInt(0, pool.length - 1)];
+            applyStatChange(victim, 'hp', -dmg, self, `炎魔狮王·${title}`, true, false);
+            pushSkillAnnounce(data && data.log, self, title,
+                `炎魔狮王${title}轰向 ${victim.name}，造成 ${dmg} 点真实伤害！`,
+                {
+                    cue: {
+                        kind: SKILL_CUE_KINDS.BLAZE_BURST,
+                        self: { uid: self.uid, camp: self.camp, pos: self.pos },
+                        target: { uid: victim.uid, camp: victim.camp, pos: victim.pos }
+                    },
+                    needsSeparator: true
+                });
+        }
 
         registerSettlementHook({
             when: SIGNAL_TYPES.ON_ROUND_START,
             priority: 24,
-            handler: () => {
+            handler: (data) => {
                 if (!self.alive) return;
                 // 永久无法行动：_stunned 每回合被重置，这里每回合重新压上（跳过出手/行动）
                 self.state._stunned = true;
+                self.state._blazeCharged = false;
+                // 回合开始固定一发 18
+                fireBurst(18, data, '炎爆');
             }
         });
 
-        // 炎爆：整回合收尾（所有单位行动完、回合结束结算前）随机轰一发。
+        // 「轮到自己」：炎魔被眩晕跳过，走的是 PASS 分支的 ON_UNIT_ACTED，同样能接住
+        registerSettlementHook({
+            when: SIGNAL_TYPES.ON_UNIT_ACTED,
+            priority: 24,
+            handler: (data) => {
+                if (!self.alive || !data || data.unit !== self) return;
+                self.state._blazeCharged = true;
+                pushSkillAnnounce(data.log, self, '蓄力', `🔥 炎魔狮王烈焰凝聚，蓄力待发…`, { floatText: '🔥', floatUid: self.uid });
+            }
+        });
+
+        // 回合收尾（所有单位行动完、回合结束结算前）：本回合轮到过它才补第二发 28
         //   ⚠️ 不能挂 ON_ROUND_END——那是每次出手后广播，会一回合打很多次。
         registerSettlementHook({
             when: SIGNAL_TYPES.ROUND_SETTLED,
             priority: 24,
             handler: (data) => {
-                if (!self.alive) return;
-                const victims = ((data && data.A) || [])
-                    .filter(u => u && u.alive && u.camp === CAMP_TYPES.ALLY && !u.isSummon);
-                if (victims.length === 0) return;
-                const victim = victims[getBattleRng().nextInt(0, victims.length - 1)];
-                applyStatChange(victim, 'hp', -28, self, '炎魔狮王·炎爆', true, false);
-                pushSkillAnnounce(data.log, self, '炎爆',
-                    `炎魔狮王掌心凝聚火球，一发炎爆轰向 ${victim.name}，造成 28 点真实伤害！`,
-                    {
-                        cue: {
-                            kind: SKILL_CUE_KINDS.BLAZE_BURST,
-                            self: { uid: self.uid, camp: self.camp, pos: self.pos },
-                            target: { uid: victim.uid, camp: victim.camp, pos: victim.pos }
-                        },
-                        needsSeparator: true
-                    });
+                if (!self.alive || !self.state._blazeCharged) return;
+                self.state._blazeCharged = false;
+                fireBurst(28, data, '炎爆');
             }
         });
     }
