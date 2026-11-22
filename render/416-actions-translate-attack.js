@@ -482,26 +482,28 @@ function makeAttackAction(data, index) {
     //   ② 被魅惑者头顶飘「🌸 不忍下手」
     //      不用爱心：💗 已被宋青书/周芷若「新婚/性奋」占用，会混淆。
     //      花瓣语义 = 被迷住身不由己，不是真心相爱。
+    //   时机钉死在攻击文本之前：先揭面具、先飘「不忍下手」，再出这一击的攻击行，
+    //   否则观感变成"打完队友才解释为什么"。
     const phantomData = data.phantomFact && data.phantomFact.data;
     if (phantomData && phantomData.sourceSkill === '双面观音' && phantomData.deceiverUid != null) {
-        afterTextEffects.push({
+        beforeEffects.push({
             kind: STAGE_ACTION_TYPES.SKILL_CUE,
             cue: {
                 kind: SKILL_CUE_KINDS.MASK_PEEL,
                 unit: { uid: phantomData.deceiverUid, camp: phantomData.deceiverCamp, pos: phantomData.deceiverPos }
             },
             factIndex: index,
-            timing: 'afterText'
+            timing: 'beforeText'
         });
         // 被魅惑者头顶飘字：落点是本击攻击者（被魅惑的那个），不是彭莹玉。
         //   注意用 attacker（本函数作用域内的变量），data.unit 在 makeAttackAction 里不存在。
         if (attacker && attacker.uid != null) {
-            afterTextEffects.push({
+            beforeEffects.push({
                 kind: STAGE_ACTION_TYPES.SKILL_FLOAT,
                 targetUid: attacker.uid,
                 text: '🌸 不忍下手',
                 factIndex: index,
-                timing: 'afterText'
+                timing: 'beforeText'
             });
         }
     }

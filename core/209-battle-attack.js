@@ -20,7 +20,7 @@ import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { flushBattleEvents, fmtHp, fmtNum, fmtHpText, pushFact } from '../infra/102-core-utils.js';
 import { resolveRoundStatGrants } from './217-effect-handlers.js';
 
-import { emitEvent, applyStatChange, recordCombatStat, moveUnitPosition, getStat } from './214-battle-shared.js';
+import { emitEvent, applyStatChange, recordCombatStat, moveUnitPosition, getStat, getBattleRng } from './214-battle-shared.js';
 // 状态语义（受控/免控/待死）：单一真源在 core/218 的标签表，不再逐文件点字段名
 import { isControlled } from './218-state-keys.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
@@ -220,7 +220,7 @@ function runExtraAttackRequests(requests, opts) {
         if (req.ignoreDodge) req.unit.state._ignoreDodge = true;
         // 被动出手伤害系数（反击×0.8/跟随×0.6）：进额外攻击前写 state，伤害计算统一乘，结束即清（-1=无）
         if (req.dmgRatio != null) req.unit.state._extraDmgRatio = req.dmgRatio;
-        processUnitAttack(req.unit, reqAllySide, reqEnemySide, log, A, B, state, doubleStrikeUnitUid, extraTargetUid);
+        processUnitAttack(req.unit, reqAllySide, reqEnemySide, log, A, B, state, doubleStrikeUnitUid, extraTargetUid, req);
         if (req.dmgRatio != null) req.unit.state._extraDmgRatio = -1;
         if (req.ignoreDodge) req.unit.state._ignoreDodge = false;
         if (isLinkReq) req.unit.state._isLinkAttack = false;
@@ -229,8 +229,15 @@ function runExtraAttackRequests(requests, opts) {
     }
 }
 
+// 混乱打队友时挑下一个受害者（女装「不忍下手」：原队友打不了了，继续挑队友）
+function pickFriendlyVictim(unit, allySide) {
+    const mates = (allySide || []).filter(u => u && u.alive && u.uid !== unit.uid && canBeTargeted(u));
+    if (mates.length === 0) return null;
+    return mates[getBattleRng().nextInt(0, mates.length - 1)];
+}
+
 // 同步流程：UI 层异步包装保持逐步渲染，这里纯同步
-export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid) {
+export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid, lockCtx) {
     // 已死 / 待死不入攻击流程：core/11 的候选池与循环条件已排除，这里是第二道防线 ——
     //   extraRequests（反击/随动/双击）可能带着「本击刚被打死」的 uid 进来，
     //   那种情况下出手会产出「0 血单位攻击、反击 0 伤害、被反击击杀」的假战报。
@@ -264,19 +271,50 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     let healEvtCursor = 0;
 
     let target, phantomFact;
+    // 混乱改目标（女装/幻影伪装/蝶舞迷心）会把这一击拐去打攻击方自己的队友：
+    //   连击第二下也必须能锁定队友，不能因为队友不在敌方阵营就被当成「锁定目标已阵亡」白跳。
+    //   lockCtx.friendlyFallback：'sameSide'＝继续打队友（女装不忍下手），
+    //                              'enemy'＝模仿体没了、误导失效，回到正常选敌（幻影伪装/蝶舞迷心）
+    const friendlyFallback = lockCtx ? lockCtx.friendlyFallback : null;
     if (lockedTargetUid) {
         // 补 pendingDeath：连锁带着已归零的 uid 进来时，不该再打
         // 锁定目标也必过 canBeTargeted：旧版只判 alive/_pendingDeath，小昭·妹飞天（_spiderFlying）、
         //   附身中（_flyMode/FSM）照样被锁定命中——血被 core/214 拦下不掉，战报却宣称「造成 17 伤害」。
-        //   目标已不可选 => 落到下面走正常选目标重挑（与 extraRequests 的 targetUid 同口径）。
-        target = enemySide.find(u => u.uid === lockedTargetUid && canBeTargeted(u)) || null;
+        const pool = friendlyFallback ? [...enemySide, ...allySide] : enemySide;
+        target = pool.find(u => u.uid === lockedTargetUid && canBeTargeted(u)) || null;
         phantomFact = null;
+        if (!target && friendlyFallback === 'enemy') {
+            // 被模仿/被迷心的那个人已经倒下 → 误导随之失效，第二下改打正常敌人
+            const r = selectAttackTarget(unit, enemySide, allySide);
+            target = r.target;
+            phantomFact = r.phantomFact;
+        }
+        if (!target && friendlyFallback === 'sameSide') {
+            // 女装「不忍下手」：原来那个队友打不了了，仍然从攻击方自己队伍里另挑一个
+            target = pickFriendlyVictim(unit, allySide);
+        }
         if (!target) {
             // 锁定目标已阵亡，跳过行动
             const emptyFact = {
                 type: 'emptyTarget',
                 attacker: { uid: unit.uid, name: unit.name, camp: unit.camp },
-                reason: '锁定目标已阵亡，跳过行动',
+                reason: friendlyFallback === 'sameSide' ? '队友已无可替之人，这一击落空' : '锁定目标已阵亡，跳过行动',
+                events: []
+            };
+            emptyFact.events = flushBattleEvents();
+            log.push({ factType: FACT_TYPES.EMPTY_TARGET, data: emptyFact });
+            unit.state._acted = true;
+            return false;
+        }
+    } else if (friendlyFallback === 'sameSide') {
+        // 连击第二下已无 uid 可锁（首击把队友打死了）：继续打队友，不转去攻击敌人
+        target = pickFriendlyVictim(unit, allySide);
+        phantomFact = null;
+        if (!target) {
+            const emptyFact = {
+                type: 'emptyTarget',
+                attacker: { uid: unit.uid, name: unit.name, camp: unit.camp },
+                reason: '队友已无可替之人，这一击落空',
                 events: []
             };
             emptyFact.events = flushBattleEvents();

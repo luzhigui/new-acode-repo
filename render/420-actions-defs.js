@@ -715,7 +715,8 @@ export const STAGE_ACTION_DEFS = {
     [STAGE_ACTION_TYPES.SKILL_FLOAT]: {
         // 何太冲技能任意文本头顶飘字（破甲箭🛡-N% 飘目标格 / 昆仑合击🎯×N 飘何太冲格）：
         //   fx/89 复用「灭绝计数」的任意文本头顶上飘通道（showMiejueCountFloat），不另造字形。
-        grid: 'none', log: 'sync', timing: 'afterText',
+        //   timing 允许动作自报：女装「不忍下手」要抢在攻击文本之前飘（默认仍是文本后）。
+        grid: 'none', log: 'sync', timing: (action) => (action && action.timing) || 'afterText',
         fx: (c, action) => {
             if (isFxSkipped()) return;
             const unit = findUnitByUidLocal(c, action.targetUid);

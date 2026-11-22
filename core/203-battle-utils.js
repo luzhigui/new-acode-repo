@@ -458,12 +458,22 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUids, allyTeam, a
             sink.push({ factType: FACT_TYPES.DOUBLE_STRIKE, data: { success: true, unitName: unit.name } });
             Object.assign(unit.state, { _doubleStriked: true });
             if (!data.extraRequests) data.extraRequests = [];
+            // 混乱改目标（女装/幻影伪装/蝶舞迷心）把这一击拐去打攻击方自己的队友：
+            //   第二下仍要打这个队友（女装），不能因为队友不在敌方阵营被当成「锁定目标已阵亡」白跳。
+            //   但幻影伪装/蝶舞迷心的模仿体一死，误导就失效 → 第二下回到正常打敌人。
+            const phantom = (data.group && data.group.data && data.group.data.phantomFact)
+                || data.phantomFact || null;
+            const confusionSource = (phantom && phantom.data) ? phantom.data.sourceSkill : null;
+            const friendlyConfused = !!(unit && target && target.camp === unit.camp);
             data.extraRequests.push({
                 unit,
                 // 补 _pendingDeath：原目标同击致死后 alive 仍是 true（死亡结算才清），
                 //   只判 alive 会把"待死"的 uid 锁给第二次攻击 → 消费端按严判据找不到人 → 白跳一次。
                 //   判 null 后走正常选目标流程（概率连击改打别人）。
                 targetUid: (target && target.alive && !target.state._pendingDeath) ? target.uid : null,
+                friendlyFallback: friendlyConfused
+                    ? ((confusionSource === '幻影伪装' || confusionSource === '蝶舞迷心') ? 'enemy' : 'sameSide')
+                    : undefined,
                 reason: 'doubleStrike',
                 actedMode: 'allow',
                 priority: 10,

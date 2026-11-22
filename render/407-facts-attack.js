@@ -21,7 +21,8 @@ export function renderMissFact(fact) {
         {type:'info', text:`<span class="gray">未命中！</span>`}
     ];
     // 幻影/迷心改目标的那一击被闪避/打空时，命中组不生成，phantomFact 由 core/209 挂在 MISS 上，这里补渲染
-    if (fact.phantomFact) { const _pf = renderLog(fact.phantomFact.factType, fact.phantomFact.data); if (_pf) missEntries.push(_pf); }
+    //   前置到「未命中」之前：先交代为什么打队友/打偏，再报结果
+    if (fact.phantomFact) { const _pf = renderLog(fact.phantomFact.factType, fact.phantomFact.data); if (_pf) missEntries.unshift(_pf); }
     return {
         type:'attack-group',
         uidA: fact.attacker.uid,
@@ -56,7 +57,8 @@ export function renderDodgeFact(fact) {
 
     dodgeGroup.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${fmtAtk(fact.attackerAtk)} 血${fmtHpText(fact.attackerHpBefore)}) → <span class="${dc}">${campD} ${target.name}</span>(防${fmtNum(fact.dodgerDef)} 血${fmtHpText(fact.dodgerHp)})`});
     // 幻影/迷心改目标的那一击被闪避时同样补渲染（core/209 把 phantomFact 挂在 DODGE 数据上）
-    if (fact.phantomFact) { const _pf = renderLog(fact.phantomFact.factType, fact.phantomFact.data); if (_pf) dodgeGroup.entries.push(_pf); }
+    //   前置到攻击行之前：先交代为什么打队友，再出数字
+    if (fact.phantomFact) { const _pf = renderLog(fact.phantomFact.factType, fact.phantomFact.data); if (_pf) dodgeGroup.entries.unshift(_pf); }
     dodgeGroup.entries.push({type:'damage-text', deadFlag: dodgeGroup.isDead, text:`<span class="red">🦅 ${target.name}闪避并反击 → ${unit.name} 造成 ${fmtNum(fact.reboundDmg)} 真实伤害（${fmtHpText(fact.attackerHpBefore)} → ${fmtHpText(fact.attackerHpAfter)}）</span>`});
 
     if (fact.weiHeal) {
@@ -143,6 +145,9 @@ export function renderAttackFact(fact) {
     // 被动出手行内徽章：普攻无前缀，反击/跟随等带金色【标签】——不用翻日志也知道这一手是什么
     const LINK_TAGS = { counterAttack: '反击', followAttack: '跟随', lionFollow: '随动', xuanmingLink: '联动', chaseAttack: '追击', doubleStrike: '连击', brotherLastStrike: '连击', bloodthirst: '嗜血', xiaoZhaoDoubleMiss: '双击' };
     const linkTag = LINK_TAGS[linkReason] ? `<span class="gold">【${LINK_TAGS[linkReason]}】</span>` : '';
+    // 混乱/魅惑（不忍下手 / 幻影伪装 / 蝶舞迷心）必须排在攻击行之前：
+    //   先交代「这一击为什么打队友」，再出攻击数字，否则读起来像打完了才解释。
+    if (fact.phantomFact) { const _pf = renderLog(fact.phantomFact.factType, fact.phantomFact.data); if (_pf) group.entries.push(_pf); }
     group.entries.push({type:'combat-text', text:`${linkTag}<span class="${ac}">${campA} ${unit.name}</span>(攻${displayAtk} 血${fmtHpText(unitHpBefore)}) → <span class="${dc}">${campD} ${target.name}</span>(防${displayDef} 血${fmtHpText(dmgResult.hpBefore)})`});
     // 破防日志前置到攻击组最前
     const breakDefEntries = [];
@@ -154,7 +159,6 @@ export function renderAttackFact(fact) {
     for (const b of breakDefEntries) {
         if (b) group.entries.unshift(b);
     }
-    if (fact.phantomFact) { const _pf = renderLog(fact.phantomFact.factType, fact.phantomFact.data); if (_pf) group.entries.push(_pf); }
     group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${fmtAtk(dmgCalc.atkBase)}→${fmtAtk(dmgCalc.atkAct)} 防${fmtNum(dmgCalc.defBase)}→${fmtNum(dmgCalc.defAct)} 减伤${fmtNum(dmgCalc.hpBonus)}</span>`});
     // 公式明细由引擎输出（core/12 calcFinalDamage 的 formula 字段），此处只排版。
     // 不再自己调 calcDamage / 查 FANG_K / 反推 baseRaw —— 那会和引擎的实时值打架。
