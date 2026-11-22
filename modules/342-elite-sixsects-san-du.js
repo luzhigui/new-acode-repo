@@ -15,9 +15,10 @@
 // V1.1.7 | 2026-11-22 老板二钉:圣火令降级移除;金刚不坏(40%防)回渡厄个人;阵位=2严阵以待/7,9热血奋战
 // V1.1.8 | 2026-11-22 渡厄个人技改名首当其冲(金刚不坏让给空见金钟罩,老板拍板)
 // V1.1.9 | 2026-11-22 修复重复三份的 doubleAttack 分支(首个空块吃掉分支，渡劫必发双击完全失效)
-export const VER = 'modules/342-elite-sixsects-san-du.js V1.1.9';
+// V2.0.0 | 2026-11-22 老板口径落地：渡劫改 80% 概率连击；删 7/9 热血奋战（只留回血 30）；2 号位严阵以待补受击反弹 40%+战报/横幅/飘字；流云/严阵以待补回合播报；两个 40% 共用同一常量
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.0.0';
 
-import { registerSettlementHook } from '../infra/101-event-bus.js';
+import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
 import { addMod, applyStatChange, getBattleRng } from '../core/214-battle-shared.js';
@@ -30,6 +31,12 @@ function findSelf(A, B, decl) {
     return (team || []).find(u => u && u.name === decl.name) || null;
 }
 
+// 三渡数值唯一来源（老板 2026-11-22 拍板：首当其冲与 2 号位严阵以待两个 40% 共用同一常量，不写死两处）
+const SAN_DU_DEF_BONUS = 0.4;          // 防御 +40%（个人技 / 2 号位阵位，共用）
+const SAN_DU_FORTIFY_REBOUND = 0.4;    // 2 号位严阵以待受击反弹：实际承伤的 40%
+const SAN_DU_LIUYUN_RATE = 0.25;       // 流云身法闪避 +25%
+const SAN_DU_DOUBLE_STRIKE_RATE = 0.8; // 概率连击：80%
+
 // ── 三大高僧的固定被动 ──
 export const monkFixedBuffHandler = {
     fields: { buffType: 'string' },
@@ -38,37 +45,65 @@ export const monkFixedBuffHandler = {
         if (!self) return;
 
         if (decl.buffType === 'defense') {
-            // 渡厄·首当其冲（个人技，2026-11-22 老板钉死口径）：概率连击/流云身法/首当其冲(+40%防)三样绑和尚个人；
-            //   给位置的是严阵以待（2 号位）与热血奋战（7/9 号位）。圣火令已降级移除；金刚不坏是空见金钟罩，避让改名（老板 08:43）。
-            //   防 +40%（ttl:'round' 每回合重挂，避免永久 mod 逐回合叠加）；源名首当其冲，与阵位严阵以待在战报里区分
+            // 渡厄·首当其冲（个人技，绑人）：防御 +40%（ttl:'round' 每回合重挂，避免永久 mod 逐回合叠加）
             registerSettlementHook({
                 when: SIGNAL_TYPES.ON_ROUND_START,
                 priority: 20,
                 handler: () => {
                     if (!self.alive) return;
-                    addMod(self, 'def', { source: '首当其冲', value: 0.4, ttl: 'round', op: 'mul', group: 'monkDef' });
+                    addMod(self, 'def', { source: '首当其冲', value: SAN_DU_DEF_BONUS, ttl: 'round', op: 'mul', group: 'monkDef' });
                 }
             });
-            // 阵位授予（认位不认人）：2 号位=严阵以待（防 +40%，与 204 严阵同值）；7/9 号位=热血奋战（挂旗走 204 热血管线）
+            // 阵位授予（认位不认人）：2 号位=严阵以待（防御 +40% + 受击反弹 40%）；7/9 号位只保留金刚伏魔阵回血
             registerSettlementHook({
                 when: SIGNAL_TYPES.ON_ROUND_START,
                 priority: 19,
-                handler: () => {
+                handler: (data) => {
                     const team = (decl.camp === CAMP_TYPES.ALLY ? (A || []) : (B || []));
+                    let fortifyUnit = null;
                     team.forEach(u => {
-                        if (!u.alive || u.pos == null) return;
-                        if (u.pos === 2) {
-                            addMod(u, 'def', { source: '严阵以待', value: 0.4, ttl: 'round', op: 'mul', group: 'sanDuPosFort' });
-                        } else if (u.pos === 7 || u.pos === 9) {
-                            u.state._sanDuHotBlood = true;
-                        }
+                        if (!u || !u.state) return;
+                        const atTwo = u.alive && u.pos === 2;
+                        u.state._sanDuFortify = atTwo;
+                        if (!atTwo) return;
+                        addMod(u, 'def', { source: '严阵以待', value: SAN_DU_DEF_BONUS, ttl: 'round', op: 'mul', group: 'sanDuPosFort' });
+                        fortifyUnit = u;
+                    });
+                    if (fortifyUnit) {
+                        pushSkillAnnounce(data && data.log, fortifyUnit, '严阵以待',
+                            `🛡️ 严阵以待：${fortifyUnit.name} 防御 +${Math.round(SAN_DU_DEF_BONUS * 100)}%，受击反弹 ${Math.round(SAN_DU_FORTIFY_REBOUND * 100)}%`);
+                    }
+                }
+            });
+            // 严阵以待反击：2 号位实际掉血后反弹 40% 给攻击者（FORTIFY_REBOUND 自带横幅 + 飘字 + 战报）
+            registerSettlementHook({
+                when: 'afterDamageApplied',
+                priority: 24,
+                handler: (data) => {
+                    const { unit, target, dmg } = data || {};
+                    if (!unit || !target || !target.alive || !target.state || !target.state._sanDuFortify) return;
+                    if (target.pos !== 2 || !dmg || dmg <= 0) return;
+                    const value = Math.floor(dmg * SAN_DU_FORTIFY_REBOUND);
+                    if (value <= 0) return;
+                    if (!data.declarations) data.declarations = [];
+                    data.declarations.push({
+                        type: EFFECT_TYPES.REBOUND,
+                        value,
+                        source: target,
+                        target: unit,
+                        factType: FACT_TYPES.FORTIFY_REBOUND,
+                        factData: { reboundDmg: value, unitName: unit.name, attackerUid: unit.uid, unitUid: target.uid }
                     });
                 }
             });
         } else if (decl.buffType === 'doubleAttack') {
-            // 渡劫·一回合两次攻击：首次出手后追加一次（_doubleStriked 每回合重置，天然限一次）
+            // 渡劫·概率连击：命中/闪避后 80% 概率追加一次（每回合只掷一次骰，不 100% 必发）
             const submitSecond = (data) => {
-                if (!data || data.unit !== self || !self.alive || self.state._doubleStriked) return;
+                if (!data || data.unit !== self || !self.alive) return;
+                if (self.state._doubleStrikeRolled) return;
+                self.state._doubleStrikeRolled = true;
+                if (self.state._doubleStriked) return;
+                if (getBattleRng().nextFloat() >= SAN_DU_DOUBLE_STRIKE_RATE) return;
                 self.state._doubleStriked = true;
                 const fact = {
                     factType: FACT_TYPES.DOUBLE_STRIKE,
@@ -88,9 +123,25 @@ export const monkFixedBuffHandler = {
             };
             registerSettlementHook({ when: SIGNAL_TYPES.AFTER_ATTACK, priority: 20, handler: submitSecond });
             registerSettlementHook({ when: SIGNAL_TYPES.AFTER_MISS, priority: 20, handler: submitSecond });
+            // 每回合重置掷骰与追加标记（_doubleStriked 由核心统一清，这里只补掷骰标记）
+            registerSettlementHook({
+                when: SIGNAL_TYPES.ON_ROUND_START,
+                priority: 18,
+                handler: () => { self.state._doubleStrikeRolled = false; self.state._doubleStriked = false; }
+            });
         } else if (decl.buffType === 'dodge') {
-            // 渡难·流云身法：闪避 +25%
-            registerDodgeRule((target) => (target && target.uid === self.uid && target.alive ? 0.25 : 0));
+            // 渡难·流云身法：闪避 +25%（格子挂 💨 logo，回合开始播报一条，避免只有属性面板能看见）
+            self.state._sanDuLiuYun = true;
+            registerDodgeRule((target) => (target && target.uid === self.uid && target.alive ? SAN_DU_LIUYUN_RATE : 0));
+            registerSettlementHook({
+                when: SIGNAL_TYPES.ON_ROUND_START,
+                priority: 22,
+                handler: (data) => {
+                    if (!self.alive) return;
+                    pushSkillAnnounce(data && data.log, self, '流云身法',
+                        `💨 流云身法：${self.name} 闪避 +${Math.round(SAN_DU_LIUYUN_RATE * 100)}%`);
+                }
+            });
         }
 
         // 共有：7~9 号位每回合开始回复 30 点生命
