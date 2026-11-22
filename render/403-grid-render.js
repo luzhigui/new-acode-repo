@@ -395,8 +395,11 @@ export function renderGrid(id, camp) {
         let logoList = [];
         // 金刚不坏护罩优先占位（状态性，可挂在任意单位身上；放最前避免被 buff 图标挤掉）
         if (unit.state && unit.state._immuneShield) logoList.push('🔔');
-        // 周颠·癫：强制置顶（只要预算>0就绝对能看到）
-        if (unit.state._isCrazy) logoList.push('🤪');
+        // 周颠·癫：强制置顶（只要预算>0就绝对能看到）；多来源共存时带份数（周颠一份 / 偷·空智一份…）
+        if (unit.state._isCrazy) {
+            const crazyCount = Object.keys(unit.state._crazySources || {}).length;
+            logoList.push(crazyCount > 1 ? `🤪×${crazyCount}` : '🤪');
+        }
         
         // 技能图标先合并成「一个元素」再入队：eliteSkillIcon 可能由多个 emoji 叠加（小昭·姊 🦋、
         //   成昆 🎭、玄冥 ❄️、唐文亮 🌿xN…），按空格拆成多格会自己吃掉 logoBudget 的 2 格，

@@ -4,7 +4,9 @@
 // 带「癫」时：必中，且无视目标闪避（从而不会触发闪避反击）。
 // V1.1.4 | 2026-11-19 grant/revoke 导出给 311：张三丰持癫乱回后传染走同一出口
 // V1.1.5 | 2026-11-22 传染拦截免疫控制者（寒离飒等）：isCCImmune 挡住，癫留在本人身上并播报
-export const VER = 'modules/333-elite-mingjiao-crazy.js V1.1.5';
+// V1.2.0 | 2026-11-22 多来源「癫」共存：state._crazySources 记来源（周颠 / 偷·空智…），各自独立存在，
+//             日志与格子图标可区分；传染互斥——目标已带任意癫则不覆盖，癫留在攻击者身上
+export const VER = 'modules/333-elite-mingjiao-crazy.js V1.2.0';
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -15,23 +17,59 @@ import { buildTargetCandidates } from '../core/207-target-strategies.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 import { isCCImmune } from '../core/218-state-keys.js';
 
-// 统一管理癫的赋予与撤销，同时控制必中与无视闪避
-// 导出给 311 张三丰用：持癫乱回后传染同一出口（2026-11-19 老板拍板），状态字段单点维护不散抄
-export function grantCrazy(unit) {
-    if (!unit || !unit.alive) return;
-    unit.state._isCrazy = true;
-    unit.state._neverMiss = true;
-    unit.state._ignoreDodge = true;
+// 多来源「癫」：state._crazySources = { [来源键]: 显示名 }，如 { 周颠: '周颠' } / { 空智: '偷·空智' }。
+//   来源键=首个持有者名字（稳定去重），显示名给战报/格子看。_isCrazy/_neverMiss/_ignoreDodge 由「来源表非空」派生，
+//   现有读点（core/210 遮挡豁免、core/203 必中、render/403 图标、modules/311/312）零改动照用。
+function crazySources(unit) {
+    const s = unit && unit.state && unit.state._crazySources;
+    return (s && typeof s === 'object') ? s : null;
 }
-export function revokeCrazy(unit) {
+function syncCrazyFlags(unit) {
+    const has = !!crazySources(unit);
+    unit.state._isCrazy = has;
+    unit.state._neverMiss = has;
+    unit.state._ignoreDodge = has;
+}
+// 供 311/日志读：当前身上所有癫的来源显示名（0 个=没癫）
+export function crazyLabels(unit) {
+    const s = crazySources(unit);
+    return s ? Object.values(s) : [];
+}
+// 加一份来源（同来源幂等）。unit.state 每次整对象换新——OBJECT 字段 clone 是浅拷贝，就地改会漏到 UI 镜像。
+export function grantCrazy(unit, sourceKey, label) {
+    if (!unit || !unit.alive) return;
+    const key = sourceKey || unit.name;
+    unit.state._crazySources = { ...(crazySources(unit) || {}), [key]: label || key };
+    syncCrazyFlags(unit);
+}
+// 撤一份来源（不传 sourceKey = 全撤）
+export function revokeCrazy(unit, sourceKey) {
     if (!unit) return;
-    unit.state._isCrazy = false;
-    unit.state._neverMiss = false;
-    unit.state._ignoreDodge = false;
+    const cur = crazySources(unit);
+    if (!cur || !sourceKey) {
+        unit.state._crazySources = null;
+        syncCrazyFlags(unit);
+        return;
+    }
+    const next = { ...cur };
+    delete next[sourceKey];
+    unit.state._crazySources = Object.keys(next).length > 0 ? next : null;
+    syncCrazyFlags(unit);
+}
+// 传染出口：目标已带任意癫 → 不覆盖（互斥），返回 false；否则把自己的全部来源整体搬过去。
+export function moveCrazy(from, to) {
+    if (!from || !to || !to.alive || to.uid === from.uid) return false;
+    const src = crazySources(from);
+    if (!src) return false;
+    if (crazySources(to)) return false;   // 互斥：已有癫的人不再接收
+    revokeCrazy(from);
+    for (const [k, v] of Object.entries(src)) grantCrazy(to, k, v);
+    return true;
 }
 
 function crazyAttackNote(unit, target) {
-    return `🤪 ${unit.name} 受到「癫」的影响，不分敌友地向 ${target ? target.name : '?'} 发起攻击！`;
+    const lbl = crazyLabels(unit).join('/');
+    return `🤪 ${unit.name} 受到「癫${lbl ? '·' + lbl : ''}」的影响，不分敌友地向 ${target ? target.name : '?'} 发起攻击！`;
 }
 
 // 出手开场白必须落进本击自己的攻击组：core/209 先 log.push(group) 再发 AFTER_DAMAGE_APPLIED。
@@ -51,13 +89,16 @@ function pushCrazyOpening(data, unit) {
 export const crazyHandler = {
     fields: {},
     install({ eventBus, A, B, decl }) {
-        // 如果场上没有任何人带有「癫」，且周颠存活，则周颠自动拾起「癫」
+        // 每个来源只发一份：周颠自带「癫」，空智偷学后另有自己的一份「癫」，两份可同时在场
+        //   （decl.stolenBy 由 341 偷学时传入）——各自用来源表判重，互不占用
         const all = [...A, ...B];
-        const hasCrazy = all.some(u => u.alive && u.state._isCrazy);
-        if (!hasCrazy) {
-            const zhouDian = all.find(u => u.name === decl.name && u.alive);
-            if (zhouDian) {
-                grantCrazy(zhouDian);
+        const sourceKey = decl.name;
+        const sourceLabel = decl.stolenBy ? `偷·${decl.stolenBy}` : decl.name;
+        const sourceExists = all.some(u => u.alive && crazySources(u) && crazySources(u)[sourceKey]);
+        if (!sourceExists) {
+            const holder = all.find(u => u.name === decl.name && u.alive);
+            if (holder) {
+                grantCrazy(holder, sourceKey, sourceLabel);
             }
         }
 
@@ -103,9 +144,13 @@ export const crazyHandler = {
                         if (data.log) pushSkillAnnounce(data.log, unit, '癫', `🤪 ${unit.name} 想传染「癫」给 ${target.name}，但对方免疫控制，传染失败`, { floatText: '🛡️', floatUid: target.uid });
                         return;
                     }
-                    revokeCrazy(unit);
-                    grantCrazy(target);
-                    if (data.log) pushSkillAnnounce(data.log, unit, '癫', `🤪 ${unit.name} 将「癫」传染给了 ${target.name}`, { floatText: '🤪', floatUid: target.uid });
+                    const mine = crazyLabels(unit).join('/');
+                    // 互斥：对方已有「癫」就不再接收（来源可以不同，同时在场但不叠加）
+                    if (!moveCrazy(unit, target)) {
+                        if (data.log) pushSkillAnnounce(data.log, unit, '癫', `🤪 ${unit.name} 想把「癫·${mine}」传给 ${target.name}，但对方已带「癫·${crazyLabels(target).join('/')}」，这份癫留在 ${unit.name} 身上`, { floatText: '🤪', floatUid: unit.uid });
+                        return;
+                    }
+                    if (data.log) pushSkillAnnounce(data.log, unit, '癫', `🤪 ${unit.name} 将「癫·${mine}」传染给了 ${target.name}`, { floatText: '🤪', floatUid: target.uid });
                 }
             }
         });
@@ -130,35 +175,43 @@ export const crazyHandler = {
             handler: (data) => {
                 for (const dead of (data.deadUnits || [])) {
                     if (!dead.state._isCrazy) continue;
+                    const deadLabels = crazyLabels(dead).join('/');
+                    const deadSources = { ...(crazySources(dead) || {}) };
                     revokeCrazy(dead);
+                    const all = [...data.allySide, ...data.enemySide];
+                    // 接收者必须身上没有「癫」（互斥）：死者这份可以整体搬给他
+                    const canTake = (u) => !!u && u.alive && u.uid !== dead.uid && !crazySources(u);
+                    const moveAll = (to, note) => {
+                        for (const [k, v] of Object.entries(deadSources)) grantCrazy(to, k, v);
+                        if (data.log) pushSkillAnnounce(data.log, dead, '癫', note, { floatText: '🤪', floatUid: to.uid });
+                    };
 
                     // 1. 找攻击者
                     let killer = null;
                     if (dead.state._killerUid) {
-                        const all = [...data.allySide, ...data.enemySide];
-                        killer = all.find(u => u.uid === dead.state._killerUid && u.alive);
+                        killer = all.find(u => u.uid === dead.state._killerUid && canTake(u));
                     }
-                    if (killer && killer.uid !== dead.uid) {
-                        grantCrazy(killer);
-                        if (data.log) pushSkillAnnounce(data.log, dead, '癫', `🤪 「癫」随着 ${dead.name} 的死亡传给了 ${killer.name}`, { floatText: '🤪', floatUid: killer.uid });
+                    if (killer) {
+                        moveAll(killer, `🤪 「癫·${deadLabels}」随着 ${dead.name} 的死亡传给了 ${killer.name}`);
                         continue;
                     }
 
-                    // 2. 找不到攻击者，回周颠
-                    const zhouDian = [...data.allySide, ...data.enemySide].find(u => u.name === '周颠' && u.alive);
+                    // 2. 找不到可接的攻击者，回周颠
+                    const zhouDian = all.find(u => u.name === '周颠' && canTake(u));
                     if (zhouDian) {
-                        grantCrazy(zhouDian);
-                        if (data.log) pushSkillAnnounce(data.log, dead, '癫', `🤪 「癫」找不到攻击者，回到了 ${zhouDian.name} 身上`, { floatText: '🤪', floatUid: zhouDian.uid });
+                        moveAll(zhouDian, `🤪 「癫·${deadLabels}」找不到可接的攻击者，回到了 ${zhouDian.name} 身上`);
                         continue;
                     }
 
-                    // 3. 周颠已死，随机传递
-                    const pool = [...data.allySide, ...data.enemySide].filter(u => u.alive && canBeTargeted(u));
+                    // 3. 周颠也没法接，随机传给一个身上没癫的人
+                    const pool = all.filter(u => canTake(u) && canBeTargeted(u));
                     if (pool.length > 0) {
                         const rnd = pool[getBattleRng().nextInt(0, pool.length - 1)];
-                        grantCrazy(rnd);
-                        if (data.log) pushSkillAnnounce(data.log, dead, '癫', `🤪 周颠已阵亡，「癫」随机传给了 ${rnd.name}`, { floatText: '🤪', floatUid: rnd.uid });
+                        moveAll(rnd, `🤪 周颠已阵亡且攻击者也带癫，「癫·${deadLabels}」随机传给了 ${rnd.name}`);
+                        continue;
                     }
+                    // 4. 全场都带癫了：这份癫无处可去，随死者消散（不再覆盖别人）
+                    if (data.log) pushSkillAnnounce(data.log, dead, '癫', `🤪 ${dead.name} 的「癫·${deadLabels}」无人可接（全场都已带癫），随之消散`, { floatText: '🤪', floatUid: dead.uid });
                 }
             }
         });

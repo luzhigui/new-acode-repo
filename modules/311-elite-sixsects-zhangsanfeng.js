@@ -17,7 +17,7 @@ import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES } from '../infra/106-b
 import { GlobalStore } from '../infra/104-global-store.js';
 import { FX_SIGNALS } from '../infra/105-fx-signals.js';
 import { pushSkillAnnounce, selfOrFindAlive, requireSkillParams, pushFact } from './305-elite-helpers.js';
-import { grantCrazy, revokeCrazy } from './333-elite-mingjiao-crazy.js';
+import { moveCrazy, crazyLabels } from './333-elite-mingjiao-crazy.js';
 import { healModReasons } from '../core/217-effect-handlers.js';
 import { isCCImmune } from '../core/218-state-keys.js';
 // 张三丰（六大派·防战）：不攻击的续航核心
@@ -192,13 +192,16 @@ export function createZhangSanfengComponent() {
                     receiverHealed = Math.round(Math.max(0, Math.min(willHeal, receiver.hp - rHpBefore)));
                     receiverReduce = afterReduce;
                     receiverMods = mods;
-                    // 癫传染：撤销自己 → 传给被灌者（与 333 攻击传染完全同款）
-                    revokeCrazy(unit);
-                    grantCrazy(receiver);
+                    // 癫传染：走 333 的统一出口（多来源整体搬走）。被灌者已带癫 → 互斥不覆盖，
+                    //   这份癫留在张三丰身上（与 333 攻击传染同一规则）
+                    const myCrazy = crazyLabels(unit).join('/');
+                    const moved = moveCrazy(unit, receiver);
                     if (log) pushSkillAnnounce(log, unit, '癫',
                         `🤪 ${unit.name} 受「癫」影响，生生不息乱灌 ${receiver.name} ${afterReduce} 点生命` +
                         (mods.length ? `（${mods.join('+')}：应灌${heal}）` : '') +
-                        `，并把「癫」传染给了 ${receiver.name}`,
+                        (moved
+                            ? `，并把「癫·${myCrazy}」传染给了 ${receiver.name}`
+                            : `；但 ${receiver.name} 已带「癫·${crazyLabels(receiver).join('/')}」，这份癫留在 ${unit.name} 身上`),
                         { floatText: '🤪', floatUid: receiver.uid });
                 } else if (log) {
                     pushSkillAnnounce(log, unit, '癫', `🤪 ${unit.name} 受「癫」影响想乱灌生生不息，但全场无人可接，白白消散`, { floatText: '🤪', floatUid: unit.uid });

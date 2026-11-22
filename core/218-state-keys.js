@@ -310,8 +310,10 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _bagWarned:              { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 空智·偷学：已安装过的机制 type 表（防每回合重复 install 叠加钩子）
     _stolenTypes:            { type: STATE_FIELD_TYPES.OBJECT,  default: null },
-    // 周颠·癫：全场唯一持有，攻击随机不分敌友，命中/死亡转移
+    // 周颠·癫：多来源共存（周颠自带一份、空智偷学一份…），state._crazySources 记 { 来源键: 显示名 }；
+    //   _isCrazy 由来源表非空派生，只读不直接写。传染时目标已带癫 → 互斥不覆盖
     _isCrazy:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _crazySources:           { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 组内报幕暂存：模块在 BEFORE_ACTION_SELECT / ON_UNIT_ACTED 时机写入 { skillName, note, extra? }，
     //   core/209 buildAttackGroup 之后 unshift 到本击攻击组开头并清空。
     //   旧路径：模块在攻击组外直接 log.push，报幕游离在上一击尾巴与本击分隔符之间，读起来像上一击触发的

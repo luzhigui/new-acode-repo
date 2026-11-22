@@ -166,7 +166,7 @@ export const stealSkillHandler = {
                     self.state._stolenTypes = self.state._stolenTypes || {};
                     if (!self.state._stolenTypes[picked.type]) {
                         self.state._stolenTypes[picked.type] = true;
-                        installMechanicByType(eventBus, picked.type, data.A, data.B, data.log, { ...picked, name: self.name, camp: decl.camp });
+                        installMechanicByType(eventBus, picked.type, data.A, data.B, data.log, { ...picked, name: self.name, camp: decl.camp, stolenBy: self.name });
                     }
                     // 战报必须写中文：原主 skills[type].name 优先（如 bagTrap→布袋），没登记名才退回通用叫法，禁止裸枚举
                     const skillCfg = originCfg && originCfg.skills && originCfg.skills[picked.type];
