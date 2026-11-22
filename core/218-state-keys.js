@@ -5,7 +5,10 @@
 // V2.11.4 | 2026-11-20 | 补登记 _zhiQuNote（341 写入/204·210·217 读取后清，漏登记 ⇒ Unit.clone 撞 assertStateFullyRegistered）
 // V2.11.5 | 2026-11-22 补登记 _sanDuHotBlood(三渡阵位热血奋战旗)
 // V2.11.6 | 2026-11-22 补登记 _bagWarned(布袋袋满一回合只报一次)、_stolenTypes(空智偷学防重复 install)
-export const VER = 'core/218-state-keys.js V2.11.6';
+// V2.11.7 | 2026-11-22 补登记 342 三渡写而未登的三个字段：_doubleStrikeRolled（渡劫每回合只掷一次连击骰）、
+//           _sanDuFortify（2 号位严阵以待旗）、_sanDuLiuYun（渡难流云身法已授予）。
+//           漏登记 ⇒ Unit.clone 撞 assertStateFullyRegistered，第2关/第6关带三渡的对局全炸（弱精英 unitAB 复现）。
+export const VER = 'core/218-state-keys.js V2.11.7';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -173,7 +176,11 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _untargetable:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false, tags: [STATE_TAGS.UNTARGETABLE] },
     _hotBloodCount:          { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _doubleStriked:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 渡劫·概率连击「本回合已掷过骰」（342 写、回合开始复位）：漏登记 ⇒ clone 炸
+    _doubleStrikeRolled:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _sanDuHotBlood:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 三渡阵位热血奋战旗（342 阵位授予 7/9 号位）
+    _sanDuFortify:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 三渡 2 号位严阵以待旗（342 每回合按站位重写）
+    _sanDuLiuYun:            { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 渡难·流云身法已授予（342 写入）
     _zhangSwitched:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _fortifyStacks:          { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _fortifyIncrement:       { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
