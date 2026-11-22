@@ -6,7 +6,8 @@
 // V1.0.1 | 2026-11-21 偷学参数嫁接(原主skills/mechanics并入偷学者配置,修缺参白偷)
 // V1.0.2 | 2026-11-22 偷学播报改中文技能名（原主 skills.name 优先，禁止裸枚举 bagTrap）
 // V1.0.3 | 2026-11-22 偷学幂等：同一机制 type 只 install 一次（原每回合重复 install 叠加钩子，一次事件被处理多次）
-export const VER = 'modules/341-common-mech-kongzhi.js V1.0.3';
+// V1.0.4 | 2026-11-22 武痴顿悟·回复生命播报改绿色（tone:'heal'），其余结果保持金色
+export const VER = 'modules/341-common-mech-kongzhi.js V1.0.4';
 
 import { registerSettlementHook, eventBus, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler, installMechanicByType } from '../core/219-mechanic-registry.js';
@@ -75,7 +76,8 @@ export const wuChiHandler = {
                         text = '😵 走火入魔：眩晕且本回合武痴失效';
                         break;
                 }
-                if (text) pushSkillAnnounce(log, self, '武痴', text, { floatText: '📖', floatUid: self.uid });
+                // 回复生命那一条走绿色（tone:'heal'），其余金色（老板 2026-11-22：恢复了应该是绿色状态）
+                if (text) pushSkillAnnounce(log, self, '武痴', text, { floatText: '📖', floatUid: self.uid, tone: roll === 3 ? 'heal' : undefined });
             }
         };
         registerSettlementHook({ when: 'afterDamageApplied', priority: L.AFTER_DAMAGE_APPLIED.REBOUND, handler: check });
