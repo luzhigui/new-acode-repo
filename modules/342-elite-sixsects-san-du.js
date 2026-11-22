@@ -20,12 +20,15 @@
 // V2.1.0 | 2026-11-22 老板口径：三渡与炎魔全体免疫控制；炎魔双发炎爆——回合开始 18 点，轮到自己蓄力、回合收尾 28 点
 // V2.1.1 | 2026-11-22 渡劫概率连击格子补 ⚡ logo（_sanDuDoubleStrike 常驻旗，同流云💨/严阵🛡️ 出口）
 // V2.1.2 | 2026-11-22 炎爆/蓄力强制自成一组：回合开始那发 18 紧跟回合头时也画分隔符（separatorForce 放行）
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.1.2';
+// V2.1.3 | 2026-11-22 老板口径：炎爆（开局 18 / 收尾 28）可被闪避，但不触发闪避反击——只判闪避率，不走进攻链
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.1.3';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
 import { addMod, applyStatChange, getBattleRng } from '../core/214-battle-shared.js';
+import { computeBuffStats } from '../core/204-buff-system.js';
+import { computeDodgeChance } from '../core/213-battle-attack-edge.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 import { registerDodgeRule } from '../core/221-registry-dodge.js';
 
@@ -192,6 +195,21 @@ export const blazeLionKingHandler = {
             const pool = (((data && data.A) || A) || []).filter(u => u && u.alive && u.camp === CAMP_TYPES.ALLY && !u.isSummon);
             if (pool.length === 0) return;
             const victim = pool[getBattleRng().nextInt(0, pool.length - 1)];
+            // 可被闪避：只判闪避率（规则型 + buff 闪避），不走进攻链 resolveAttackHit，
+            //   因此不会触发闪避后的反伤/眩晕/追击（老板口径：可闪，但无闪避反击）。
+            const vSide = victim.camp === CAMP_TYPES.ALLY ? ((data && data.A) || A) : ((data && data.B) || B);
+            const dodgeStats = computeBuffStats(victim, (vSide && vSide._activeBuffs) || [], vSide);
+            const dodgeRate = computeDodgeChance(victim, self, dodgeStats);
+            if (dodgeRate > 0 && getBattleRng().nextInt(1, 100) <= Math.round(dodgeRate * 100)) {
+                pushSkillAnnounce(data && data.log, self, title,
+                    `炎魔狮王${title}轰向 ${victim.name}，被其身法闪开！`,
+                    {
+                        floatText: '💨', floatUid: victim.uid,
+                        needsSeparator: true,
+                        separatorForce: forceSeparator || undefined
+                    });
+                return;
+            }
             applyStatChange(victim, 'hp', -dmg, self, `炎魔狮王·${title}`, true, false);
             pushSkillAnnounce(data && data.log, self, title,
                 `炎魔狮王${title}轰向 ${victim.name}，造成 ${dmg} 点真实伤害！`,
