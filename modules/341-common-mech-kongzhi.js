@@ -6,8 +6,8 @@
 // V1.0.1 | 2026-11-21 偷学参数嫁接(原主skills/mechanics并入偷学者配置,修缺参白偷)
 // V1.0.2 | 2026-11-22 偷学播报改中文技能名（原主 skills.name 优先，禁止裸枚举 bagTrap）
 // V1.0.3 | 2026-11-22 偷学幂等：同一机制 type 只 install 一次（原每回合重复 install 叠加钩子，一次事件被处理多次）
-// V1.0.5 | 2026-11-22 武痴顿悟：回复生命/恢复行动力播报绿色；恢复行动力带 restoreActed，格子灰→绿
-export const VER = 'modules/341-common-mech-kongzhi.js V1.0.5';
+// V1.0.6 | 2026-11-22 武痴顿悟播报补触发原因（因 某人 攻击/防御 ±N），解决"看不出为什么触发"
+export const VER = 'modules/341-common-mech-kongzhi.js V1.0.6';
 
 import { registerSettlementHook, eventBus, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler, installMechanicByType } from '../core/219-mechanic-registry.js';
@@ -44,6 +44,13 @@ export const wuChiHandler = {
                 const dAtk = Math.abs(atk - last.atk);
                 const dDef = Math.abs(def - last.def);
                 if (dAtk < 2 && dDef < 2) continue;
+                // 触发原因写进日志（老板 2026-11-22）：谁的变化引发了顿悟，避免"看不出为什么触发"
+                const dAtkSigned = Math.round(atk - last.atk);
+                const dDefSigned = Math.round(def - last.def);
+                const causeParts = [];
+                if (Math.abs(dAtkSigned) >= 2) causeParts.push(`攻击${dAtkSigned > 0 ? '+' : ''}${dAtkSigned}`);
+                if (Math.abs(dDefSigned) >= 2) causeParts.push(`防御${dDefSigned > 0 ? '+' : ''}${dDefSigned}`);
+                const causeText = causeParts.length ? `（因 ${u.name} ${causeParts.join('、')}）` : '';
                 const rng = getBattleRng();
                 if (rng.next() >= 0.3) continue;                    // 30% 触发率，防刷屏
                 const roll = rng.nextInt(0, 5);          // 6 种顿悟 + 1 种走火入魔
@@ -76,6 +83,7 @@ export const wuChiHandler = {
                         text = '😵 走火入魔：眩晕且本回合武痴失效';
                         break;
                 }
+                if (text) text += causeText;
                 // 回复生命 / 恢复行动力 → 绿色（tone:'heal'）；恢复行动力另带 restoreActed，
                 //   由 render/419 产 RESTORE_ACTED 动作把格子从灰变回可行动绿（清 _renderActed 镜像）。
                 if (text) pushSkillAnnounce(log, self, '武痴', text, {
