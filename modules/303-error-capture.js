@@ -7,7 +7,8 @@
 // V6.6.9 | 2026-11-21 补版本日志行（VER 常量已抬，漏写本行致 ver-drift 判领先）。
 // V6.6.8 | 2026-11-19 记录输入拆成三个常驻小标题的框（①本来应该怎样 ②怎么复现 ③实际看到什么），
 //   保存时合并成【应该】【步骤】【实际】三段文本，与旧版纯字符串完全兼容。
-export const VER = 'modules/303-error-capture.js V6.6.9';
+// V6.6.10 | 2026-11-22 涉及角色口径改为"本局实际出场全部单位"，不再按"这段日志提到过"过滤（防漏空智 / 长句误带张松溪）
+export const VER = 'modules/303-error-capture.js V6.6.10';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 
@@ -288,7 +289,8 @@ import { GlobalStore } from '../infra/104-global-store.js';
             anchorInSlice = anchor - start;
         }
 
-        const names = allNames.filter(n => body.some(l => l.includes(n)));
+        // 涉及角色口径（老板 2026-11-22）：按本局实际出场单位全量列出，不再按"这段日志提到过"过滤
+        const names = allNames.slice();
         const unit = focus.find(n => names.includes(n)) || names[0] || focus[0] || null;
         return {
             src: source === 'manual' ? 'manual' : 'auto',     // 自证：这条切片是自动抓的还是手动写的
