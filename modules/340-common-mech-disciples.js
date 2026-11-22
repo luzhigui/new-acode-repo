@@ -3,12 +3,13 @@
 // V1.1.0 | 2026-11-21 拼命改禁疗（统一读 CONFIG.HEAL_REDUCE_MULT=减疗33%）+ 每 5% 血一层攻；木桩 atk×200% 入防；防化拦毒回 5%
 // V1.1.1 | 2026-11-22 木桩代受修真雷:旧钩子读恒null的targetResult从未生效,改registerTargetFilter(同列候选换桩)
 // V1.2.0 | 2026-11-22 老板口径：防化拦毒回 10%；木桩 atk×200% 入防 + atk×500% 入生命上限；拼命每 5% 血 +8% 攻
-export const VER = 'modules/340-common-mech-disciples.js V1.2.0';
+// V1.2.1 | 2026-11-22 防化回血修真：原走 declarations 被 resolveRoundStatGrants 过滤（回血从未生效），改直改血+补 HEAL fact
+export const VER = 'modules/340-common-mech-disciples.js V1.2.1';
 
-import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
+import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES } from '../infra/106-battle-enums.js';
-import { getStat, addMod, removeModsByGroup, setPoisonBlockedHook, refreshMaxHp } from '../core/214-battle-shared.js';
+import { getStat, addMod, removeModsByGroup, setPoisonBlockedHook, refreshMaxHp, applyStatChange } from '../core/214-battle-shared.js';
 import { canBeTargeted } from '../core/203-battle-utils.js';
 import { registerTargetFilter } from '../core/207-target-strategies.js';
 
@@ -97,26 +98,30 @@ export const antiPoisonHandler = {
         registerSettlementHook({ when: 'afterDamageApplied', priority: L.AFTER_DAMAGE_APPLIED.REBOUND, handler: markImmune });
 
         // 毒被拦下（毒已抹掉、抑疗随之消失）→ 每拦一次，明教全体各回 10% 最大生命
+        //   直改血 + 自己补 FACT_TYPES.HEAL：ON_ROUND_START 的 declarations 只解析 ROUND_STAT_GRANT
+        //   （core/217 resolveRoundStatGrants 会把 HEAL 声明过滤掉），走声明等于回血不生效、日志飘字全无。
         setPoisonBlockedHook((victim, ctx) => {
             if (!ctx || !ctx.A || !ctx.B) return;
             const self = allOf(ctx).find(u => u.name === decl.name);
             if (!self || !self.alive) return;
             self.state._antiPoisonPulse = Date.now();          // render/403 挂 🧪 1 秒
-            const declarations = ctx.declarations;
-            if (!declarations) return;
             teamOf(ctx, decl.camp).forEach(u => {
                 if (!u.alive) return;
                 const maxHp = getStat(u, 'maxHp') || 1;
                 const heal = Math.max(1, Math.round(maxHp * 0.10));
-                declarations.push({
-                    type: EFFECT_TYPES.HEAL,
-                    value: heal,
-                    source: self,
-                    target: u,
-                    factType: FACT_TYPES.HEAL,
-                    factData: { label: '防化转化', icon: '🧪' },
-                    logText: `🧪 防化弟子拦下 ${victim ? victim.name : '队友'} 身上的毒：${u.name} 回复 ${heal} 点生命`
-                });
+                const hpBefore = u.hp;
+                applyStatChange(u, 'hp', heal, self, '防化转化');
+                const healed = Math.round(Math.max(0, u.hp - hpBefore));
+                if (healed > 0 && ctx.log) {
+                    ctx.log.push({
+                        factType: FACT_TYPES.HEAL,
+                        data: {
+                            unitUid: u.uid, unitName: u.name, healUnitUid: u.uid,
+                            heal: healed, hpBefore, hpAfter: u.hp,
+                            label: '防化弟子·拦毒补给', icon: '🧪', anchorVerb: '回复'
+                        }
+                    });
+                }
             });
         });
     }
