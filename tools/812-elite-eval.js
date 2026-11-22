@@ -3,7 +3,9 @@ import { runParallel } from './817-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, STATS_TH } from './827-tool-registry.js';
 import { VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
 
-export const VER = 'tools/812-elite-eval.js V3.15.0';
+export const VER = 'tools/812-elite-eval.js V3.15.1';
+// V3.15.1 | 2026-11-22 第6关两行写清变体名：原来「第6关 / 三渡」和一行光秃秃「第6关」（其实是成昆常规阵），
+//   改成「第6关 成昆」在上、「第6关 三渡」在下。以后凡拆变体的关都必须带变体名，不许只写「第N关」。
 // V3.15.0 | 2026-11-21 第3/6关拆变体且样本不减半：第3关拆「胖远桥 / 宋青书」、第6关拆「三渡 / 标准」，
 //   有变体的关按「每个变体各跑 RUNS 场」派活（该关总量 = RUNS × 变体数），拆行后每行不再只剩一半样本。
 //   816 同步新增「三渡」分桶（渡厄/渡劫/渡难），否则第6关两变体会混算成一行。
@@ -58,10 +60,11 @@ const enemyHexOn = () => !!(document.getElementById('eliteEnemyHex') && document
 // 2026-11-20 顺序与主表·自然出场一致：张无忌（Boss）放第一个，其余强精英随后
 const configs = NATURAL_ELITES.map(name => ({ name }));
 const SOLO_ALL = [...BOSS_ELITE_NAMES, ...SOLO_ELITE_NAMES].map(name => ({ name }));
-// 拆行口径（2026-11-21 V3.15.0）：第3关 胖远桥/宋青书，第6关 三渡/常规；其余关合并成单行。
+// 拆行口径（V3.15.1）：第3关 胖远桥/宋青书，第6关 成昆/三渡（成昆在前）；其余关合并成单行。
+//   ⚠️ 变体行必须写清变体名，不许只写「第N关」——不然读者不知道那行是谁（老板 2026-11-22 要求）。
 //   有变体的关按「每个变体各跑 RUNS 场」派活（总量 = RUNS × 变体数），避免拆行后每行样本减半。
-const STAGE_VARIANTS = { 3: ['胖远桥', '宋青书'], 6: ['三渡', '标准'] };
-const VARIANTS_ALL = ['胖远桥', '宋青书', '三渡', '标准'];
+const STAGE_VARIANTS = { 3: ['胖远桥', '宋青书'], 6: ['成昆', '三渡'] };
+const VARIANTS_ALL = ['胖远桥', '宋青书', '成昆', '三渡', '标准'];
 const stageRunsOf = (stage, runs) => runs * (STAGE_VARIANTS[stage] ? STAGE_VARIANTS[stage].length : 1);
 // 跨变体合并（数值字段累加；弱精英表的 clean 子表逐名累加）
 function mergeAgg(dst, d) {
