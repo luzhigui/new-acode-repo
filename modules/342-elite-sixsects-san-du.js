@@ -14,7 +14,8 @@
 // V1.1.6 | 2026-11-22 老板钉死口径对调:三样个人技绑和尚(严阵以待回渡厄),圣火令改2号位阵位授予(空位熄灭)
 // V1.1.7 | 2026-11-22 老板二钉:圣火令降级移除;金刚不坏(40%防)回渡厄个人;阵位=2严阵以待/7,9热血奋战
 // V1.1.8 | 2026-11-22 渡厄个人技改名首当其冲(金刚不坏让给空见金钟罩,老板拍板)
-export const VER = 'modules/342-elite-sixsects-san-du.js V1.1.8';
+// V1.1.9 | 2026-11-22 修复重复三份的 doubleAttack 分支(首个空块吃掉分支，渡劫必发双击完全失效)
+export const VER = 'modules/342-elite-sixsects-san-du.js V1.1.9';
 
 import { registerSettlementHook } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -64,7 +65,7 @@ export const monkFixedBuffHandler = {
                     });
                 }
             });
-        } else if (decl.buffType === 'doubleAttack') {        } else if (decl.buffType === 'doubleAttack') {        } else if (decl.buffType === 'doubleAttack') {
+        } else if (decl.buffType === 'doubleAttack') {
             // 渡劫·一回合两次攻击：首次出手后追加一次（_doubleStriked 每回合重置，天然限一次）
             const submitSecond = (data) => {
                 if (!data || data.unit !== self || !self.alive || self.state._doubleStriked) return;
