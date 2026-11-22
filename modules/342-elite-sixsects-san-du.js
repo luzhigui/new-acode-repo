@@ -16,7 +16,8 @@
 // V1.1.8 | 2026-11-22 渡厄个人技改名首当其冲(金刚不坏让给空见金钟罩,老板拍板)
 // V1.1.9 | 2026-11-22 修复重复三份的 doubleAttack 分支(首个空块吃掉分支，渡劫必发双击完全失效)
 // V2.0.0 | 2026-11-22 老板口径落地：渡劫改 80% 概率连击；删 7/9 热血奋战（只留回血 30）；2 号位严阵以待补受击反弹 40%+战报/横幅/飘字；流云/严阵以待补回合播报；两个 40% 共用同一常量
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.0.0';
+// V2.0.1 | 2026-11-22 修 nextFloat 不存在（战斗 RNG 只有 next/nextInt）→ 渡劫概率连击不再抛异常
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.0.1';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -103,7 +104,7 @@ export const monkFixedBuffHandler = {
                 if (self.state._doubleStrikeRolled) return;
                 self.state._doubleStrikeRolled = true;
                 if (self.state._doubleStriked) return;
-                if (getBattleRng().nextFloat() >= SAN_DU_DOUBLE_STRIKE_RATE) return;
+                if (getBattleRng().next() >= SAN_DU_DOUBLE_STRIKE_RATE) return;
                 self.state._doubleStriked = true;
                 const fact = {
                     factType: FACT_TYPES.DOUBLE_STRIKE,
