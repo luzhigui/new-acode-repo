@@ -3,8 +3,9 @@
 // 为什么需要它：浏览器"全能体检"只查战中当场出错；账本对账/判据空转/基线回归这类问题
 //   打一百局也看不出来，只能靠 node 全套守门。浏览器按钮跑不了 node，故做本地双击入口。
 // 红线：只读跑现有测试，不改任何判据/阈值/基线/主代码；本报告纯呈现，不参与任何判定。
+// V1.1.0 | 2026-11-22 第44轮：陈旧 worktree 注册从只打印 console 升级为写进 HTML 报告显著提示（只报告不自动删，防误伤别的会话）。
 // V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
-export const VER = 'tests/one-click-health.mjs V1.0.0';
+export const VER = 'tests/one-click-health.mjs V1.1.0';
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -63,6 +64,9 @@ if (WORKTREE === ROOT || WORKTREE.startsWith(ROOT + path.sep)) {
     process.exit(2);
 }
 fs.mkdirSync(OUTER_BASE, { recursive: true });
+// 第44轮：陈旧 worktree 注册收集——原来只 console.error，一键报告页看不到（用户只看 HTML）。
+//   只报告、不自动删（自动删有误伤别的会话的风险），把清单带进报告显著提示。
+const STALE_WORKTREES = [];
 function cleanWorktree() {
     spawnSync('git', ['worktree', 'remove', '--force', WORKTREE], { cwd: ROOT, encoding: 'utf8' });
     spawnSync('git', ['worktree', 'prune'], { cwd: ROOT, encoding: 'utf8' });
@@ -81,6 +85,8 @@ function cleanWorktree() {
         console.error('[陈旧注册] 检测到 ' + paths.length + ' 条 oneclick worktree 注册（应为0~1）：');
         paths.forEach(l => console.error('  ' + l));
         console.error('  请人工清理 .git/worktrees/-tmp-oneclick-health* 后重跑（脚本不自动删，防误伤）。');
+        STALE_WORKTREES.length = 0;
+        STALE_WORKTREES.push(...paths);
     }
 }
 cleanWorktree();  // 清理上次残留
@@ -170,6 +176,14 @@ ${bugCandidates.length ? `
   <div class="hint">注意：判 fail 不等于确认是 bug——也可能是规则判据没跟上新机制。需要逐条定性（看回放明细里每个 seed/stage 的具体数字），不要直接当成主代码缺陷改，也不要直接放宽规则放过。</div>
 </div>` : ''}
 ${rows}
+${STALE_WORKTREES.length ? `
+<div class="bugs">
+  <h2>⚠ 陈旧 worktree 注册 ${STALE_WORKTREES.length} 条（不影响本次结果，但会越积越多）</h2>
+  <div class="lead">这些是<b>历史遗留的嵌套临时树</b>——老版本脚本在仓库外反复套目录留下的，全锁在旧提交上。
+  当前脚本有硬断言不会再造新的；脚本也<b>不会自动删它们</b>（共享工作区，自动删有误伤别的会话的风险）。</div>
+  ${STALE_WORKTREES.map(l => `<div class="item">${esc(l.replace('worktree ', ''))}</div>`).join('')}
+  <div class="hint">要清就在主仓执行 <b>git worktree prune</b>，或逐条 <b>git worktree remove --force &lt;路径&gt;</b>（确认没有节点进程占用后）。本次体检结果不受影响。</div>
+</div>` : ''}
 <div class="foot">本报告由 tests/one-click-health.mjs 自动生成，纯呈现、不改任何判据/阈值/基线/主代码。<br>
 "没报红"不等于"主代码没毛病"，只等于这次这些检查项没抓到——不同检查项查的是不同东西。</div>
 </div></body></html>`;
