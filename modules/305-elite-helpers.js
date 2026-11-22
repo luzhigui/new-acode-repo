@@ -6,13 +6,15 @@ import { addMod, refreshMaxHp, emitHpChange, getStat } from '../core/214-battle-
 import { pushFact } from '../infra/102-core-utils.js';
 // UNIT_EVENT_TYPES 随 emitHpChange 下移 core/214 一并移除（本文件不再直接发事件）
 import { STATE_CHANGE_TYPES, FACT_TYPES } from '../infra/106-battle-enums.js';
+// 战报归组作用域（113 规范）：回合开始/收尾段第一条播报自动独立成段
+import { consumeBreakFlag } from '../infra/113-report-scope.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 // 血量/攻防广播入口的唯一实现在 core/214（V6.4.8 下移）：core 是最底层业务层，放这里 core 够不到。
 //   本文件只做转口，保持 modules 以上层的既有 import 路径不变。
 //   ★ 必须 import 建本地绑定后再 export：`export {x} from` 不建本地名，switchRoleOnly 内部调会 undefined。
 export { emitHpChange, pushFact };
 
-export const VER = 'modules/305-elite-helpers.js V2.0.1';
+export const VER = 'modules/305-elite-helpers.js V2.0.2';
 
 // 往本击攻击组（ATTACK fact 的 data）里追加一行文本。
 //   攻击组不存在（技能在组外触发）时静默跳过——行为与抽离前 5 份内联实现一致。
@@ -129,7 +131,9 @@ export function pushSkillAnnounce(log, unit, skillName, note, extra) {
             skillName,
             label: SKILL_LABELS[skillName] || skillName,
             note,
-            ...(extra || {})
+            ...(extra || {}),
+            // 未显式指定时按作用域自动判定：回合开始/收尾段的第一条独立成段，单位出手中的播报粘住（113 规范）
+            needsSeparator: (extra && 'needsSeparator' in extra) ? extra.needsSeparator : (consumeBreakFlag() || undefined)
         }
     };
     // B 方案：公告也挂时刻快照（有些机制只走 pushSkillAnnounce 不走 pushInfo，如鹰王威压飘字）。
