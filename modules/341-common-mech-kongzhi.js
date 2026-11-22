@@ -5,7 +5,8 @@
 //   ③ 战报日志用结算 data.log；④ 新状态字段已同步注册 core/218。
 // V1.0.1 | 2026-11-21 偷学参数嫁接(原主skills/mechanics并入偷学者配置,修缺参白偷)
 // V1.0.2 | 2026-11-22 偷学播报改中文技能名（原主 skills.name 优先，禁止裸枚举 bagTrap）
-export const VER = 'modules/341-common-mech-kongzhi.js V1.0.2';
+// V1.0.3 | 2026-11-22 偷学幂等：同一机制 type 只 install 一次（原每回合重复 install 叠加钩子，一次事件被处理多次）
+export const VER = 'modules/341-common-mech-kongzhi.js V1.0.3';
 
 import { registerSettlementHook, eventBus, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler, installMechanicByType } from '../core/219-mechanic-registry.js';
@@ -140,7 +141,12 @@ export const stealSkillHandler = {
                     }
                 }
                 try {
-                    installMechanicByType(eventBus, picked.type, data.A, data.B, data.log, { ...picked, name: self.name, camp: decl.camp });
+                    // 同一技能只装一次：偷学每回合都跑，重复 install 会让钩子叠加，同一事件被处理多次（袋满连刷多条）
+                    self.state._stolenTypes = self.state._stolenTypes || {};
+                    if (!self.state._stolenTypes[picked.type]) {
+                        self.state._stolenTypes[picked.type] = true;
+                        installMechanicByType(eventBus, picked.type, data.A, data.B, data.log, { ...picked, name: self.name, camp: decl.camp });
+                    }
                     // 战报必须写中文：原主 skills[type].name 优先（如 bagTrap→布袋），没登记名才退回通用叫法，禁止裸枚举
                     const skillCfg = originCfg && originCfg.skills && originCfg.skills[picked.type];
                     const skillLabel = (skillCfg && skillCfg.name) || '敌方秘技';

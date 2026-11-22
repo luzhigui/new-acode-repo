@@ -4,7 +4,8 @@
 //           （主游戏 + 816/808/809/811/812 全部跑批）在第 2 轮 stepper clone 时全炸。
 // V2.11.4 | 2026-11-20 | 补登记 _zhiQuNote（341 写入/204·210·217 读取后清，漏登记 ⇒ Unit.clone 撞 assertStateFullyRegistered）
 // V2.11.5 | 2026-11-22 补登记 _sanDuHotBlood(三渡阵位热血奋战旗)
-export const VER = 'core/218-state-keys.js V2.11.5';
+// V2.11.6 | 2026-11-22 补登记 _bagWarned(布袋袋满一回合只报一次)、_stolenTypes(空智偷学防重复 install)
+export const VER = 'core/218-state-keys.js V2.11.6';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -296,6 +297,10 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _hlsAimHoldMs:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 说不得·布袋：null 表示没装人；否则 { targetUid, mode: 'protect'|'capture', casterUid, casterName }
     _inBag:                  { type: STATE_FIELD_TYPES.OBJECT,  default: null },
+    // 说不得·布袋：本回合是否已报过「袋中已有人」（一次攻击多笔结算，只提示一次）
+    _bagWarned:              { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 空智·偷学：已安装过的机制 type 表（防每回合重复 install 叠加钩子）
+    _stolenTypes:            { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     // 周颠·癫：全场唯一持有，攻击随机不分敌友，命中/死亡转移
     _isCrazy:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 组内报幕暂存：模块在 BEFORE_ACTION_SELECT / ON_UNIT_ACTED 时机写入 { skillName, note, extra? }，

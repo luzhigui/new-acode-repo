@@ -7,7 +7,8 @@
 // 下一回合末放出（装袋当回合不放）：保护回 protectHeal 点血；抓敌扣 captureMaxHpPct 最大生命值的伤害。
 // 袋子同时最多装一个；已装人时再触发 → 本次作废。
 // 参数唯一真源：content/001-game-data.json 说不得.skills.bagTrap.params（缺哪键报哪键，不再硬编码）。
-export const VER = 'modules/325-elite-mingjiao-shuobude.js V1.1.0';
+// V1.2.0 | 2026-11-22 布袋对偷学者开放（白名单登记 decl.name，按携带者阵营取队友）；袋满提示一回合只报一次（_bagWarned）
+export const VER = 'modules/325-elite-mingjiao-shuobude.js V1.2.0';
 
 import { CONFIG, getSkillParams } from '../core/201-config-5v5-test.js';
 import { getBattleRng, applyStatChange, emitEvent, getStat } from '../core/214-battle-shared.js';
@@ -92,9 +93,14 @@ function putInBag(caster, target, mode, log, readyImmediately = false) {
 //   保护：只装「残血 + 已行动」的己方（免得耽误出手），装完本回合末就放、回 10 血；
 //   抓敌：找敌方血量最高的，已行动 → 下回合末放（拖住下回合），未行动 → 本回合末放（只拖本回合）。
 //   保护/抓敌的「二选一」不再单独掷骰（原 protectBranchChance 废弃）：保护优先，保护不到才抓敌。
+// 布袋携带者白名单：说不得本人 + 偷学到布袋的单位（空智等）。
+//   老板 2026-11-22：偷学到的机制必须能真正使用（保护自己队友），不再按死名字排除偷学者。
+const BAG_TRAP_OWNERS = new Set(['说不得']);
+
 function onShuobudeHit(data) {
     const { unit, A, B, log } = data;
-    if (!unit || unit.name !== '说不得' || !unit.alive) return;
+    if (!unit || !unit.alive) return;
+    if (!BAG_TRAP_OWNERS.has(unit.name)) return;
     if (!data.dmg || data.dmg <= 0) return;
     const rng = getBattleRng();
     const p = getBagTrapParams();
@@ -103,13 +109,17 @@ function onShuobudeHit(data) {
         if (log) pushSkillAnnounce(log, unit, '布袋', `🛍️ 布袋：触发判定失败`);
         return;
     }
-    // 已装人 → 本次作废
+    // 已装人 → 本次作废（一回合只提示一次：一次攻击内部会有多笔伤害结算，每笔都判一次）
     if (unit.state._inBag) {
-        if (log) pushSkillAnnounce(log, unit, '布袋', `🛍️ 布袋：袋中已有人，本次作废`);
+        if (log && !unit.state._bagWarned) {
+            unit.state._bagWarned = true;
+            pushSkillAnnounce(log, unit, '布袋', `🛍️ 布袋：袋中已有人，本次作废`);
+        }
         return;
     }
-    const allyTeam = A || [];
-    const enemyTeam = B || [];
+    // 按携带者实际阵营取队友/敌方（偷学者在对面时不能拿错队）
+    const allyTeam = (A || []).includes(unit) ? (A || []) : (B || []);
+    const enemyTeam = allyTeam === (A || []) ? (B || []) : (A || []);
     // 1. 保护：优先装「残血 + 已行动」的己方队友
     //   免疫控制者（寒离飒等）已在 findProtectCandidate 候选池里排除，不会走到这里。
     const protectTarget = findProtectCandidate(allyTeam, p.redHpThreshold, unit.uid);
@@ -170,7 +180,9 @@ function releaseBag(data) {
 // 机制 handler：走 core/18 注册表（参数真源在 content/001 说不得.skills.bagTrap.params）
 export const bagTrapHandler = {
     fields: {},   // 参数由 getBagTrapParams() 从 skills.bagTrap.params 读取
-    install({ eventBus }) {
+    install({ eventBus, decl }) {
+        // 登记携带者：说不得本人 + 偷学到布袋的人（341 偷学时以偷学者名字调用 install）
+        if (decl && decl.name) BAG_TRAP_OWNERS.add(decl.name);
         registerSettlementHook({
             when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
             priority: L.AFTER_DAMAGE_APPLIED.LEECH + 3,
@@ -189,6 +201,8 @@ export const bagTrapHandler = {
             handler: (data) => {
                 const teams = [data.A, data.B].filter(Boolean);
                 const all = [...(data.A || []), ...(data.B || [])];
+                // 新回合重置「袋满提示只报一次」标记
+                all.forEach(u => { if (u && u.state) u.state._bagWarned = false; });
                 for (const team of teams) {
                     for (const u of team) {
                         const bag = u.state && u.state._inBag;
