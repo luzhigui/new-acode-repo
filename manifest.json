@@ -1,11 +1,11 @@
 {
- "ver": "d90d389f72b01539824a6a49b1605f950f4aa35030b1e39fd598ffc92ded2c0d",
+ "ver": "a447f3be97ac039a3d4c45056b91948b35b8830ed8e55522f4a0fb469938da38",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 157,
  "files": [
   [
    "content/001-game-data.json",
-   "ac4940c5fbffe78d1e91f442290060f4cddadba4ef0e9f48bcda8dc5a48d149f"
+   "4dcf60c66fdf89523fa576112e696c35f8db367ffd767b006ef8d09d4871b7c8"
   ],
   [
    "content/002-hex-enhance.json",
@@ -85,7 +85,7 @@
   ],
   [
    "core/218-state-keys.js",
-   "8f4b984f930b96a97df345e38c743defe1ea8e1bb473c6c70f5a246aa4d2915c"
+   "0f9d748082c5b2cf5caef461f1b3c6e194b427d88598f6cccb2b0014515a2a27"
   ],
   [
    "core/219-mechanic-registry.js",
@@ -249,7 +249,7 @@
   ],
   [
    "modules/303-error-capture.js",
-   "9fd246231ac2b71a419a127ee71c93cac3305d04beabba7dd2a0187e916a33b4"
+   "42f72aa76964b90930768eae2ca24c6ff0209259ea010feae2ef26032765604f"
   ],
   [
    "modules/304-audio-manager.js",
@@ -281,7 +281,7 @@
   ],
   [
    "modules/311-elite-sixsects-zhangsanfeng.js",
-   "40c8d883f1ab0b33481d369d2ba89065044da737f892f184524b3a43f35d8e32"
+   "31d99b8600051aaa527cecfad1b649cb56838e21812fdf82264e716a49bb4504"
   ],
   [
    "modules/312-elite-sixsects-pangyuanqiao.js",
@@ -337,7 +337,7 @@
   ],
   [
    "modules/325-elite-mingjiao-shuobude.js",
-   "e6d0bcd12d767c09a015e05ded039a2ae4a932e1bf162880210a134c74e2c15e"
+   "cb1a54c2a59481322138a46788c0170487f8becc5b9bc00b56866afaa65ec7eb"
   ],
   [
    "modules/326-elite-mingjiao-xiexun.js",
@@ -369,7 +369,7 @@
   ],
   [
    "modules/333-elite-mingjiao-crazy.js",
-   "a7d45de70497fc67c7399b6145eeca43341982bb7d527c2380c013b38ee2cfb8"
+   "c1ef812e5d4afc516a2ad4597f7ddf2d153a51c42e41a20bf5cfcba117d624de"
   ],
   [
    "modules/334-common-absorb.js",
@@ -385,7 +385,7 @@
   ],
   [
    "modules/337-elite-mingjiao-zhuangzheng.js",
-   "891ede7e375cb9dd88a19bc79033936b62c768d1323904fb145a64880b164822"
+   "1932199a71ee5aab123956536c7c5a9d48b0a5c0e40c9e74a3370e99a071c90d"
   ],
   [
    "modules/338-elite-mingjiao-pengyingyu.js",
@@ -397,11 +397,11 @@
   ],
   [
    "modules/340-common-mech-disciples.js",
-   "f33c3051538b96f44397eb839a63d3b22e086dab5c4675a57e138caf62a10d81"
+   "524f027b6d5e0fe6d3f4636fcead08cd0435630a58afbb3ae18b794a3d5679d7"
   ],
   [
    "modules/341-common-mech-kongzhi.js",
-   "9b596a739dbe12e522d9f5011d64de31349481d1f65743d3ad89a5a07c96f436"
+   "03918d7c7ccf120661f45be70d3b79f109aab4f9c2226cb3a7143a45c577b613"
   ],
   [
    "modules/341-common-shield-steal.js",
@@ -409,7 +409,7 @@
   ],
   [
    "modules/342-elite-sixsects-san-du.js",
-   "aec374f5b939d98e2b4ff39d4c3fdefb505a0bb1a43aea90065a00389309ffd8"
+   "86d5816938f8d5aee3e9c7aaf1b90a52feba83381f5d9b80114979a9e6800955"
   ],
   [
    "player/501-player-text.js",
@@ -473,7 +473,7 @@
   ],
   [
    "render/403-grid-render.js",
-   "5df2644c0826c4e338244c1a7ccb6259baf87675673235d9fd9bb240168507b1"
+   "4574d875f9f2a6667f89d33b762de843c43f168d52cd73b68dbc7c8de3464b17"
   ],
   [
    "render/404-grid-badges.js",
@@ -489,7 +489,7 @@
   ],
   [
    "render/407-facts-attack.js",
-   "12ac1367a8f664ecefef2030fa13037228519ecb00ac58d10b6a74babb121248"
+   "7fc3d1ff32304e148cea3a51a57e7d59759b0e52520bfc8e858f43e6bc23ba74"
   ],
   [
    "render/408-facts-effect.js",
@@ -497,7 +497,7 @@
   ],
   [
    "render/409-facts-control.js",
-   "9bb17cc986daa2571275a301b9557be7bc62273eae5756e842be8b4cb7ecc46b"
+   "c7e87bcad89282c5b8bbe94f4b6e2fe8061d87aa62ec63638cb6b1400826c488"
   ],
   [
    "render/410-facts-heal.js",
