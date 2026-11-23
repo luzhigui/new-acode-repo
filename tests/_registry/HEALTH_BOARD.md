@@ -120,7 +120,7 @@
 | 76 | T-LAYER-260 主代码分层环（core/216·217 反向 import modules/341）—— 已发转交块待落地 | 夜间260转交：core/216-skill-mechanisms.js:15、core/217-effect-handlers.js:10 反向 import modules/341-common-shield-steal.js，构成 core↔modules-mechanic 环。修法：把341的护盾窃取查询下沉到core(如core/214或core/203工具函数)，core侧只依赖core，modules/341改引core版。验收：`node tests/layer-direction-scan.mjs --enforce` 新增反向归0、环消失。夜间零触碰且不动基线(--update-baseline会把违规洗成存量)；主代码，体检侧只发块不碰。 | blocked | 钟老师/第45轮 | 2026-11-23 |
 
 | 77 | ver-drift 剩2条主代码VER债跟踪（infra/113孤儿 + render/407领先）—— 已发块待落地 | 第47轮复核：ver-drift 断言剩2条，均主代码零触碰：① infra/113-report-scope.js 无VER(转交块T-VER-3已发)；② render/407-facts-attack.js VER=1.5.17 但日志停1.5.16(转交块已发)。验收：两块落地后 `node tests/ver-drift-selftest.mjs` EXIT=0(断言⑩/②全消)，本条done；落地前保持blocked，不擅自补主代码。 | blocked | 钟老师/第47轮 | 2026-11-23 |
-| 78 | 看板认领边界：认领最后一个open会掉破>=3，流程应先补格再领 | 第47轮亲历：仅剩68/72两条open时认领#75(doing)，守门立刻报 open=2<3 破红线——协议写"没有open才补≥3"，没覆盖"认领导致掉破3"这个边界。验收：在 SKILL.md 或看板状态约定补一句：认领前先看 open 数，若认领后会掉到<3，先补够再认领(做1留234)；纯文档，不改判据/守门阈值(>=3不变)。 | open | - | - |
+| 78 | 看板认领边界：认领最后一个open会掉破>=3，流程应先补格再领 | 第47轮亲历：仅剩68/72两条open时认领#75(doing)，守门立刻报 open=2<3 破红线——协议写"没有open才补≥3"，没覆盖"认领导致掉破3"这个边界。验收：在 SKILL.md 或看板状态约定补一句：认领前先看 open 数，若认领后会掉到<3，先补够再认领(做1留234)；纯文档，不改判据/守门阈值(>=3不变)。  ★ 第48轮闭环：在 SKILL.md「开工三步·认领」处补一句「认领前先数 open，若认领后掉到<3 先补够再认领」。证据：SKILL.md diff 仅 1 行新增、CRLF 未破坏；看板 open 守门 EXIT=0(open=3)。不改守门阈值(>=3不变)、不动判据/主代码。 | done | 钟老师/第48轮 | 2026-11-23 |
 
 ## 状态约定
 - `open`：待领；`doing`：进行中（同一时刻建议仅 1 人占）；`blocked`：等外部（主代码落地 / 拍板）；`done`：已闭环（含验证结论）。
