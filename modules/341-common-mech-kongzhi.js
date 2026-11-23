@@ -8,7 +8,8 @@
 // V1.0.3 | 2026-11-22 偷学幂等：同一机制 type 只 install 一次（原每回合重复 install 叠加钩子，一次事件被处理多次）
 // V1.0.7 | 2026-11-22 武痴改为"属性变化立即判定"：回合开始群体 buff 结算完即检查，不再积压到下一刀
 // V1.0.8 | 2026-11-22 回合开始触发的武痴播报带 needsSeparator，自成一段（不再被并进下一个单位攻击组→"延后触发"观感）
-export const VER = 'modules/341-common-mech-kongzhi.js V1.0.8';
+// V1.0.9 | 2026-11-23 武痴只认永久攻防变化（老板拍板）：临时加成不再触发顿悟（permanentStat 按 mod.ttl 过滤）
+export const VER = 'modules/341-common-mech-kongzhi.js V1.0.9';
 
 import { registerSettlementHook, eventBus, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler, installMechanicByType } from '../core/219-mechanic-registry.js';
@@ -21,13 +22,31 @@ const teamOf = (data, camp) => ((camp === CAMP_TYPES.ALLY ? (data && data.A) : (
 const allOf = (data) => [...((data && data.A) || []), ...((data && data.B) || [])];
 
 // ---------- 武痴：场上其他单位攻防单次变化 ≥2 时，30% 概率随机顿悟一种效果 ----------
+// 只认「永久」攻防变化（老板 2026-11-23 拍板）：临时加成（圣火令/严阵以待/正义国字脸/流云…）
+//   不再触发顿悟。mod 登记在 unit._mods[stat]，ttl='permanent' 才是永久；
+//   'round' / 'attached' 一律视为临时，不参与判定。
+function permanentStat(unit, stat) {
+    if (!unit) return 0;
+    const baseKey = '_base' + stat.charAt(0).toUpperCase() + stat.slice(1);
+    const base = unit.state?.[baseKey] ?? unit[stat] ?? 0;
+    const mods = (unit._mods && unit._mods[stat]) || [];
+    let addSum = 0;
+    let mulSum = 0;
+    for (const m of mods) {
+        if (m.ttl !== 'permanent') continue;
+        if (m.op === 'mul') mulSum += m.value;
+        else addSum += m.value;
+    }
+    return Math.max(0, (base + addSum) * (1 + mulSum));
+}
+
 export const wuChiHandler = {
     fields: {},
     install({ A, B, decl }) {
         // 每回合 install 重跑（210 每回合 clearAll + 重建 A/B 克隆），快照自然是当回合基线
         const lastStats = new Map();
         [...(A || []), ...(B || [])].forEach(u => {
-            if (u.alive) lastStats.set(u.uid, { atk: getStat(u, 'atk'), def: getStat(u, 'def') });
+            if (u.alive) lastStats.set(u.uid, { atk: permanentStat(u, 'atk'), def: permanentStat(u, 'def') });
         });
 
         const check = (data, fromRoundStart) => {
@@ -38,8 +57,8 @@ export const wuChiHandler = {
             const log = data.log;
             for (const u of all) {
                 if (!u.alive || u.uid === self.uid) continue;      // 不监视自己
-                const atk = getStat(u, 'atk');
-                const def = getStat(u, 'def');
+                const atk = permanentStat(u, 'atk');
+                const def = permanentStat(u, 'def');
                 const last = lastStats.get(u.uid) || { atk, def };
                 lastStats.set(u.uid, { atk, def });
                 const dAtk = Math.abs(atk - last.atk);
