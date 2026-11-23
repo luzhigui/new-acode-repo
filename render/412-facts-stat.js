@@ -1,6 +1,7 @@
 // render/412-facts-stat.js — 效果域·属性召唤族 fact 渲染器
 // V1.0.5 | 2026-11-20 巨马召唤文案用 fact.horseName（姐姐专属海克斯 → 强化巨马）；无该字段退回「拒马」
-export const VER = 'render/412-facts-stat.js V1.0.5';
+// V1.0.6 | 2026-11-23 召唤行加阵营前缀（fact.campLabel），区分双方众志成城各自召了谁
+export const VER = 'render/412-facts-stat.js V1.0.6';
 
 import { registerFactRenderer } from './406-fact-registry.js';
 import { FACT_TYPES, BUFF_SUBTYPES } from '../infra/106-battle-enums.js';
@@ -176,7 +177,8 @@ export function renderFortifyReboundFact(fact) {
 
 // 召唤：谢逊狮子 / 灭绝召唤周芷若
 export function renderSummonUnitFact(fact) {
-    const by = fact.byName ? `（${fact.byName} 召唤）` : '';
+    // 阵营前缀：众志成城双方都可能持有，只写「众志成城 召唤」分不清是谁召的（2026-11-23 老板误读张中）
+    const by = fact.byName ? `（${fact.campLabel ? `${fact.campLabel}·` : ''}${fact.byName} 召唤）` : '';
     return { type:'info', text:`<span class="gold">🐾 ${fact.summonName} 出现在 ${fact.pos} 号位${by}</span>` };
 }
 

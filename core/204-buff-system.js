@@ -10,7 +10,8 @@
 //   （hp 归零即 _pendingDeath，不能等 resolveDeaths 才排除；否则飞行再生会给尸体回血、选人还会选中刚死的人）。
 // V6.9.12 | 2026-11-20 众志成城九人满员提示进战斗日志（原 line:false 只在横幅出现）
 // V6.9.13 | 2026-11-22 热血门放行三渡阵位旗(_sanDuHotBlood)
-export const VER = 'core/204-buff-system.js V6.9.13';
+// V6.9.14 | 2026-11-23 召唤 fact 带 campLabel：日志写明「明教·众志成城 召唤」/「六大派·众志成城 召唤」
+export const VER = 'core/204-buff-system.js V6.9.14';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -354,7 +355,7 @@ export function spawnOneUnityRecruit(team, log, m, byName) {
     }
     recruit.isUnityRecruit = true;
     // 众志补员由 buff 机制按名额补召（byName 传的是阵型/技能名，不是某个单位），故无 byUid
-    if (log) log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: recruit.name, summonUid: recruit.uid, pos: landPos, byName: byName || '众志成城' } });
+    if (log) log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: recruit.name, summonUid: recruit.uid, pos: landPos, byName: byName || '众志成城', campLabel: camp === CAMP_TYPES.ENEMY ? '六大派' : '明教' } });
     return recruit;
 }
 
