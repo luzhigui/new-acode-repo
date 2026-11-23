@@ -8,8 +8,8 @@
 // V1.0.3 | 2026-11-22 偷学幂等：同一机制 type 只 install 一次（原每回合重复 install 叠加钩子，一次事件被处理多次）
 // V1.0.7 | 2026-11-22 武痴改为"属性变化立即判定"：回合开始群体 buff 结算完即检查，不再积压到下一刀
 // V1.0.8 | 2026-11-22 回合开始触发的武痴播报带 needsSeparator，自成一段（不再被并进下一个单位攻击组→"延后触发"观感）
-// V1.0.9 | 2026-11-23 武痴只认永久攻防变化（老板拍板）：临时加成不再触发顿悟（permanentStat 按 mod.ttl 过滤）
-export const VER = 'modules/341-common-mech-kongzhi.js V1.0.9';
+// V1.1.0 | 2026-11-23 武痴去掉 30% 触发闸（老板澄清：设计是必定触发，随机只在 6 种效果里挑一种）
+export const VER = 'modules/341-common-mech-kongzhi.js V1.1.0';
 
 import { registerSettlementHook, eventBus, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler, installMechanicByType } from '../core/219-mechanic-registry.js';
@@ -72,7 +72,8 @@ export const wuChiHandler = {
                 if (Math.abs(dDefSigned) >= 2) causeParts.push(`防御${dDefSigned > 0 ? '+' : ''}${dDefSigned}`);
                 const causeText = causeParts.length ? `（因 ${u.name} ${causeParts.join('、')}）` : '';
                 const rng = getBattleRng();
-                if (rng.next() >= 0.3) continue;                    // 30% 触发率，防刷屏
+                // 必定触发（老板 2026-11-23 澄清）：攻防单次变化≥2 就顿悟，没有概率闸；
+                //   随机性只体现在「接下来在 6 种效果里挑哪一种」。此前 30% 闸是误加。
                 const roll = rng.nextInt(0, 5);          // 6 种顿悟 + 1 种走火入魔
                 let text = '';
                 switch (roll) {
