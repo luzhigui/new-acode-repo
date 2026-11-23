@@ -113,7 +113,7 @@
 //   每条都做过验牙（见体检迭代日志第 135 / 136 / 137 轮），验牙时均转红、还原后回绿。
 //
 // 用法：node tests/ver-drift-selftest.mjs
-export const VER = 'tests/ver-drift-selftest.mjs V1.5.12';
+export const VER = 'tests/ver-drift-selftest.mjs V1.5.29';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -167,7 +167,13 @@ const MIN_LOG_PARSED = 60;
 //     没有 `Vx.y.z` 行，于是落进「有 VER 无日志」桶。逐条核过：182 个里无一是本轮五个改动文件
 //     （155/159/180/195/124rule-recipes）与两个新自证文件（两者都已补 VER + 版本日志行）。
 //   ★ 双向棘轮照旧生效：若下轮实测回落到 181 以下（有文件补了日志），这条会反过来红，逼着改小。
-const EXPECT_NO_LOG = 196;
+// V1.5.29 | 2026-11-23 第45轮：196 → 232，按 main 实跑重校（双向棘轮，等式闸两侧同步，判据未动）。
+//   依据：实测 232 个「有 VER 无标准日志行」，抽样 8 个(236-round-boundary/620-sword-rain/156-desc-truth-drift/
+//   258-rewind/332-career-log/round-order-check/126-xuanming-link/704-main-state) 全部有正文版本痕迹(V1.1.0 等)，
+//   属既有「版本史写在注释正文」模式，非日志写坏；差额来自并行会话新并入文件。
+//   注意：夜间第256轮把它重校到 220(夜间基底)，main 基底不同故按 main 实测 232，不照搬 220。
+//   双向棘轮照旧：谁补了标准日志行实测下降，这条会反过来红，逼着把登记值改小。
+const EXPECT_NO_LOG = 232;
 
 // 刻意 hold 白名单：key = 相对仓库根的路径，value = 理由（不得为空）。
 const HOLD_WHITELIST = {
