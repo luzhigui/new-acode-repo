@@ -8,8 +8,8 @@
 // V1.0.3 | 2026-11-22 偷学幂等：同一机制 type 只 install 一次（原每回合重复 install 叠加钩子，一次事件被处理多次）
 // V1.0.7 | 2026-11-22 武痴改为"属性变化立即判定"：回合开始群体 buff 结算完即检查，不再积压到下一刀
 // V1.0.8 | 2026-11-22 回合开始触发的武痴播报带 needsSeparator，自成一段（不再被并进下一个单位攻击组→"延后触发"观感）
-// V1.1.0 | 2026-11-23 武痴去掉 30% 触发闸（老板澄清：设计是必定触发，随机只在 6 种效果里挑一种）
-export const VER = 'modules/341-common-mech-kongzhi.js V1.1.0';
+// V1.1.1 | 2026-11-23 武痴加回闪避/命中两项（老板拍板，每次+1%）：闪避接 221 规则表、命中接 203 未命中率，共 8 种
+export const VER = 'modules/341-common-mech-kongzhi.js V1.1.1';
 
 import { registerSettlementHook, eventBus, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler, installMechanicByType } from '../core/219-mechanic-registry.js';
@@ -17,6 +17,7 @@ import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES } from '../infra/106-battle-en
 import { getBattleRng, addMod, applyStatChange, refreshMaxHp, getStat } from '../core/214-battle-shared.js';
 import { getGameData } from '../core/201-config-5v5-test.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
+import { registerDodgeRule } from '../core/221-registry-dodge.js';
 
 const teamOf = (data, camp) => ((camp === CAMP_TYPES.ALLY ? (data && data.A) : (data && data.B)) || []);
 const allOf = (data) => [...((data && data.A) || []), ...((data && data.B) || [])];
@@ -43,6 +44,8 @@ function permanentStat(unit, stat) {
 export const wuChiHandler = {
     fields: {},
     install({ A, B, decl }) {
+        // 武痴顿悟的闪避加成接闪避规则表（221）：210 每回合先 clearEliteDodgeRules 再重装，不会重复叠加
+        registerDodgeRule((target) => (target && target.alive && target.state && target.state._wuChiDodgeBonus) || 0);
         // 每回合 install 重跑（210 每回合 clearAll + 重建 A/B 克隆），快照自然是当回合基线
         const lastStats = new Map();
         [...(A || []), ...(B || [])].forEach(u => {
@@ -73,8 +76,8 @@ export const wuChiHandler = {
                 const causeText = causeParts.length ? `（因 ${u.name} ${causeParts.join('、')}）` : '';
                 const rng = getBattleRng();
                 // 必定触发（老板 2026-11-23 澄清）：攻防单次变化≥2 就顿悟，没有概率闸；
-                //   随机性只体现在「接下来在 6 种效果里挑哪一种」。此前 30% 闸是误加。
-                const roll = rng.nextInt(0, 5);          // 6 种顿悟 + 1 种走火入魔
+                //   随机性只体现在「接下来在 8 种效果里挑哪一种」。此前 30% 闸是误加。
+                const roll = rng.nextInt(0, 7);          // 8 种：7 种顿悟 + 1 种走火入魔
                 let text = '';
                 switch (roll) {
                     case 0:
@@ -97,6 +100,16 @@ export const wuChiHandler = {
                     case 4:
                         self.state._acted = false;               // 214 的 getNextAvailableUnit 读它
                         text = '💨 武痴顿悟：恢复行动力';
+                        break;
+                    case 5:
+                        // 闪避加成接 221 规则表真正生效（0~1 比例，跨回合累计，封顶 75%）
+                        self.state._wuChiDodgeBonus = Math.min(0.75, (self.state._wuChiDodgeBonus || 0) + 0.01);
+                        text = '👟 武痴顿悟：闪避+1%';
+                        break;
+                    case 6:
+                        // 命中加成在 203 getMissBreakdown 里抵扣未命中率（百分点，跨回合累计）
+                        self.state._wuChiHitBonus = (self.state._wuChiHitBonus || 0) + 1;
+                        text = '🎯 武痴顿悟：命中+1%';
                         break;
                     default:
                         self.state._stunned = true;

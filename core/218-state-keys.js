@@ -10,7 +10,8 @@
 //           漏登记 ⇒ Unit.clone 撞 assertStateFullyRegistered，第2关/第6关带三渡的对局全炸（弱精英 unitAB 复现）。
 // V2.11.8 | 2026-11-22 补登记 _blazeCharged（炎魔狮王本回合已轮到/蓄力，342 收尾炎爆判据）
 // V2.11.9 | 2026-11-22 补登记 _sanDuDoubleStrike（渡劫概率连击常驻旗，342 写 / render/403 读，补格子 ⚡）
-export const VER = 'core/218-state-keys.js V2.11.9';
+// V2.12.0 | 2026-11-23 补登记 _wuChiDodgeBonus / _wuChiHitBonus（武痴顿悟闪避/命中累计，341 写，221/203 读）
+export const VER = 'core/218-state-keys.js V2.12.0';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -300,6 +301,10 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _desperateStacks:        { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 武痴（空智）：走火入魔后本回合失效（回合开始由 modules/341 清回 false）
     _wuChiDisabled:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 武痴（空智）：顿悟累计闪避加成（0~1 比例，跨回合累计；modules/341 写、闪避规则表读）
+    _wuChiDodgeBonus:        { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    // 武痴（空智）：顿悟累计命中加成（百分点，跨回合累计；modules/341 写、core/203 未命中率抵扣）
+    _wuChiHitBonus:          { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     // 唐文亮·冲刺跳物理攻击动画标记（modules/26 置 true，结算完置 false）
     _isDashStrikeFx:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 寒离飒·瞄准窗口状态（player/49 瞄准标记步写，hanlisa.js 消费后清零；持久化同现状放 battle 级）

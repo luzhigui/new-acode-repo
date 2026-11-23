@@ -2,7 +2,8 @@
 // V6.5.1 | 2026-11-18 大规则保留、小规则归位：近战打前排仍为硬规则（WARRIOR/DEFENDER/拒马），
 //   但飞行属近战大类且有越级例外（可越前排打残血，且不吃遮挡）→ 不再被前排硬规则裁剪。
 //   修复宋青书 highestHpPct / 韦一笑 lowestHp 只能在前排里选、飞行手动拖拽只能点前排。
-export const VER = 'core/203-battle-utils.js V6.5.1';
+// V6.5.2 | 2026-11-23 未命中率补「武痴·命中」项：_wuChiHitBonus 按百分点抵扣（341 写）
+export const VER = 'core/203-battle-utils.js V6.5.2';
 
 import { CONFIG, getGameData, getSkillParams } from './201-config-5v5-test.js';
 import { getRoleBonus, baseHeroName } from './202-unit.js';
@@ -206,6 +207,12 @@ export function getMissBreakdown(unit, mySide, oppSide) {
             total += v;
             sources.push({ label: '鹰眼', value: v });
         }
+    }
+    // 武痴（空智）顿悟：命中 +N 个百分点，直接抵扣未命中率（地面单位基础为 0，抵扣后仍被 clamp 回 0）
+    const wuChiHit = (unit.state && unit.state._wuChiHitBonus) || 0;
+    if (wuChiHit > 0) {
+        total -= wuChiHit;
+        sources.push({ label: '武痴·命中', value: -wuChiHit });
     }
     return { total: Math.max(0, Math.round(total * 10) / 10), sources };
 }
