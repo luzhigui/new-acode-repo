@@ -4,7 +4,8 @@
 // V1.1.1 | 2026-11-22 木桩代受修真雷:旧钩子读恒null的targetResult从未生效,改registerTargetFilter(同列候选换桩)
 // V1.2.0 | 2026-11-22 老板口径：防化拦毒回 10%；木桩 atk×200% 入防 + atk×500% 入生命上限；拼命每 5% 血 +8% 攻
 // V1.2.1 | 2026-11-22 防化回血修真：原走 declarations 被 resolveRoundStatGrants 过滤（回血从未生效），改直改血+补 HEAL fact
-export const VER = 'modules/340-common-mech-disciples.js V1.2.1';
+// V1.2.2 | 2026-11-23 拦毒补给行改成 colonPlain：写明是谁回的血（原来 plusTrail 版式只有数值，全体一起回时分不清）
+export const VER = 'modules/340-common-mech-disciples.js V1.2.2';
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -118,7 +119,9 @@ export const antiPoisonHandler = {
                         data: {
                             unitUid: u.uid, unitName: u.name, healUnitUid: u.uid,
                             heal: healed, hpBefore, hpAfter: u.hp,
-                            label: '防化弟子·拦毒补给', icon: '🧪', anchorVerb: '回复'
+                            label: '防化弟子·拦毒补给', icon: '🧪', anchorVerb: '回复',
+                            // 全体同时回血，行里必须写清是谁回的血（plusTrail 版式没有名字，2026-11-23 老板点名）
+                            mode: 'colonPlain'
                         }
                     });
                 }
