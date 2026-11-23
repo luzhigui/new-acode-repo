@@ -1,3 +1,4 @@
+// V6.16.3 | 2026-11-23 第47轮：末行 RESULT 加 ❌/✅ 前缀（红结论行显式协议，纯呈现，判据/退码同源）。
 // V6.15.1 | 2026-11-21 第35轮：补版本日志行（VER 已抬 V6.15.1，此前日志停在 V6.15.0）。
 // V6.13.0 | 2026-11-08（第 229 轮）回放器补三块 Buff 覆盖（均不涉主代码）：
 //   ① 定向场次补「小昭·姊 + 热血奋战/乘风突袭/众志成城」：DIRECTED_CASES 新增 buffs 字段，
@@ -67,7 +68,7 @@ console.error = function (...args) {
 //   回放器此前只解构 allyTeam/enemyTeam ⇒ 286「关卡变体抽签真值与阵容互证」拿到的
 //   ctx.encounterVariant 恒为 undefined，156 场全部走 skip（结构性假绿）。本轮把两字段原样接入
 //   ctx，规则自身与判据一字未改；全库仅 286 消费这两个字段，其它规则口径零变化。
-export const VER = 'tests/rules-replay.mjs V6.15.1';
+export const VER = 'tests/rules-replay.mjs V6.16.3';
 // V6.11.0 | 2026-11-01 夜间第 172 轮：FORCE_KEYS / forcesOfEntry / resetForces 三件套收口至
 //   tests/_lib/forced-case-normalize.mjs 唯一来源。★ 本文件原白名单缺 forceXieXun（其在主代码
 //   29battle-init L141 / L152 真实存在），此前想喂谢逊系规则会当场抛错而看不出原因；
@@ -719,7 +720,9 @@ if (KEYWORDS.length) {
     for (const kw of KEYWORDS) console.log(`  ${kw}: ${kwHit[kw] || 0}`);
 }
 const invFail = invIssues.size + (invUnmappedCount ? 1 : 0) + factContractWarns.size + registryProblems.size + (hookErrorCount ? 1 : 0) + ((ENEMY_HEX && dualStats.enemyPicks === 0) ? 1 : 0) + (sisterBuffZero ? 1 : 0);
-console.log(`RESULT: ${fails === 0 ? '无失败规则' : fails + ' 条规则报失败'}${transferred ? `；转交中 ${transferred} 条（⚠️ 不计退出码，见 tests/known-transfers.md）` : ''}；恒 skip(空转)规则 ${dead} 条` +
+// 第47轮：红结论行显式协议——replayRed 与退出码同源（文件末 (fails===0 && invFail===0) 取反）。
+const replayRed = !(fails === 0 && invFail === 0);
+console.log(`${replayRed ? '❌ ' : '✅ '}RESULT: ${fails === 0 ? '无失败规则' : fails + ' 条规则报失败'}${transferred ? `；转交中 ${transferred} 条（⚠️ 不计退出码，见 tests/known-transfers.md）` : ''}；恒 skip(空转)规则 ${dead} 条` +
     `；不变量违规 ${invIssues.size} 类${invUnmappedCount ? ' / facts 映射缺口 ' + invUnmappedCount + ' 条' : ''}` +
     `${factContractWarns.size ? ' / fact 契约违规 ' + factContractWarns.size + ' 类' : ''}` +
     `${registryProblems.size ? ' / 注册一致性 ' + registryProblems.size + ' 类' : ''}` +

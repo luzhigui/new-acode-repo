@@ -211,7 +211,8 @@ async function main() {
         //   并写下错误归因（已纠正）。汇总行必须最后打印，确保 pickKeyLine 取到的是总数而非明细。
         const total = results.length;
         if (regressions.length) {
-            console.log(`RESULT: 基线回归 ${regressions.length}/${total} 场（红线，严禁重录；明细见上）`);
+            // 第47轮：红路径加 ❌ 前缀（走「红结论行显式协议」，纯呈现，判据/分母/退码/VER 不动）。
+            console.log(`❌ RESULT: 基线回归 ${regressions.length}/${total} 场（红线，严禁重录；明细见上）`);
         } else {
             console.log(`RESULT: 基线预期变更 ${intended.length}/${total} 场（winner 未变，待人工核对后重录）`);
         }

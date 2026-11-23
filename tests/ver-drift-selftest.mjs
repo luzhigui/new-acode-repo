@@ -113,7 +113,7 @@
 //   每条都做过验牙（见体检迭代日志第 135 / 136 / 137 轮），验牙时均转红、还原后回绿。
 //
 // 用法：node tests/ver-drift-selftest.mjs
-export const VER = 'tests/ver-drift-selftest.mjs V1.5.29';
+export const VER = 'tests/ver-drift-selftest.mjs V1.5.30';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -167,6 +167,7 @@ const MIN_LOG_PARSED = 60;
 //     没有 `Vx.y.z` 行，于是落进「有 VER 无日志」桶。逐条核过：182 个里无一是本轮五个改动文件
 //     （155/159/180/195/124rule-recipes）与两个新自证文件（两者都已补 VER + 版本日志行）。
 //   ★ 双向棘轮照旧生效：若下轮实测回落到 181 以下（有文件补了日志），这条会反过来红，逼着改小。
+// V1.5.30 | 2026-11-23 第47轮：红路径末行补 ❌ RESULT（红结论行显式协议，纯呈现，232 登记值未动）。
 // V1.5.29 | 2026-11-23 第45轮：196 → 232，按 main 实跑重校（双向棘轮，等式闸两侧同步，判据未动）。
 //   依据：实测 232 个「有 VER 无标准日志行」，抽样 8 个(236-round-boundary/620-sword-rain/156-desc-truth-drift/
 //   258-rewind/332-career-log/round-order-check/126-xuanming-link/704-main-state) 全部有正文版本痕迹(V1.1.0 等)，
@@ -510,6 +511,8 @@ if (bad.length) {
     console.log('❌ 版本常量漂移自检失败：');
     for (const b of bad) console.log('   ' + b);
     console.log(`   扫描 ${scanned} 个带 VER 文件（其中 ${logParsed} 个可比对版本）· 无日志 ${noLogFiles.length} 个 · 无 VER ${noVerSet.size} 个 · hold ${holded} 个 · 白名单 ${holds.length} 条`);
+    // 第47轮：红结论行显式协议——末行自带 ❌ RESULT，不再只靠 run-all 词表兜底（纯呈现，判据/退码未动）。
+    console.log(`❌ RESULT: FAIL —— 版本常量漂移 ${bad.length} 条（判据与 15 项断言未放宽，明细见上）`);
     process.exit(1);
 }
 
