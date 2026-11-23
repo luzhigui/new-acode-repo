@@ -241,6 +241,14 @@ export function stealHealByHook(unit, amount, A, B, log) {
     if (!(amount > 0) || !_healStealHook) return amount;
     try { return _healStealHook(unit, amount, A, B, log); } catch (e) { return amount; }
 }
+// 护盾前置钩子（张松溪·智取抢盾）：护盾入池前先过它，返回实际留给原主的护盾值。
+//   core 不反向 import modules，故由 341 自注册；未注册时原样返回（等价未触发智取）。
+let _shieldStealHook = null;
+export function setShieldStealHook(fn) { _shieldStealHook = typeof fn === 'function' ? fn : null; }
+export function stealShieldByHook(unit, amount, A, B, log) {
+    if (!(amount > 0) || !_shieldStealHook) return amount;
+    try { return _shieldStealHook(unit, amount, A, B, log); } catch (e) { return amount; }
+}
 // 毒被免疫拦下（331 dotTick / 319 寒毒 / 339 蹦蹦毒 三处统一回调）：防化弟子用它做「拦一次毒回一次奶」。
 //   core 不反向 import modules，故由 modules/340 注册。ctx 透传结算期的 declarations/log/A/B。
 let _poisonBlockedHook = null;

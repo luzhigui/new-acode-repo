@@ -1,4 +1,5 @@
-﻿// V1.2.8 | 2026-11-21 智取抢量下调：护盾/回血由「总量 60%（各 0.3）」降到「总量 40%（各 0.2）」，目标实得 60%。
+﻿// V1.2.9 | 2026-11-22 智取抢盾改钩子出口：core/216 不再反向 import 本模块（T-LAYER-260），本模块 setShieldStealHook 自注册
+// V1.2.8 | 2026-11-21 智取抢量下调：护盾/回血由「总量 60%（各 0.3）」降到「总量 40%（各 0.2）」，目标实得 60%。
 // V1.2.6 | 2026-11-20 智取抢来的回血补飘字：张松溪/受益队友吃血后推 HEAL fact（💡 智取），血条不再无声上涨。
 // V1.2.7 | 2026-11-21 补版本日志行（VER 常量已抬，漏写本行致 ver-drift 判领先）。
 // V1.2.5 | 2026-11-20 智取回血改为各分一半：张松溪固定先拿自己那份（队友满血吃不完才转给他），
@@ -17,13 +18,13 @@
 // V1.1.0 | 2026-11-19 智取偷盾补提示（战报行 + 弹幕）。
 // V1.0.0 | 2026-11-18 张松溪「智取」：抢夺敌方新获护盾的一半。调用点：319 五处 + 216 九阳溢出转盾。
 
-import { applyStatChange, addMod, refreshMaxHp, recordHpAudit, setHealStealHook } from '../core/214-battle-shared.js';
+import { applyStatChange, addMod, refreshMaxHp, recordHpAudit, setHealStealHook, setShieldStealHook } from '../core/214-battle-shared.js';
 import { isEffectivelyAlive } from '../core/203-battle-utils.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 import { FACT_TYPES } from '../infra/106-battle-enums.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 
-export const VER = 'modules/341-common-shield-steal.js V1.2.8';
+export const VER = 'modules/341-common-shield-steal.js V1.2.9';
 
 const STEALER_NAME = '张松溪';
 
@@ -165,4 +166,6 @@ export function stealHealHalf(target, nominal, A, B, ctx) {
 //   这两条不走 EFFECT_TYPES.HEAL 声明，core 侧在 applyStatChange 前调 stealHealByHook 过这里；
 //   core 不反向 import modules，故由本模块自注册。
 setHealStealHook((unit, amount, A, B, log) => stealHealHalf(unit, amount, A, B, { log }).kept);
+// 护盾出口同理自注册（T-LAYER-260）：core/216 九阳溢出转盾不再直接 import 本模块，改为调用 core/214 的钩子
+setShieldStealHook((unit, amount, A, B, log) => stealShieldHalf(unit, amount, A, B, { log }));
 

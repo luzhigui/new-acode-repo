@@ -1,18 +1,18 @@
 // core/216-skill-mechanisms.js — 数据驱动技能机制的安装期校验与统一装配
+// V6.8.10 | 2026-11-22 九阳溢出转盾改走 core/214 stealShieldByHook（341 自注册），解开 core→modules 反向依赖（T-LAYER-260）
 // V6.8.8 | 2026-11-19 | 九阳护盾溢出 stealShieldHalf 的 A/B 改从 payload 取（本函数形参只有 data/onHitDecls，
 //   裸 A/B 必抛 ReferenceError 且会中断本条命中的后续 onHit 效果；core/209 L564 载荷已带 A,B）
 // V6.8.9 | 2026-11-20 | lowestHp/highestHpPct 目标规则统一提前到嘲讽之前（priority 17）+ targetRuleApplied 标记：
 //   自带选敌规则的单位（韦一笑/宋青书）不再被胖远桥的正义国字脸嘲讽拉走。
-export const VER = 'core/216-skill-mechanisms.js V6.8.9';
+export const VER = 'core/216-skill-mechanisms.js V6.8.10';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/101-event-bus.js';
 import { CONFIG } from './201-config-5v5-test.js';
 import { registerDodgeRule } from './221-registry-dodge.js';
-import { getBattleRng, previewHeal, getStat } from './214-battle-shared.js';
+import { getBattleRng, previewHeal, getStat, stealShieldByHook } from './214-battle-shared.js';
 import { fmtHp } from '../infra/102-core-utils.js';
 import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES, MECHANIC_EFFECT_TYPES, MECHANIC_TARGET_RULES } from '../infra/106-battle-enums.js';
 import { installMechanicByType, hasMechanicHandler, getMechanicHandler } from './219-mechanic-registry.js';
-import { stealShieldHalf } from '../modules/341-common-shield-steal.js';
 
 // 四类内层容器允许的元素 type 名单（值来自 infra/56 枚举，JSON 侧字符串由安装期校验兜）。
 const LOCAL_EFFECT_TYPES = Object.freeze({
@@ -280,7 +280,8 @@ function submitOnHitEffects(data, onHitDecls) {
                     data.declarations.push({ type: EFFECT_TYPES.HEAL, value: rawNominal, source: unit, factType: FACT_TYPES.HEAL, auditGroup: 'nineYangHeal', auditSource: '九阳神功治疗', factData: { unitName: unit.name, heal, hpBefore: fmtHp(unit.hp), hpAfter: fmtHp(unit.hp + heal), unitUid: unit.uid, maxHp: unit.maxHp, stacks: 1, icon: '☀️', label: '九阳神功回复', mode: 'plusTrail', anchorVerb: '回复' } });
                 }
                 if (shieldGain > 0) {
-                    unit.state._permShield = (unit.state._permShield || 0) + stealShieldHalf(unit, shieldGain, data.A, data.B, { log: data.log });
+                    // core 不反向 import modules：341 自注册 stealShieldByHook，未注册时原样返回
+                    unit.state._permShield = (unit.state._permShield || 0) + stealShieldByHook(unit, shieldGain, data.A, data.B, data.log);
                 }
             } else if (eff.type === MECHANIC_EFFECT_TYPES.ON_HIT.POISON) {
                 // 免疫毒素（庄铮·断锤形态）：完全不上毒，格子不挂 ❄️

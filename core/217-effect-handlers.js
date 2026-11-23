@@ -1,13 +1,13 @@
 // core/217-effect-handlers.js — 伤害结算后的特效裁定器（回血、吸血、溅射、反伤等 Effect Handler）
+// V6.3.4 | 2026-11-22 HEAL handler 智取抢血改走 core/214 stealHealByHook（341 自注册），解开 core→modules 反向依赖（T-LAYER-260）
 // V6.3.3 | 2026-11-19 | fact 出口收口（T-EP-1）：免疫斩杀两条 SKILL_ANNOUNCE 裸 ctx.log.push → pushFact
-export const VER = 'core/217-effect-handlers.js V6.3.3';
+export const VER = 'core/217-effect-handlers.js V6.3.4';
 
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
-import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit, killUnit } from './214-battle-shared.js';
+import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat, recordHpAudit, killUnit, stealHealByHook } from './214-battle-shared.js';
 import { flushBattleEvents, fmtHp, pushFact } from '../infra/102-core-utils.js';
 import { SIGNAL_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/106-battle-enums.js';
 import { registerCalcModifier } from './222-registry-calc.js';
-import { stealHealHalf } from '../modules/341-common-shield-steal.js';   // 张松溪·智取抢血（与 216 同例，机制 helper 落 modules）
 
 const effectHandlers = new Map();
 
@@ -176,8 +176,8 @@ registerEffectHandler(EFFECT_TYPES.HEAL, (ctx) => {
         if (!decl.source || !decl.source.alive) continue;
         const capped0 = Math.min(decl.value || 0, decl.source.maxHp - decl.source.hp);
         // 智取抢血（张松溪，2026-11-19）：回血实落 0.5，张松溪与其 needy 队友各分 0.25（341 单点分配）
-        const zq = stealHealHalf(decl.source, capped0, ctx.allySide, ctx.enemySide, { log: ctx.log });
-        const capped = zq.kept;
+        //   core 不反向 import modules：341 自注册 stealHealByHook，未注册时原样返回。
+        const capped = stealHealByHook(decl.source, capped0, ctx.allySide, ctx.enemySide, ctx.log);
         const hpBefore = decl.source.hp;
         if (capped > 0) {
             applyStatChange(decl.source, 'hp', capped, null, '回血');
