@@ -1,3 +1,5 @@
+// V6.14.3 | 2026-11-22：自动模式加「15s 未完就结算」：单场在 8x 下仍可跑 60s+，
+//   预算内连一次终局都没有 ⇒ 规则零样本。现在每关至少强制收一场，规则必然有 log 可验。
 // V6.14.2 | 2026-11-22：规则对账——本场参与判决的规则若 pass/skip/fail 一个都没走，
 //   报告列红名单并在异常里补「规则真空转」，coverage 带 neverRun；不再让真空规则混在「0 异常」里。
 // V6.14.1 | 2026-11-22：快速跑完默认档位 300(原速2x)→50(8x)：
@@ -15,7 +17,7 @@
 //   （本文件不再 import 123static-scan.js / 不绑 btnModeStatic / 不留第二份 renderStaticReport）；
 //   ② 报告加 coverage 字段与「覆盖不足」显形：在册/执行/未触发/跳过率一次写清，
 //     不再把「规则大面积没触发」呈现成「代码没问题」。判据、规则表、回放口径一字未动。
-export const VER = 'tests/121health-monitor.js V6.14.2';
+export const VER = 'tests/121health-monitor.js V6.14.3';
 // V6.12.1 | 2026-11-09 白天合入：保留夜间第 196 轮的表驱动逐条容错骨架，把白天新增的 39 条规则补回 RULE_MODULES 表与 allRules（两边都动过 121，直接取任一边都会让规则掉出执行面）。
 // V6.12.0 | 2026-11-08 夜间第 196 轮：规则装载从 123 条**静态 import** 改为 RULE_MODULES 表 + 动态 import 逐条容错。
 //   动因：249~252 四个规则文件上游从未提交，静态 import 让整个模块解析失败 —— 浏览器侧 120test-runner.html
@@ -261,7 +263,10 @@ _loadedSettled.results.forEach((r, i) => {
 const B = (name) => {
     const fn = RULE_BINDINGS[name];
     if (!fn && !MISSING_RULE_MODULES.some(x => x.local === name)) {
-        throw new Error('121 规则装载表缺登记：' + name + '（静态 import 已改为 RULE_MODULES 表，加规则请补表）');
+        // V6.14.3：执行数组里的名字表里没登记时，旧版直接 throw —— 整个 runRuleChecks 崩掉，
+        //   每场都是 0 条执行（实测就是这个：报告 0 执行、无任何规则异常）。改为记缺口+跳过该名。
+        MISSING_RULE_MODULES.push({ local: name, from: '(执行数组)', why: 'RULE_MODULES 表缺登记' });
+        console.warn('[121] 执行数组名缺登记:', name);
     }
     return fn || null;
 };
@@ -429,10 +434,11 @@ export async function initMonitor() {
     // 文件读取侧 4 条），看起来像「扫描器坏了」；现在收成一条，点名缺哪几个文件、由谁引用的。
     // 只报不修：不替上游补规则文件，也不把它们伪装成 skip 规则混进 allRules。
     if (MISSING_RULE_MODULES.length > 0) {
+        try { window.__healthMissing = MISSING_RULE_MODULES; } catch (e) {}
         const names = MISSING_RULE_MODULES.map(x => x.from.replace('./health-rules/', '')).join('、');
         statusLine.textContent = '⚠ 规则装载缺口 ' + MISSING_RULE_MODULES.length + ' 条：' + names;
         statusLine.style.color = '#ff9800';
-        console.warn('[121] 规则装载缺口', MISSING_RULE_MODULES);
+        console.warn('[121] 规则装载缺口 ' + MISSING_RULE_MODULES.length + ' 条: ' + JSON.stringify(MISSING_RULE_MODULES.slice(0, 3)));
     }
 
     let scanInterval = 200;
@@ -744,12 +750,14 @@ function periodicScan() {
     //   改成只看 GAMEOVER 状态；同关重开的新一场（关卡号没变也要算新一场）单独放行。
     const _gsStage = ctx.currentStage || detectStage(doc) || 0;
     const _reopenSameStage = (battleEnded && _gsStage !== lastRuleStage);
+    if (ctx.gs === 'GAMEOVER') console.log('[121-go] ended=' + battleEnded + ' stage=' + _gsStage + ' last=' + lastRuleStage + ' start=' + battleStartTime);
     if (ctx.gs === 'GAMEOVER' && (!battleEnded || _reopenSameStage)) {
         if (_reopenSameStage) { battleGen++; battleStartTime = Date.now(); }
         if (battleStartTime === 0) battleStartTime = Date.now();
         battleEnded = true;
         // 战报生成时日志已完整：立即跑规则体检（快进模式下每场必跑，不等渲染时序）
-        runRuleChecks(ctx, doc);
+        try { runRuleChecks(ctx, doc); }
+        catch (e) { recordIssue(ctx, null, '规则执行中断', 'runRuleChecks 抛错：' + (e.message || e), '系统'); }
         // UI 结算类检查等渲染稳定后跑；带代际+状态守卫：新局已开始或已离开GAMEOVER（重置已清场）则丢弃，避免误报
         const gen = battleGen;
         setTimeout(() => {
@@ -762,6 +770,12 @@ function periodicScan() {
 
     // 自动后台模式：推进关卡 / 超时判定，结束后输出报告
     if (autoMode && !autoDone) {
+        // V6.14.3：8x 下单场仍可能跑 1 分钟以上（实测 60s 还在第2关 RUNNING），预算内连一次终局都到不了
+        //   ⇒ 规则永远没有样本。超过 15s 仍 RUNNING 就点「结算」强制收尾，保证每关至少一场 GAMEOVER。
+        if (ctx.gs === 'RUNNING' && battleStartTime > 0 && Date.now() - battleStartTime > 15000) {
+            const sb = doc.getElementById('btnSettle');
+            if (sb && !sb.disabled) sb.click();
+        }
         // 每场战斗结束会把 fastForwardActive 复位为 false，这里持续保持快进，确保后续关卡也快速打完
         try { if (win && win.GlobalStore && !win.GlobalStore.get('fastForwardActive')) win.GlobalStore.set('fastForwardActive', true); } catch (e) {}
         const stage = ctx.currentStage || detectStage(doc) || 0;
@@ -929,11 +943,19 @@ function runRuleChecks(ctx, doc) {
         B('rule280'), B('rule294'), B('rule319'), B('rule320'), B('rule321'), B('rule322'), B('rule323'), B('rule325'), B('rule326'), B('rule327'),
         B('rule328'), B('rule329'), B('rule311'), B('rule295'), B('rule296'), B('rule315'), B('rule316'), B('rule317'), B('rule318')
     ]
-        .filter(fn => typeof fn === 'function');
+        .filter(fn => fn && typeof fn.test === 'function')  // V6.14.3：规则导出的是 {name,test} 对象，旧版按 typeof==='function' 过滤 ⇒ 169 条全被滤成 0
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);
     // V6.14.2：记下本场真正参与判决的规则名，报告里用它对账「谁一次判决都没给」
     lastRuleNames = rules.map(r => r.name || '?');
+
+    // V6.14.3：规则数组空 = 规则层根本没装进来（import 全失败），必须见红，不能静默 0 执行
+    console.log('[121-rule] enter all=' + allRules.length + ' rules=' + rules.length + ' modules=' + RULE_MODULES.length);
+    if (rules.length === 0) {
+        recordIssue(ctx, null, '规则装载', '本次规则执行数组为 0 条（RULE_MODULES ' + RULE_MODULES.length + ' 条）⇒ 规则层没装进来', '系统');
+        return;
+    }
+    console.log('[121-rule] stage=' + stage + ' gen=' + battleGen + ' log=' + battleLog.length + ' rules=' + rules.length);
 
     // 空日志防线：规则靠日志才有意义，GAMEOVER 时仍为空 = 数据链断，显式报红防假绿
     if (battleLog.length === 0) {
