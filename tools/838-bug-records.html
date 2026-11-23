@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <!-- tools/838-bug-records.html — Bug 记录独立浏览页（不进游戏）
+     V1.0.3 | 2026-11-23 删除单条后保持原滚动位置（页面 + #list 双层还原，不再跳回顶部）
      V1.0.2 | 2026-11-19 新建表单拆成三个常驻小标题的框（①本来应该怎样 ②怎么复现 ③实际看到什么），
        保存合并成【应该】【步骤】【实际】三段，与 modules/303 V6.6.8 完全同口径。
      V1.0.1 | 2026-11-19 新增「＋ 新建一条」（页面内直接手写一条记录，存同一份 localStorage）；
@@ -247,6 +248,20 @@
         return b;
     }
 
+    // 删除单条会整页重排（#list 全量重建），浏览器会把滚动位置打回顶部。
+    //   删除前把「页面滚动 + 列表滚动」暂存，重建完再还原，删完停在原处。
+    var _keepScroll = null;
+    function restoreScroll() {
+        var keep = _keepScroll;
+        _keepScroll = null;
+        if (!keep) return;
+        requestAnimationFrame(function () {
+            window.scrollTo(0, keep.win);
+            var el = document.getElementById('list');
+            if (el) el.scrollTop = keep.list;
+        });
+    }
+
     function render() {
         var list = loadSaved();
         var stat = document.getElementById('stat');
@@ -258,6 +273,7 @@
             empty.className = 'empty';
             empty.innerHTML = '还没有记录。<br>点上方 <b>＋ 新建一条</b> 直接写，或进游戏暂停点 <b>🐞 记录Bug</b> 保存后回来刷新。';
             listBox.appendChild(empty);
+            restoreScroll();
             return;
         }
         list.slice().reverse().forEach(function (rec, revIdx) {
@@ -324,6 +340,7 @@
                 var arr = loadSaved().filter(function (x) { return x.id !== rec.id; });
                 if (!writeSaved(arr)) return;
                 toast('已删除，剩 ' + arr.length + ' 条');
+                _keepScroll = { win: window.scrollY, list: (document.getElementById('list') || {}).scrollTop || 0 };
                 render();
             };
             ops.appendChild(detailBtn); ops.appendChild(copyOne); ops.appendChild(del);
@@ -331,6 +348,7 @@
 
             listBox.appendChild(card);
         });
+        restoreScroll();
     }
 
     // ---------- 新建一条：页面内直接手写，存同一份本地列表（结构与 modules/303 手动记录一致） ----------

@@ -8,7 +8,8 @@
 // V6.6.8 | 2026-11-19 记录输入拆成三个常驻小标题的框（①本来应该怎样 ②怎么复现 ③实际看到什么），
 //   保存时合并成【应该】【步骤】【实际】三段文本，与旧版纯字符串完全兼容。
 // V6.6.10 | 2026-11-22 涉及角色口径改为"本局实际出场全部单位"，不再按"这段日志提到过"过滤（防漏空智 / 长句误带张松溪）
-export const VER = 'modules/303-error-capture.js V6.6.10';
+// V6.6.11 | 2026-11-23 已保存列表删除单条后保持原滚动位置（重建前暂存 box/list 的 scrollTop，重建后还原）
+export const VER = 'modules/303-error-capture.js V6.6.11';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 
@@ -949,7 +950,13 @@ import { GlobalStore } from '../infra/104-global-store.js';
         return lines.join('\n');
     }
 
+    // 删除单条后要重建整个列表（closePanels + makeOverlay），旧 DOM 一拆 scrollTop 就归零。
+    //   把重建前的滚动位置暂存这里，重建完再还原——否则删除一条就跳回顶部，几十条时根本找不回原位置。
+    let _savedListScroll = null;
+
     function openSavedList() {
+        const keep = _savedListScroll;
+        _savedListScroll = null;
         closePanels();
         const list = loadSaved();
         const { box } = makeOverlay('bugListOverlay');
@@ -958,6 +965,13 @@ import { GlobalStore } from '../infra/104-global-store.js';
         const listBox = document.createElement('div');
         listBox.style.cssText = 'max-height:46vh;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-bottom:10px;';
         box.appendChild(listBox);
+
+        if (keep) {
+            requestAnimationFrame(() => {
+                box.scrollTop = keep.box;
+                listBox.scrollTop = keep.list;
+            });
+        }
 
         if (!list.length) {
             const empty = document.createElement('div');
@@ -1043,6 +1057,8 @@ import { GlobalStore } from '../infra/104-global-store.js';
                     const arr = loadSaved().filter(x => x.id !== rec.id);
                     if (!writeSaved(arr)) return;
                     showToast('已删除，剩 ' + arr.length + ' 条');
+                    // 记住当前位置再重建列表：删完停在原处，不跳回顶部
+                    _savedListScroll = { box: box.scrollTop, list: listBox.scrollTop };
                     openSavedList();
                 };
                 ops.appendChild(detailBtn); ops.appendChild(copyOneBtn); ops.appendChild(delBtn);
