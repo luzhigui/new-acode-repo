@@ -5,7 +5,7 @@
 //   改走普通池后任何回合都可能选中，召唤必须由引擎回合开头做（UI 侧队伍数组是 filter 副本，push 无效）。
 //   与时序要求一致：早于组件工厂循环，召出来的单位当回合就能被注册面挂上精英技能。
 // V6.3.45 | 2026-11-19 | fact 出口收口（T-EP-1）：圣火令·救援/打击两条事实裸 log.push → pushFact
-export const VER = 'core/210-battle-round.js V6.3.49';   // V6.3.49 新增 ROUND_SETTLED（整回合收尾只发一次，供回合结束前机制）
+export const VER = 'core/210-battle-round.js V6.3.50';   // V6.3.50 召唤阵营显式传入（不再靠队内第一个活人猜）
 
 import { CONFIG, getGameData } from './201-config-5v5-test.js';
 import { resetStateFields } from './218-state-keys.js';
@@ -146,12 +146,12 @@ function prepareRoundSpawns(A, B, state, ctx) {
     // 众志成城（unity）改版：获得当回合把人数补满到 4（姐姐强化补满到 5）、此后每回合再补 1 个（M15/技能全开，
     //   持续由 content unity.duration:3 管，上限只剩 9 格站位），
     //   同样必须早于下方组件工厂循环——召唤出的精英当回合才能被注册面挂上技能。
-    spawnUnityRecruits(A, ctx.log);
-    spawnUnityRecruits(B, ctx.log);
+    spawnUnityRecruits(A, ctx.log, CAMP_TYPES.ALLY);
+    spawnUnityRecruits(B, ctx.log, CAMP_TYPES.ENEMY);
     // 妹永久众志：团队众志不在场时也在本阶段补召（与团队版同时机，早于工厂循环，
     //   召出来的单位当回合就能被注册面挂上精英技能；原挂在 ON_ROUND_START 会当回合白板）。
-    spawnBrotherPermanentUnityRecruit(A, ctx.log);
-    spawnBrotherPermanentUnityRecruit(B, ctx.log);
+    spawnBrotherPermanentUnityRecruit(A, ctx.log, CAMP_TYPES.ALLY);
+    spawnBrotherPermanentUnityRecruit(B, ctx.log, CAMP_TYPES.ENEMY);
     // 张无忌专属「快来护驾」（2026-11-17）：专属已改走普通池，任何回合都可能选中，
     //   故召唤必须由引擎在回合开头做——UI 侧队伍数组是 filter 副本，往那里 push 下一回合 clone 就丢。
     //   与上面三个召唤同时机（早于组件工厂循环），召出来的单位当回合就能挂上精英技能。

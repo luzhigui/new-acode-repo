@@ -11,7 +11,8 @@
 // V6.9.12 | 2026-11-20 众志成城九人满员提示进战斗日志（原 line:false 只在横幅出现）
 // V6.9.13 | 2026-11-22 热血门放行三渡阵位旗(_sanDuHotBlood)
 // V6.9.14 | 2026-11-23 召唤 fact 带 campLabel：日志写明「明教·众志成城 召唤」/「六大派·众志成城 召唤」
-export const VER = 'core/204-buff-system.js V6.9.14';
+// V6.9.15 | 2026-11-23 召唤阵营改由调用方显式传入（原 team.find(alive).camp 猜法会把池子翻面→六大派召出张中）
+export const VER = 'core/204-buff-system.js V6.9.15';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -298,7 +299,7 @@ export function applyUnityBonus(unit, team, activeBuffs, log) {
 //   首回合标记挂 buff 对象（跨回合同一对象，且只出现在持有它的阵营列表里，天然按阵营隔离）。
 //   召唤细节（精英技能全开 + 属性下限钳制）收在 spawnOneUnityRecruit，团队补员与妹永久召唤共用。
 //   必须在 core/11 组件工厂循环「之前」调用，召唤物当回合才能被注册面挂上技能。
-export function spawnUnityRecruits(team, log) {
+export function spawnUnityRecruits(team, log, camp) {
     if (!team || !team.length) return;
     const buff = (team._activeBuffs || []).find(b => b.key === BUFF_TYPES.UNITY);
     if (!buff) return;
@@ -319,7 +320,7 @@ export function spawnUnityRecruits(team, log) {
     }
     if (toSpawn <= 0) return;
     for (let i = 0; i < toSpawn; i++) {
-        if (!spawnOneUnityRecruit(team, log, m, '众志成城')) break;   // 9 格全被活人占：放弃本次落位
+        if (!spawnOneUnityRecruit(team, log, m, '众志成城', camp)) break;   // 9 格全被活人占：放弃本次落位
     }
 }
 
@@ -330,12 +331,13 @@ export function spawnUnityRecruits(team, log) {
 //   口径同 spawnHorse/spawnUnit(stats)：建人阶段直接写基础值并同步 state._base* / _init*（getStat 只认 _base*，
 //   不回写则加成后仍读旧值）+ 满血 hp。
 //   重名保护取消（定案「完全真技能」）：补员精英不降级白板，组件多实例化由 core/11 传 self 支撑。
-export function spawnOneUnityRecruit(team, log, m, byName) {
+export function spawnOneUnityRecruit(team, log, m, byName, camp) {
     if (!team || !team.length) return null;
     const cfg = C.BUFFS.unity;
     if (!cfg) return null;
-    const camp = team.find(u => u.alive)?.camp;
-    const pool = (cfg.recruitPool && cfg.recruitPool[camp === CAMP_TYPES.ENEMY ? 'enemy' : 'ally']) || [];
+    // 阵营以调用方显式传入为准；缺省才退回“第一个活人”的旧猜法
+    const sideCamp = camp || team.find(u => u.alive)?.camp;
+    const pool = (cfg.recruitPool && cfg.recruitPool[sideCamp === CAMP_TYPES.ENEMY ? 'enemy' : 'ally']) || [];
     if (!pool.length) return null;
     const rng = getBattleRng();
     const order = [];
@@ -344,7 +346,7 @@ export function spawnOneUnityRecruit(team, log, m, byName) {
     const landPos = findFreePos(team, order);
     if (landPos == null) return null;   // 9 格全被活人占：放弃本次落位
     const pick = pool[rng.nextInt(0, pool.length - 1)];
-    const recruit = spawnUnit(team, pick.name, m, pick.role, landPos);
+    const recruit = spawnUnit(team, pick.name, m, pick.role, landPos, null, sideCamp);
     if (recruit.atk < 1) { recruit.atk = 1; recruit.state._baseAtk = 1; recruit.state._initAtk = 1; }
     if (recruit.def < 5) { recruit.def = 5; recruit.state._baseDef = 5; recruit.state._initDef = 5; }
     if (recruit.maxHp < 25) {
@@ -355,14 +357,14 @@ export function spawnOneUnityRecruit(team, log, m, byName) {
     }
     recruit.isUnityRecruit = true;
     // 众志补员由 buff 机制按名额补召（byName 传的是阵型/技能名，不是某个单位），故无 byUid
-    if (log) log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: recruit.name, summonUid: recruit.uid, pos: landPos, byName: byName || '众志成城', campLabel: camp === CAMP_TYPES.ENEMY ? '六大派' : '明教' } });
+    if (log) log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: recruit.name, summonUid: recruit.uid, pos: landPos, byName: byName || '众志成城', campLabel: sideCamp === CAMP_TYPES.ENEMY ? '六大派' : '明教' } });
     return recruit;
 }
 
 // 妹永久众志：团队众志不在场时，早于组件工厂循环补召 1 人（技能全开）。
 //   原逻辑挂在 323 的 ON_ROUND_START（prepareSoulDrain 阶段），晚于 installRoundMechanics 的工厂循环，
 //   召出来的单位当回合是白板、下回合才挂上组件。挪到 prepareRoundSpawns 阶段（与团队版 spawnUnityRecruits 同时机）。
-export function spawnBrotherPermanentUnityRecruit(team, log) {
+export function spawnBrotherPermanentUnityRecruit(team, log, camp) {
     if (!team || !team.length) return;
     if (hasBuff(team._activeBuffs || [], BUFF_TYPES.UNITY)) return;   // 团队版在场：走 spawnUnityRecruits
     const bro = team.find(u => u.isXiaoZhaoBrother && u.alive);
@@ -372,7 +374,7 @@ export function spawnBrotherPermanentUnityRecruit(team, log) {
     if (!unEnh || unEnh.summonChance == null) throw new Error('002-hex-enhance.json 缺 brother.unity.summonChance');
     if (unEnh.recruitM == null || unEnh.recruitM <= 0) throw new Error('002-hex-enhance.json 缺 brother.unity.recruitM');
     if (getBattleRng().next() < unEnh.summonChance) {
-        spawnOneUnityRecruit(team, log, unEnh.recruitM, '小昭·妹');
+        spawnOneUnityRecruit(team, log, unEnh.recruitM, '小昭·妹', camp);
     }
 }
 

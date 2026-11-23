@@ -1,6 +1,7 @@
 // core/205-battle-horse.js — 拒马的生成、销毁、空格查询与指定格召唤
 // V6.3.5 | 2026-11-20 姐姐专属海克斯生成的马改名「强化巨马」（仅名字，防/血/反伤/不可销毁一律不动）
-export const VER = 'core/205-battle-horse.js V6.3.5';
+// V6.3.6 | 2026-11-23 spawnUnit 增加显式 camp 参数（召唤归属不再靠 allyTeam[0].camp 猜）
+export const VER = 'core/205-battle-horse.js V6.3.6';
 
 import { CONFIG } from './201-config-5v5-test.js';
 import { hasBuff } from './203-battle-utils.js';
@@ -72,8 +73,10 @@ export function pickFreePos(allyTeam, rng) {
 //   随后照常叠职业加成。
 //   skipRoleBonus:true = 只保留职业、不吃加成（幼狮这类特殊召唤物；与 02unit.applyBonus 同参同名）。
 //   stats 分支不再自己写 _base*/_init*：applyBonus 已按最终值写好，重叠写会把加成抹掉。
-export function spawnUnit(allyTeam, name, m, role, pos, stats = null) {
-    const unit = new Unit(name, m, role, allyTeam[0].camp);
+// camp 显式传：召唤方阵营由调用方按队伍身份给，不再靠 allyTeam[0].camp 猜
+//   （2026-11-23：池子按 find(alive).camp、建人按 [0].camp，两处猜法不一致，一旦队里有阵营异常单位就会串池）
+export function spawnUnit(allyTeam, name, m, role, pos, stats = null, camp = null) {
+    const unit = new Unit(name, m, role, camp || allyTeam[0].camp);
     unit.init(getBattleRng());
     if (stats) {
         unit.atk = stats.atk;
