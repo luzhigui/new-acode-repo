@@ -14,7 +14,7 @@ import { emitStateChange } from '../infra/108-state-change.js';
 //   ★ 必须 import 建本地绑定后再 export：`export {x} from` 不建本地名，switchRoleOnly 内部调会 undefined。
 export { emitHpChange, pushFact };
 
-export const VER = 'modules/305-elite-helpers.js V2.0.2';
+export const VER = 'modules/305-elite-helpers.js V2.0.3';
 
 // 往本击攻击组（ATTACK fact 的 data）里追加一行文本。
 //   攻击组不存在（技能在组外触发）时静默跳过——行为与抽离前 5 份内联实现一致。
@@ -23,6 +23,8 @@ export const VER = 'modules/305-elite-helpers.js V2.0.2';
 export function pushInfo(data, text) {
     if (data && data.group && data.group.data && data.group.data.entries) {
         const entry = { type: 'info', text };
+        // 与 pushSkillAnnounce 同口径：未显式指定时按作用域自动判定（113 规范）
+        if (consumeBreakFlag()) entry.needsSeparator = true;
         const snap = [];
         const trySnap = (u) => {
             if (!u || !u.uid) return;
