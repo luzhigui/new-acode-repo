@@ -5,12 +5,14 @@
 //   一条 cue 只在这里演出一次；快进由 fx/610 订阅侧统一拦（不阻塞战斗）。
 // V1.1.1 | 2026-11-21 新增 blazeBurst：炎魔狮王炎爆改为「掌心凝球→拖尾飞行→命中爆开」三段演出（纯 CSS 火球，不再只飘 emoji）
 // V1.1.2 | 2026-11-21 炎爆三段加 minRealMs 保底（320/380/240），倍速/快进下也看得清凝聚与飞行
-export const VER = 'fx/619-skill-cues.js V1.1.2';
+// V1.1.3 | 2026-11-23 断锤三式攻防飘字补快进闸（快进统一不飘）
+export const VER = 'fx/619-skill-cues.js V1.1.3';
 
 import { clock } from '../infra/103-clock.js';
 import { SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
 import { snapshotCellByPos, getCellByPos } from './611-fx-ref-manager.js';
 import { showAtkBuffFloat } from './601-fx-common-5v5-test.js';
+import { inFastForward } from '../infra/111-fx-gate.js';
 
 function cellOf(ref) {
     if (!ref || ref.camp == null || ref.pos == null) return null;
@@ -197,12 +199,14 @@ function flipNamePlate(ref, fromName, toName, glow) {
 function showAtkHalve(cue) {
     const u = refUnit(cue.unit);
     if (!u || !(cue.amount > 0)) return;
+    if (inFastForward()) return;   // 快进统一不飘（2026-11-23）
     showAtkBuffFloat(u, -Number(numText(cue.amount)));
 }
 
 function showAtkGrow(cue) {
     const u = refUnit(cue.unit);
     if (!u || !(cue.amount > 0)) return;
+    if (inFastForward()) return;   // 快进统一不飘（2026-11-23）
     showAtkBuffFloat(u, Number(numText(cue.amount)));
 }
 

@@ -1,4 +1,4 @@
-export const VER = 'fx/610-fx-subscriber.js V6.1.6';
+export const VER = 'fx/610-fx-subscriber.js V6.1.7';   // V6.1.7 飘字统一闸门：快进时所有 *FLOAT 一律不发（原仅 HEAL/SKILL 判）
 
 import { eventBus } from '../infra/101-event-bus.js';
 import { GlobalStore } from '../infra/104-global-store.js';
@@ -45,15 +45,16 @@ eventBus.on(FX_SIGNALS.DANMAKU, P, (d) => showDanmaku(d.unit, d.text, d.opts));
 // 定点气泡：钉在指定阵营某个格子正上方（如六大派选海克斯 → 敌 8 号位上方），不飘不位移
 eventBus.on(FX_SIGNALS.PINNED_BUBBLE, P, (d) => showPinnedBubble(d.camp, d.pos, d.text, d.opts));
 
-// 伤害飘字快进判断留在 emit 侧，此处纯转发
-eventBus.on(FX_SIGNALS.DAMAGE_FLOAT, P, (d) => showDamageFloat(d.unit, d.dmg));
-// 治疗飘字快进判断归位到此处
-eventBus.on(FX_SIGNALS.HEAL_FLOAT, P, (d) => { if (inFastForward()) return; showHealFloat(d.unit, d.amount); });
+// 飘字统一闸门（2026-11-23 老板拍板「快进都不飘」）：所有 *FLOAT 一律在此拦，
+//   不再依赖 emit 侧各自判 —— 原 DAMAGE_FLOAT / ATK* / DEF* 漏判，快进时照样飘，与 HEAL 不一致。
+const floatGate = (fn) => (d) => { if (inFastForward()) return; return fn(d); };
+eventBus.on(FX_SIGNALS.DAMAGE_FLOAT, P, floatGate((d) => showDamageFloat(d.unit, d.dmg)));
+eventBus.on(FX_SIGNALS.HEAL_FLOAT, P, floatGate((d) => showHealFloat(d.unit, d.amount)));
+eventBus.on(FX_SIGNALS.ATK_BUFF_FLOAT, P, floatGate((d) => showAtkBuffFloat(d.unit, d.gain)));
+eventBus.on(FX_SIGNALS.DEF_BUFF_FLOAT, P, floatGate((d) => showDefBuffFloat(d.unit, d.gain)));   // 钢蓝🛡，镜像位
 eventBus.on(FX_SIGNALS.MEDITATE, P, (d) => { if (inFastForward()) return; showMeditateEffect(d.unit); });
 eventBus.on(FX_SIGNALS.SPIDER_STRIKE, P, (d) => { if (inFastForward()) return; return showSpiderStrike(d.spiderUnit, d.strikeTarget); });
 
-eventBus.on(FX_SIGNALS.ATK_BUFF_FLOAT, P, (d) => showAtkBuffFloat(d.unit, d.gain));
-eventBus.on(FX_SIGNALS.DEF_BUFF_FLOAT, P, (d) => showDefBuffFloat(d.unit, d.gain));   // 钢蓝🛡，镜像位
 eventBus.on(FX_SIGNALS.HORSE_DISSOLVE, P, (d) => showHorseDissolve(d.unit));          // 拒马沙化消散
 eventBus.on(FX_SIGNALS.METEOR_RAIN, P, (d) => { if (inFastForward()) return; return showSwordRain(d.enemySide); });   // 飞箭雨
 eventBus.on(FX_SIGNALS.DODGE_BUBBLE, P, (d) => showDodgeBubble(d.unit, d.text));
