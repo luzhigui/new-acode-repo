@@ -7,7 +7,7 @@
 //   统一过 core/203 的 getMeleeLegalTargetSet/isMeleeLegalTarget，手动拖拽再也选不到后排。
 //   声明层（BEFORE_SELECT_TARGET 指定 targetResult）与 core/209 锁定目标/换目标旁路不在本次范围：
 //   实测在 emit 后追加 isMeleeLegalTarget 会破坏同种子双跑复现性（seed=5 stage=3），故不在此处加闸。
-export const VER = 'core/212-battle-attack-chain.js V1.0.20';
+export const VER = 'core/212-battle-attack-chain.js V1.0.21';
 
 import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
 // 小昭运行时改名为「小昭·姊/妹」，查任何以角色名为键的数据表都要退回主名（否则圣火令气运永不生效）
@@ -409,6 +409,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     // 被单次受伤上限吃掉的那部分：战报的伤害行/飘字必须扣掉它（旧版仍印截断前的 53，
     //   而血量只掉 1）。只记账不影响结算——dmg 本身仍按原值供吸血/反伤/破防计。
     const cappedLoss = Math.max(0, hpLossBeforeCap - hpLoss);
+    const hpLossApplied = hpLoss;   // 护盾与上限都扣完之后、真正落到血条上的那笔（体检 T-D303-1：供 303 对账用）
     // 本击落血当刻血量：必须在 applyStatChange 之前取——背水一战等受击钩子在 applyStatChange 内部同步抬
     //   maxHp/回血（战士加成 maxHp+30），调用后 target.hp 已不是「刚扣完血」的值。
     let hpAfter = target.hp - hpLoss;
@@ -530,7 +531,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         }
     }
 
-    return { dmg, dead, cappedLoss, hpAfterHit: hpAfter, horseReboundDeclarations, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, atkAct, defAct, hpBonus, fortifyDeclarations, _shield: target.state._shield || 0, _shieldExtra: target.state._shieldExtra || 0, _permShield: target.state._permShield || 0, shieldAbsorbed };
+    return { dmg, dead, cappedLoss, hpLossApplied, shieldAbsorbed, hpAfterHit: hpAfter, horseReboundDeclarations, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, atkAct, defAct, hpBonus, fortifyDeclarations, _shield: target.state._shield || 0, _shieldExtra: target.state._shieldExtra || 0, _permShield: target.state._permShield || 0, shieldAbsorbed };
 }
 
 // 步骤5：构建攻击事实

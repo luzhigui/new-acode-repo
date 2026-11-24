@@ -1,7 +1,7 @@
 // modules/314-elite-sixsects-hetaichong.js — 六大派精英「何太冲」：两仪连接 / 箭靶标记 / 红血
 // V6.27.2 | 2026-11-20 两仪连接修复：双方 `_dualSchools` 全给「战士+远程」两系（原只写对方单个职业，
 //   何太冲 role 非精确『远程』时连自身远程成长一起丢）；搭档候选改按「系」配对（战士系 ↔ 远程系）。
-export const VER = 'modules/314-elite-sixsects-hetaichong.js V6.27.2';
+export const VER = 'modules/314-elite-sixsects-hetaichong.js V6.27.3';
 
 import { getRoleBonus } from '../core/202-unit.js';
 import { addMod, getStat, getBattleRng, refreshMaxHp, swapUnitPositions, moveUnitPosition, emitEvent, applyStatChange } from '../core/214-battle-shared.js';
@@ -171,8 +171,15 @@ export function createHeTaichongComponent() {
                     const targetHp2 = Math.min(partner.maxHp, avgHp);
                     const delta1 = targetHp1 - subject.hp;
                     const delta2 = targetHp2 - partner.hp;
+                    const hpOld1 = subject.hp, hpOld2 = partner.hp;
                     if (delta1 !== 0) applyStatChange(subject, 'hp', delta1, null, '两仪血量均摊', false, false);
                     if (delta2 !== 0) applyStatChange(partner, 'hp', delta2, null, '两仪血量均摊', false, false);
+                    // 均摊逐人入账（体检 230：俞莲舟这笔几点静默变动接不上血链）——每人一行、带前后血量
+                    if (outLog && (delta1 !== 0 || delta2 !== 0)) {
+                        pushSkillAnnounce(outLog, subject, '血量均摊',
+                            `⚖️ 两仪血量均摊：${subject.name} ${fmtNum(hpOld1)} → ${fmtNum(targetHp1)}，${partner.name} ${fmtNum(hpOld2)} → ${fmtNum(targetHp2)}`,
+                            { floatText: '⚖️', floatUid: subject.uid });
+                    }
 
                     if (outLog) pushSkillAnnounce(outLog, subject, '两仪互换', posSwapped
                         ? `☯ 两仪互换：${subject.name} ⇄ ${partner.name}（互换职业与位置，血量均摊至 ${Math.floor((targetHp1 + targetHp2) / 2)}）`

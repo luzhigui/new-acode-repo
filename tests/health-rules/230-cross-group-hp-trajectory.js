@@ -22,7 +22,7 @@
 //   ② 组内渲染顺序 ≠ 结算顺序：回血条目排在伤害行之后（本击链前=回血后值）⇒ 判伤害行前先清基线。
 //   ③ 链后额外扣血：张无忌融会贯通由 core/12 在主结算后单独扣血（本组链后值 ≠ 真值）⇒ 同样先清基线。
 //   ④ 1 点级差异按显示颗粒度放过（断锤·耗血 每回合自损 1 点，modules/337 L116 record=false 无 fact）。
-export const VER = 'tests/health-rules/230-cross-group-hp-trajectory.js V1.0.1';
+export const VER = 'tests/health-rules/230-cross-group-hp-trajectory.js V1.0.2';
 import { plain } from '../122health-utils.js';
 
 var HEAL_TEXT = /回血|回春|复活|回复|吸血|吸取|治疗|生生不息/;
@@ -54,7 +54,14 @@ export const rule230 = {
             var e = flat[g];
             if (!e) continue;
             if (e.type === 'round-start' || e.type === 'round-end') { clearAll(); continue; }
-            if (e.type !== 'attack-group') continue;
+            if (e.type !== 'attack-group') {
+                // V1.0.2：换位/均摊/红血这类「组外已入账的血量变动」会静默改血量（何太冲两仪互换把
+                //   俞莲舟血量均摊掉几点，下一击链前直接跳过去）——出现即清基线，按 V1.0.0 头注释的
+                //   「中间插进别的条目 ⇒ 无法证明账目闭合」口径处理，不放宽判据。
+                var tOut = plain(e.text || '');
+                if (/均摊|两仪互换|红血/.test(tOut)) clearAll();
+                continue;
+            }
 
             // 组级血量变化入账（休息/生生不息回血、组级 healAmount）
             if ((e.isRest || e.isEndlessBreath) && e.uidA != null) clearUnit(e.uidA);

@@ -7,7 +7,7 @@ import { getStat } from '../core/214-battle-shared.js';
 import { FACT_TYPES, CAMP_TYPES, DROP_TYPES } from '../infra/106-battle-enums.js';
 import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } from './406-fact-registry.js';
 // V1.5.16 | 2026-11-22 SKILL_ANNOUNCE 支持 tone:'heal' → 绿色（武痴回复生命等回复类播报）
-export const VER = 'render/407-facts-attack.js V1.5.17';
+export const VER = 'render/407-facts-attack.js V1.5.18';
 
 // 攻击流程
 export function renderMissFact(fact) {
@@ -225,6 +225,11 @@ export function renderAttackFact(fact) {
         hpBefore: dmgResult.hpBefore,
         hpAfterReal: snap.targetHpAfterReal !== undefined ? snap.targetHpAfterReal : targetHpAfter,
         _shield: dmgResult._shield,
+        // 体检 T-D303-1：把这次结算的三个数带进伤害条目，供 303 用恒等式对账
+        //   （扣血 hpLossApplied + 护盾吸收 shieldAbsorb + 上限截断 cappedLoss = 预算伤害）
+        hpLossApplied: dmgResult.hpLossApplied,
+        shieldAbsorb: dmgResult.shieldAbsorbed,
+        cappedLoss: dmgResult.cappedLoss,
         _permShield: dmgResult._permShield,
         text: damageText + (fact.miejueHint || '')
     });
