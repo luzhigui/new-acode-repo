@@ -20,6 +20,7 @@ import re
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 
 try:
@@ -29,7 +30,7 @@ except ImportError:
     sys.exit(1)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PORT = 8000
+PORT = 8000          # 实际端口在 main() 里按空闲端口重选
 URL = f'http://localhost:{PORT}/tests/120test-runner.html'
 
 BUDGET = int(sys.argv[1]) if len(sys.argv) > 1 else 180   # 脚本最多等多久(秒)
@@ -41,6 +42,14 @@ ROUNDS = int(sys.argv[4]) if len(sys.argv) > 4 else 1      # 轮数：每轮重�
 def port_busy(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(('127.0.0.1', port)) == 0
+
+
+def pick_port(start=8000, tries=50):
+    """V1.2：上一轮残留服务占了 8000 会导致页面 ERR_FAILED/no-result，这里主动换空闲端口。"""
+    for p in range(start, start + tries):
+        if not port_busy(p):
+            return p
+    return start
 
 
 def render_progress(pr):
@@ -90,6 +99,9 @@ def run_one_round(page, round_idx, total_rounds):
 
 
 def main():
+    global PORT, URL
+    PORT = pick_port()
+    URL = f'http://localhost:{PORT}/tests/120test-runner.html'
     server = None
     if not port_busy(PORT):
         print(f'[起服务器] python3 -m http.server {PORT} (cwd={ROOT})', flush=True)
@@ -109,14 +121,18 @@ def main():
             browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         page.on('console', lambda m: print('[console]', m.text[:200], flush=True) if '[AUTO-HEALTH' in m.text else None)
-        try:
-            page.goto(target_url, wait_until='domcontentloaded', timeout=20000)
-        except Exception as e:
-            print('[错误] 打开页面失败:', str(e)[:200], flush=True)
-            browser.close()
-            if server:
-                server.terminate()
-            sys.exit(1)
+        for _try in range(2):
+            try:
+                page.goto(target_url, wait_until='domcontentloaded', timeout=20000)
+                break
+            except Exception as e:
+                print(f'[错误] 打开页面失败(第{_try + 1}次):', str(e)[:200], flush=True)
+                if _try == 1:
+                    browser.close()
+                    if server:
+                        server.terminate()
+                    sys.exit(1)
+                time.sleep(1)
 
         # 跨轮累计
         all_issues = []                                   # 异常（按 关/类型/详情 去重）
@@ -169,8 +185,10 @@ def main():
         for it in all_issues:
             k = (it.get('type'), _sig(it))
             if k not in groups:
+                _st = it.get('sliceText') or ''
+                _m = re.search(r'seed=(\d+)', _st)
                 groups[k] = {'type': it.get('type'), 'detail': it.get('detail'),
-                             'source': it.get('source'), 'stages': []}
+                             'source': it.get('source'), 'stages': [], 'seed': _m.group(1) if _m else None}
                 order.append(k)
             st = it.get('stage')
             if st not in groups[k]['stages']:
@@ -201,11 +219,60 @@ def main():
             if red:
                 print('【红 · 账本/名单/状态不一致，需主代码处理】', flush=True)
                 for g in red:
-                    print(f"   · [{_stage_tag(g)} · {g['type']}] {g['detail']}（来源:{g['source']}）", flush=True)
+                    _seed = f"，seed={g['seed']}" if g.get('seed') else ''
+                    print(f"   · [{_stage_tag(g)} · {g['type']}] {g['detail']}（来源:{g['source']}{_seed}）", flush=True)
             if yellow:
                 print('【黄 · 配置缺项/覆盖不足，先核对再决定】', flush=True)
                 for g in yellow:
                     print(f"   · [{_stage_tag(g)} · {g['type']}] {g['detail']}（来源:{g['source']}）", flush=True)
+
+        # V1.2：跨次存档 + diff —— 只看「这次新红了什么 / 上轮红消了什么」，避免每轮从零判读
+        _ledger = os.path.join(tempfile.gettempdir(), 'gmtd_health_ledger.json')
+        try:
+            _prev = json.load(open(_ledger, encoding='utf-8')) if os.path.exists(_ledger) else {}
+        except Exception:
+            _prev = {}
+        _cur_red = sorted({re.sub(r'[（(][^）)]*[）)]', '', str(g['type'])).split('：')[0][:26] for g in red})
+        _prev_red = _prev.get('red', [])
+        _new_red = [t for t in _cur_red if t not in _prev_red]
+        _fixed = [t for t in _prev_red if t not in _cur_red]
+        if _prev:
+            if _new_red:
+                print(f'🆕 比上次新增红 {len(_new_red)} 类：' + '、'.join(_new_red), flush=True)
+            else:
+                print('🆕 比上次没有新增红类', flush=True)
+            if _fixed:
+                print(f'✅ 上轮红已消失 {len(_fixed)} 类：' + '、'.join(_fixed), flush=True)
+        try:
+            json.dump({'red': _cur_red, 'uncovered': sorted(all_skip_names),
+                       'ts': time.strftime('%Y-%m-%d %H:%M')}, open(_ledger, 'w', encoding='utf-8'),
+                      ensure_ascii=False, indent=1)
+        except Exception:
+            pass
+
+        # V1.2：定向补跑建议 —— 用 tests/124rule-recipes.js 的 tag，把「没触发的规则」翻成一场定向局
+        try:
+            _txt = open(os.path.join(ROOT, 'tests', '124rule-recipes.js'), encoding='utf-8').read()
+            _raw = dict(re.findall(r"'([^']{2,60})':\s*\{\s*tag:\s*'([^']+)'", _txt))
+        except Exception:
+            _raw = {}
+        # 规则名的后缀 (回归)/(观测) 在 RULE_META 里可能带或不带，统一去掉括号再匹配
+        _map = {}
+        for _k, _v in _raw.items():
+            _map[_k] = _v
+            _map[re.sub(r'[（(][^）)]*[）)]', '', _k).strip()] = _v
+        _tags = {}
+        for _n in all_skip_names:
+            _t = _map.get(_n) or _map.get(re.sub(r'[（(][^）)]*[）)]', '', _n).strip())
+            if _t:
+                _tags.setdefault(_t, []).append(_n)
+        if _tags:
+            print('🎯 定向补跑（把没触发的机制排成定向局，比加预算有用）：', flush=True)
+            for _t, _ns in sorted(_tags.items(), key=lambda kv: -len(kv[1]))[:8]:
+                print(f"   · ?rules={_t} —— 可补 {len(_ns)} 条：{'、'.join(_ns[:4])}", flush=True)
+        _no_tag = [n for n in all_skip_names if n not in _map and re.sub(r'[（(][^）)]*[）)]', '', n).strip() not in _map]
+        if _no_tag:
+            print(f'   · 另有 {len(_no_tag)} 条没登记机制 tag，补 124 才能定向', flush=True)
 
         # 每轮摘要
         tot_elapsed = 0
