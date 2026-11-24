@@ -63,8 +63,8 @@ const SOLO_ALL = [...BOSS_ELITE_NAMES, ...SOLO_ELITE_NAMES].map(name => ({ name 
 // 拆行口径（V3.15.1）：第3关 胖远桥/宋青书，第6关 成昆/三渡（成昆在前）；其余关合并成单行。
 //   ⚠️ 变体行必须写清变体名，不许只写「第N关」——不然读者不知道那行是谁（老板 2026-11-22 要求）。
 //   有变体的关按「每个变体各跑 RUNS 场」派活（总量 = RUNS × 变体数），避免拆行后每行样本减半。
-const STAGE_VARIANTS = { 3: ['胖远桥', '宋青书'], 6: ['成昆', '三渡'] };
-const VARIANTS_ALL = ['胖远桥', '宋青书', '成昆', '三渡', '标准'];
+const STAGE_VARIANTS = { 3: ['胖远桥', '宋青书'], 6: ['成昆', '三渡·正三角', '三渡·倒三角'] };
+const VARIANTS_ALL = ['胖远桥', '宋青书', '成昆', '三渡·正三角', '三渡·倒三角', '标准'];
 const stageRunsOf = (stage, runs) => runs * (STAGE_VARIANTS[stage] ? STAGE_VARIANTS[stage].length : 1);
 // 跨变体合并（数值字段累加；弱精英表的 clean 子表逐名累加）
 function mergeAgg(dst, d) {

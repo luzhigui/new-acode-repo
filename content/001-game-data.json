@@ -1726,7 +1726,8 @@
         { "name": "渡厄", "role": "防战", "m": 115, "skill": "monkFixedBuff" },
         { "name": "渡劫", "role": "战士", "m": 115, "skill": "monkFixedBuff" },
         { "name": "渡难", "role": "飞行", "m": 115, "skill": "monkFixedBuff" },
-        { "name": "炎魔狮王", "role": "炎魔", "m": 171, "skill": "blazeBurst" }
+        { "name": "炎魔狮王", "role": "炎魔", "m": 171, "skill": "blazeBurst" },
+        { "name": "魔化谢逊", "role": "防战", "m": 115, "skill": "demonXiexun" }
       ],
       "7": [
         { "name": "灭绝师太", "role": "战士", "m": 115, "skill": "counterAttack" }

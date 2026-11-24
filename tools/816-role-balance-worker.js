@@ -1,3 +1,4 @@
+// V1.24.3 | 2026-11-24 三渡分桶拆成「三渡·正三角 / 三渡·倒三角」（含魔化谢逊=倒三角）；新增 kind:'variant'（明教自然满编 vs 各变体整场胜率，818 variant 模式）
 // V1.24.2 | 2026-11-22 第6关常规阵分桶改名「成昆」（原「标准」）：812 表里两行写清「第6关 成昆 / 第6关 三渡」；
 //   variantBucket 增加 stage 参数，仅 stage===6 且无三渡时归「成昆」，其余关仍落「标准」。
 // V1.24.1 | 2026-11-21 变体分桶扩到第6关：新增「三渡」桶（渡厄/渡劫/渡难），第6关可拆「三渡 / 标准」两行；
@@ -254,12 +255,15 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled, enemyHex = false
 //   分桶只读开战快照；调用方按需取，避免每处重复三段判断。
 const SAN_DU_NAMES = ['渡厄', '渡劫', '渡难'];
 function makeVariantBuckets(newAgg) {
-    return { '胖远桥': newAgg(), '宋青书': newAgg(), '成昆': newAgg(), '三渡': newAgg(), '标准': newAgg() };
+    return { '胖远桥': newAgg(), '宋青书': newAgg(), '成昆': newAgg(), '三渡·正三角': newAgg(), '三渡·倒三角': newAgg(), '标准': newAgg() };
 }
 function variantBucket(team, stage) {
     if (team.some(u => u && u.isPangYuanQiao)) return '胖远桥';
     if (team.some(u => u && u.isSongQingshu)) return '宋青书';
-    if (team.some(u => u && SAN_DU_NAMES.includes(u.name))) return '三渡';
+    // 第6关三渡两变体分开计（2026-11-24）：含魔化谢逊 = 倒三角枯禅轮回阵，否则 = 正三角炎魔阵
+    if (team.some(u => u && SAN_DU_NAMES.includes(u.name))) {
+        return team.some(u => u && u.name === '魔化谢逊') ? '三渡·倒三角' : '三渡·正三角';
+    }
     if (stage === 6) return '成昆';   // V1.24.2：第6关非三渡 = 成昆常规阵（表里必须写清名字）
     return '标准';
 }
@@ -343,6 +347,31 @@ function runNoEliteJob(stage, seed, runs, startIndex = 0, enemyHex = false) {
         if (!res.winner) a.draws++;
         else if (res.winner === '明教') a.wins++;
         a.sumSurv += (res.ally || []).filter(u => u.alive).length;   // 无精英局没有"主英雄"，改记全队存活人数
+    }
+    const out = {};
+    for (const [v, a] of Object.entries(variants)) {
+        if (a.runs > 0) out[v] = a;
+    }
+    return { variants: out };
+}
+
+// 阵容变体胜率（2026-11-24）：明教自然满编 vs 该关各变体，按变体桶计整场胜率——专门对比
+//   第6关 三渡·正三角（炎魔狮王）/ 三渡·倒三角（魔化谢逊）/ 成昆 三套阵容的难度。
+function runVariantJob(stage, seed, runs, startIndex = 0, enemyHex = false) {
+    const newAgg = () => ({ runs: 0, wins: 0, draws: 0 });
+    const variants = makeVariantBuckets(newAgg);
+    for (let i = 0; i < runs; i++) {
+        clearBattleGlobals();
+        const s = seed + (startIndex + i) * 7919;
+        const teams = initBattleTeams(stage, new SeededRNG(s));
+        const ally = teams.allyTeam.map(u => u.clone());
+        if (!ally.length || !teams.enemyTeam.length) continue;
+        GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
+        const res = runWholeBattle(ally, teams.enemyTeam, s, true, enemyHex ? { enemyHex } : null);
+        const a = variants[variantBucket(teams.enemyTeam, stage)];
+        a.runs++;
+        if (!res.winner) a.draws++;
+        else if (res.winner === '明教') a.wins++;
     }
     const out = {};
     for (const [v, a] of Object.entries(variants)) {
@@ -1274,6 +1303,9 @@ self.onmessage = (e) => {
         } else if (kind === 'noElite') {
             const { stage, seed, runs, startIndex, enemyHex } = e.data;
             result = runNoEliteJob(stage, seed, runs, startIndex || 0, !!enemyHex);
+        } else if (kind === 'variant') {
+            const { stage, seed, runs, startIndex, enemyHex } = e.data;
+            result = runVariantJob(stage, seed, runs, startIndex || 0, !!enemyHex);
         } else if (kind === 'weakElite') {
             const { stage, seed, runs, elite, side, arm, startIndex, enemyHex } = e.data;
             result = runWeakEliteJob(stage, seed, runs, elite, side, arm, startIndex || 0, !!enemyHex);

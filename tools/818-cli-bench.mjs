@@ -8,6 +8,7 @@
 //   node tools/818-cli-bench.mjs solo  --runs 100                  # 强精英单核（张无忌/韦一笑/小昭姐妹/谢逊/寒离飒）
 //   node tools/818-cli-bench.mjs elite --runs 100                  # 主表·自然出场（六名精英谁在场记给谁）
 //   node tools/818-cli-bench.mjs none  --runs 100                  # 无精英基线（明教胜率）
+//   node tools/818-cli-bench.mjs variant --runs 200 --stages 6     # 阵容变体胜率（第6关：成昆/三渡·正三角/三渡·倒三角）
 //
 // 可选参数：--seed 123456（复现同一批随机流）、--jobs 6（并行子进程数，默认核数-1）、--enemy-hex（六大派也选海克斯）
 //
@@ -99,7 +100,7 @@ async function runChild() {
 // ================================ 父进程 ================================
 const args = parseArgs(process.argv.slice(2));
 const cmd = args._[0];
-if (!['weak', 'solo', 'elite', 'none'].includes(cmd)) {
+if (!['weak', 'solo', 'elite', 'none', 'variant'].includes(cmd)) {
     console.log(fs.readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(0, 20).join('\n'));
     process.exit(cmd ? 1 : 0);
 }
@@ -167,7 +168,7 @@ for (const stage of STAGES) {
             allJobs.push({
                 key: '*', stage,
                 msg: {
-                    jobId: 0, kind: cmd === 'none' ? 'noElite' : 'elite', stage,
+                    jobId: 0, kind: cmd === 'none' ? 'noElite' : (cmd === 'variant' ? 'variant' : 'elite'), stage,
                     seed: SEED + stage * 131, startIndex: c * CHUNK, runs, enemyHex: ENEMY_HEX
                 }
             });
@@ -315,6 +316,30 @@ function printTable(cmd, results) {
         for (const [k, a] of [...agg.entries()].sort((x, y) => Number(x[0].split('|')[1]) - Number(y[0].split('|')[1]) || x[0].localeCompare(y[0], 'zh'))) {
             const [name, stage] = k.split('|');
             console.log(`| ${stage} | ${name} | ${a.runs ? (a.wins / a.runs * 100).toFixed(1) : '0.0'}% | ${a.runs} |`);
+        }
+        return;
+    }
+
+    // 阵容变体胜率（2026-11-24）：明教自然满编 vs 各变体，专看第6关正三角/倒三角差异
+    if (cmd === 'variant') {
+        const agg = new Map();
+        for (const r of results) {
+            if (r.error) continue;
+            const src = (r.result && r.result.variants) || {};
+            for (const [name, v] of Object.entries(src)) {
+                if (!v || typeof v.runs !== 'number') continue;
+                const k = name + '|' + r.stage;
+                const a = agg.get(k) || { runs: 0, wins: 0 };
+                a.runs += v.runs; a.wins += v.wins;
+                agg.set(k, a);
+            }
+        }
+        console.log('\n| 关卡 | 敌方阵容变体 | 明教胜率 | 场次 |');
+        console.log('| --- | --- | --- | --- |');
+        const rows = [...agg.entries()].sort((x, y) => Number(x[0].split('|')[1]) - Number(y[0].split('|')[1]) || x[0].localeCompare(y[0], 'zh'));
+        for (const [k, a] of rows) {
+            const [name, stage] = k.split('|');
+            console.log(`| ${stage} | ${name} | ${a.runs ? (a.wins / a.runs * 100).toFixed(1) + '%' : '—'} | ${a.runs} |`);
         }
         return;
     }
