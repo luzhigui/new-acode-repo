@@ -449,6 +449,7 @@ export const UI_HANDLER_KEYS = Object.freeze({
     SHOW_HANLISA_AIM: 'showHanlisaAim',
     SWITCH_XIAO_ZHAO_FORM: 'switchXiaoZhaoForm',
     SWITCH_DISCIPLE: 'switchDisciple',        // 机制弟子四选一原地换人（ui/706 注册，ui/709 摆位阶段调用）
+    SYNC_DISCIPLE_SWITCH_BTN: 'syncDiscipleSwitchBtn',  // 弟子切换按钮显隐/文案同步（ui/709 注册）
     SYNC_XIAO_ZHAO_SWITCH_BTN: 'syncXiaoZhaoSwitchBtn',
     SYNC_PAUSE_STATE: 'syncPauseState',
     ON_ANY_BUTTON_CLICK: 'onAnyButtonClick',
