@@ -16,6 +16,7 @@
 """
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -143,14 +144,64 @@ def main():
             else:
                 rounds_meta.append({'idx': i, 'elapsed': None, 'max': 0, 'reason': 'no-result', 'pass': 0, 'skip': 0})
 
-        # —— 输出报告 ——
+        # V1.1：无结果 / 0 关 = 本轮无效，不是通过（页面初始化失败、端口冲突都会被旧版当成 ✅）
+        invalid_rounds = [m for m in rounds_meta if m['reason'] == 'no-result' or (m['max'] or 0) == 0]
+        for m in invalid_rounds:
+            all_issues.append({
+                'stage': '-', 'type': '体检有效性', 'source': 'runner',
+                'detail': f"第{m['idx']}轮无结果（页面未初始化/端口冲突），本轮判无效，不算通过",
+            })
+
+        # V1.1：跨关去重——同一现象换个关号就重复 4 条，按「类型 + 去数字签名」合并，保留全部关号
+        def _sig(it):
+            s = str(it.get('detail') or '')
+            s = re.sub(r'第\d+关', '第N关', s)
+            s = re.sub(r'（共 \d+ 处）', '', s)
+            s = re.sub(r'u\d+', 'u#', s)
+            s = re.sub(r'\d+(\.\d+)?', '#', s)
+            return s.split('；')[0].strip()[:80]
+
+        groups, order = {}, []
+        for it in all_issues:
+            k = (it.get('type'), _sig(it))
+            if k not in groups:
+                groups[k] = {'type': it.get('type'), 'detail': it.get('detail'),
+                             'source': it.get('source'), 'stages': []}
+                order.append(k)
+            st = it.get('stage')
+            if st not in groups[k]['stages']:
+                groups[k]['stages'].append(st)
+
+        RED_KEYS = ('声明与账本', '血量轨迹', '血条实落', '终局名单', '随机重开',
+                    '隐藏渲染器', '倒针', 'isRewinding', '存活率', '体检有效性')
+        def _red(g):
+            blob = f"{g['type']} {g['detail']}"
+            return any(k in blob for k in RED_KEYS)
+
+        red = [groups[k] for k in order if _red(groups[k])]
+        yellow = [groups[k] for k in order if not _red(groups[k])]
+        def _stage_tag(g):
+            sts = [s for s in g['stages'] if s not in (None, '-')]
+            if not sts:
+                return '全局'
+            if len(sts) == 1:
+                return f'第{sts[0]}关'
+            return f"第{'/'.join(str(s) for s in sts)}关"
+
         print('══════════ 体检报告（多轮累计） ══════════', flush=True)
-        if not all_issues:
+        total_groups = len(groups)
+        if not groups:
             print('✅ 全部通过，未发现异常', flush=True)
         else:
-            print(f'❌ 发现 {len(all_issues)} 项异常（跨 {ROUNDS} 轮合并去重）：', flush=True)
-            for it in all_issues:
-                print(f'   · [第{it.get("stage", "?")}关 · {it.get("type", "?")}] {it.get("detail", "")}（来源:{it.get("source", "?")}）', flush=True)
+            print(f'❌ 红 {len(red)} 类 / 黄 {len(yellow)} 类（原始 {len(all_issues)} 条 → 跨关去重 {total_groups} 类）', flush=True)
+            if red:
+                print('【红 · 账本/名单/状态不一致，需主代码处理】', flush=True)
+                for g in red:
+                    print(f"   · [{_stage_tag(g)} · {g['type']}] {g['detail']}（来源:{g['source']}）", flush=True)
+            if yellow:
+                print('【黄 · 配置缺项/覆盖不足，先核对再决定】', flush=True)
+                for g in yellow:
+                    print(f"   · [{_stage_tag(g)} · {g['type']}] {g['detail']}（来源:{g['source']}）", flush=True)
 
         # 每轮摘要
         tot_elapsed = 0
@@ -164,6 +215,19 @@ def main():
         # 累计覆盖
         exercised = len(all_pass_names) + len(all_skip_names)
         print(f'📊 累计覆盖规则（去重）：通过 {len(all_pass_names)} + 跳过 {len(all_skip_names)} = {exercised} 条', flush=True)
+        if exercised:
+            judged = len(all_pass_names)
+            print(f'🔍 覆盖口径：真正给出判决的只有 {judged}/{exercised} 条（{int(judged / exercised * 100)}%），'
+                  f'其余 {len(all_skip_names)} 条是「机制没触发」，不等于通过', flush=True)
+        valid = len(rounds_meta) - len(invalid_rounds)
+        if invalid_rounds:
+            print(f'⚠️ 无效轮次 {len(invalid_rounds)}/{len(rounds_meta)}（no-result 或 0 关），已按红计入，不算通过', flush=True)
+        if valid == 0:
+            print('❌ 结论：本轮无效（没有任何一轮真正跑起来）', flush=True)
+        elif red:
+            print(f'❌ 结论：红 {len(red)} 类待主代码处理', flush=True)
+        elif yellow:
+            print(f'⚠️ 结论：无红项，但有黄 {len(yellow)} 类需核对', flush=True)
         if all_skip_names:
             print(f'⏭️ 累计未覆盖规则 {len(all_skip_names)} 条（多轮仍没出现的稀有机制，不代表通过）：', flush=True)
             # 每行约 6 个，避免超长单行

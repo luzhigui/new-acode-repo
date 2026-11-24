@@ -1,3 +1,5 @@
+// V6.14.5 | 2026-11-24：① 点 8x 期间临时摘掉 openPerfPanel（不再弹大面板挡画面/暂停游戏）；
+//   ② 一关都没开也判红（旧版仍给「异常0」的报告头）。
 // V6.14.4 | 2026-11-22：点 8x 会弹「自定义档」大面板并暂停游戏（ui/721 openPanel 置 panelPaused），
 //   面板挡住战斗画面且游戏不动；体检点完立刻走面板「关闭」，恢复暂停源并保按钮高亮。
 // V6.14.3 | 2026-11-22：自动模式加「15s 未完就结算」：单场在 8x 下仍可跑 60s+，
@@ -19,7 +21,7 @@
 //   （本文件不再 import 123static-scan.js / 不绑 btnModeStatic / 不留第二份 renderStaticReport）；
 //   ② 报告加 coverage 字段与「覆盖不足」显形：在册/执行/未触发/跳过率一次写清，
 //     不再把「规则大面积没触发」呈现成「代码没问题」。判据、规则表、回放口径一字未动。
-export const VER = 'tests/121health-monitor.js V6.14.4';
+export const VER = 'tests/121health-monitor.js V6.14.5';
 // V6.12.1 | 2026-11-09 白天合入：保留夜间第 196 轮的表驱动逐条容错骨架，把白天新增的 39 条规则补回 RULE_MODULES 表与 allRules（两边都动过 121，直接取任一边都会让规则掉出执行面）。
 // V6.12.0 | 2026-11-08 夜间第 196 轮：规则装载从 123 条**静态 import** 改为 RULE_MODULES 表 + 动态 import 逐条容错。
 //   动因：249~252 四个规则文件上游从未提交，静态 import 让整个模块解析失败 —— 浏览器侧 120test-runner.html
@@ -627,29 +629,39 @@ export async function initMonitor() {
                         //   旧代码固定点 4x 却把 speed 写成 300/50，倍速一致性检查必然失配。
                         const spBtn = doc.getElementById(autoSpeedVal <= 50 ? 'btnSpeed8x' : 'btnSpeed4x');
                         if (spBtn && !spBtn.classList.contains('active')) {
-                            spBtn.click();
-                            // V6.14.4：点 8x 会连带弹出「自定义档」大面板（ui/721）并置 panelPaused=true 暂停游戏，
-                            //   面板挡住战斗画面 → 体检看不到细节、还跑不动。点完立刻走面板「关闭」（保留 closePanel 的
-                            //   panelPaused=false + syncPauseState 全逻辑），不用裸 remove 漏掉恢复暂停。
-                            if (autoSpeedVal <= 50) {
-                                const ov = doc.getElementById('perfPanelOverlay');
-                                if (ov) {
-                                    const closeBtn = Array.from(ov.querySelectorAll('button')).find(b => /关闭/.test(b.textContent));
-                                    if (closeBtn) closeBtn.click();
-                                    else {
-                                        ov.remove();
-                                        try {
-                                            w.GlobalStore.set('panelPaused', false);
-                                            const fnResume = w.GlobalStore.getUIHandler && w.GlobalStore.getUIHandler('syncPauseState');
-                                            if (fnResume) fnResume();
-                                        } catch (e) {}
-                                    }
+                            // V6.14.5：点 8x 会连带弹「自定义档」大面板（ui/721 openPanel：全屏遮罩 + panelPaused=true
+                            //   暂停游戏），面板挡住战斗画面、游戏也不动。体检不能绕过按钮（绕过会丢 manualSpeedLock，
+                            //   每场重置被打回 2x），所以只在点击这一瞬间掐掉 openPerfPanel 这个 UIHandler，点完还原，
+                            //   ui/721 一行不改。
+                            let oldOpen = null;
+                            try {
+                                if (autoSpeedVal <= 50 && w.GlobalStore.getUIHandler) {
+                                    oldOpen = w.GlobalStore.getUIHandler('openPerfPanel');
+                                    w.GlobalStore.setUIHandler('openPerfPanel', () => {});
                                 }
-                                try {
-                                    const fnHi = w.GlobalStore.getUIHandler && w.GlobalStore.getUIHandler('updateSpeedButtons');
-                                    if (fnHi) fnHi();
-                                } catch (e) {}
+                            } catch (e) {}
+                            try { spBtn.click(); } catch (e) {}
+                            try {
+                                if (oldOpen) w.GlobalStore.setUIHandler('openPerfPanel', oldOpen);
+                            } catch (e) {}
+                            // 兜底：若面板已被别处打开，走它自己的「关闭」（还原 panelPaused + syncPauseState）
+                            const ov = doc.getElementById('perfPanelOverlay');
+                            if (ov) {
+                                const closeBtn = Array.from(ov.querySelectorAll('button')).find(b => /关闭/.test(b.textContent));
+                                if (closeBtn) closeBtn.click();
+                                else {
+                                    ov.remove();
+                                    try {
+                                        w.GlobalStore.set('panelPaused', false);
+                                        const fnResume = w.GlobalStore.getUIHandler && w.GlobalStore.getUIHandler('syncPauseState');
+                                        if (fnResume) fnResume();
+                                    } catch (e) {}
+                                }
                             }
+                            try {
+                                const fnHi = w.GlobalStore.getUIHandler && w.GlobalStore.getUIHandler('updateSpeedButtons');
+                                if (fnHi) fnHi();
+                            } catch (e) {}
                         }
                     }
                 } catch (e) {}
@@ -1451,6 +1463,14 @@ function finalizeAutoReport(ctx, doc, reason) {
             detectedIssues.push({
                 stage: '-', type: '体检有效性',
                 detail: '本轮 0 条规则被执行（在册 ' + RULE_MODULES.length + ' 条）⇒ 规则层等于没验，这份报告不能代表「没问题」',
+                source: '系统', timestamp: new Date().toLocaleTimeString()
+            });
+        }
+        // V6.14.5：一关都没开 = 页面/开战失败，旧版仍会给出「异常 0」的绿报告
+        if (maxStageSeen === 0) {
+            detectedIssues.push({
+                stage: '-', type: '体检有效性',
+                detail: '跑到结束一关都没开（页面未就绪或开战失败）⇒ 本轮无效，不是通过',
                 source: '系统', timestamp: new Date().toLocaleTimeString()
             });
         }
