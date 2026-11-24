@@ -15,7 +15,8 @@
 // V7.9.7 | 2026-11-21 新增 forceSanDu：dev-index 🐲 按钮强制抽含炎魔狮王的第 6 关三渡变体（找不到照常随机）
 // V7.9.8 | 2026-11-22 空智(M104,少林)入六大派M104精英池(老板拍板)
 // V7.9.9 | 2026-11-24 变体加权抽取：变体可带 weight（缺省 1）。第 6 关 成昆:正三角:倒三角 = 2:1:1（50%/25%/25%）；forceSanDu 🐲 改为在正/倒三角两个变体里随机
-export const VER = 'modules/330-battle-init.js V7.9.9';
+// V7.9.10 | 2026-11-24 老板纠正：倒三角（枯禅轮回阵）三渡职业改绑人（渡厄防战/渡劫战士/渡难飞行），不随站位；正三角仍随站位（2/7/9）
+export const VER = 'modules/330-battle-init.js V7.9.10';
 
 // ── RNG 抽签契约版本（initBattleTeams 内随机数消耗的「次数 + 顺序」指纹）──
 // 为什么必须有：V7.6.7 把明教骰子 3→7、六大派骰子 2→6 时没有任何版本标记，
@@ -581,23 +582,23 @@ export function initBattleTeams(currentStage, _rng) {
     //   渡厄/渡劫/渡难 随机分到 2/7/9 号位，职业随站位改写（2=防战 / 7=战士 / 9=飞行）；
     //   技能固定（渡厄防御 / 渡劫双击 / 渡难闪避），玩家每局都要重新判断该先打谁。
     //   走 _rng 洗位，PVP 双端同源。
-    //   枯禅轮回阵（倒三角，V2.2.0 老板任务书）：阵容含魔化谢逊时改锁 1/3/8（1=防战 / 3=战士 / 8=飞行），
-    //   谢逊固定 5 号位；轮转与 8 号位回血由 modules/342 内驱动。
+    //   枯禅轮回阵（倒三角，V2.2.0 老板任务书）：阵容含魔化谢逊时改锁 1/3/8，谢逊固定 5 号位；
+    //   职业绑人、与站位无关（V2.2.1 老板 2026-11-24 纠正）——倒三角会中途轮转，职业必须跟着人走：
+    //   渡厄恒防战 / 渡劫恒战士 / 渡难恒飞行。轮转与 8 号位回血由 modules/342 内驱动。
     const SAN_DU_NAMES = ['渡厄', '渡劫', '渡难'];
     const SAN_DU_ROLE_BY_POS = { 2: ROLE_TYPES.DEFENDER, 7: ROLE_TYPES.WARRIOR, 9: ROLE_TYPES.FLYER };
-    const SAN_DU_ROLE_BY_POS_KUCHAN = { 1: ROLE_TYPES.DEFENDER, 3: ROLE_TYPES.WARRIOR, 8: ROLE_TYPES.FLYER };
+    const SAN_DU_ROLE_KUCHAN = { '渡厄': ROLE_TYPES.DEFENDER, '渡劫': ROLE_TYPES.WARRIOR, '渡难': ROLE_TYPES.FLYER };
     let sanDuLayout = null;
     if (currentStage === 6 && Array.isArray(enemySquad)
         && enemySquad.filter(it => it && it.name && SAN_DU_NAMES.includes(it.name)).length === 3) {
         const kuchan = enemySquad.some(it => it && it.name === '魔化谢逊');
         const slots = kuchan ? [1, 3, 8] : [2, 7, 9];
-        const roleByPos = kuchan ? SAN_DU_ROLE_BY_POS_KUCHAN : SAN_DU_ROLE_BY_POS;
         for (let i = slots.length - 1; i > 0; i--) {
             const j = _rng.nextInt(0, i);
             [slots[i], slots[j]] = [slots[j], slots[i]];
         }
         sanDuLayout = new Map();
-        SAN_DU_NAMES.forEach((n, i) => sanDuLayout.set(n, { pos: slots[i], role: roleByPos[slots[i]] }));
+        SAN_DU_NAMES.forEach((n, i) => sanDuLayout.set(n, { pos: slots[i], role: kuchan ? SAN_DU_ROLE_KUCHAN[n] : SAN_DU_ROLE_BY_POS[slots[i]] }));
     }
 
     if (enemySquad) {

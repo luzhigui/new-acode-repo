@@ -1,5 +1,5 @@
 // modules/342-elite-sixsects-san-du.js — 少林三渡与炎魔狮王、魔化谢逊（第6关·正三角金刚伏魔阵 / 倒三角枯禅轮回阵）
-// 设计：三渡技能固定、职业随站位随机（2号位=防战 / 7号位=战士 / 9号位=飞行，由 modules/330 抽位改写）。
+// 设计：三渡技能固定；正三角职业随站位（2号位=防战 / 7号位=战士 / 9号位=飞行），倒三角职业绑人（渡厄防战/渡劫战士/渡难飞行），均由 modules/330 建队时落实。
 //   渡厄：防御 +40%（严阵以待）
 //   渡劫：每回合攻击两次（必发；走引擎 doubleStrike 额外出手通道）
 //   渡难：自带流云身法，闪避 +25%
@@ -27,7 +27,8 @@
 //   任一三渡首次跌破 70%/40% → 三渡按实际站位顺时针轮转 1→3→8→1（friendlyPull 放行免控）；
 //   8 号位三渡行动前回复 30% 最大生命（每回合一次）；枯禅阵内金刚伏魔阵 30 点平回血停用。
 //   正三角（炎魔狮王）原样保留，由 modules/330 按 squadVariants["6"] 抽变体。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.2.0';
+// V2.2.1 | 2026-11-24 老板纠正：魔化谢逊 28 点真伤改可被闪避（先判闪避率，闪开则本次不掉血、飘「闪避！」），与正三角炎爆口径一致
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.2.1';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -307,12 +308,24 @@ export const demonXiexunHandler = {
 
         // 回合收尾（所有单位行动完、回合结束结算前）：全场随机 2 发魔化真伤
         //   ⚠️ 不能挂 ON_ROUND_END——那是每次出手后广播，会一回合打很多次。
+        // V2.2.1：真伤可被闪避（老板 2026-11-24 口径，与正三角炎爆一致）——先判闪避率，
+        //   闪开则本次不掉血、飘「闪避！」；不走进攻链，因此不触发闪避后的反击/追击。
         function demonStrike(data) {
             if (!self.alive) return;
-            const pool = [...(((data && data.A) || A) || []), ...(((data && data.B) || B) || [])]
-                .filter(u => u && u.alive && !u.isSummon && u.uid !== self.uid);
+            const aSide = ((data && data.A) || A) || [];
+            const bSide = ((data && data.B) || B) || [];
+            const pool = [...aSide, ...bSide].filter(u => u && u.alive && !u.isSummon && u.uid !== self.uid);
             if (pool.length === 0) return;
             const victim = pool[getBattleRng().nextInt(0, pool.length - 1)];
+            const vSide = victim.camp === CAMP_TYPES.ALLY ? aSide : bSide;
+            const dodgeStats = computeBuffStats(victim, (vSide && vSide._activeBuffs) || [], vSide);
+            const dodgeRate = computeDodgeChance(victim, self, dodgeStats);
+            if (dodgeRate > 0 && getBattleRng().nextInt(1, 100) <= Math.round(dodgeRate * 100)) {
+                pushSkillAnnounce(data && data.log, self, '魔化',
+                    `💀 魔化谢逊扑向 ${victim.name}，被其身法闪开！`,
+                    { floatText: '闪避！', floatUid: victim.uid, needsSeparator: true });
+                return;
+            }
             applyStatChange(victim, 'hp', -DEMON_BURST_DMG, self, '魔化·枯禅真伤', true, false);
             pushSkillAnnounce(data && data.log, self, '魔化',
                 `💀 魔化谢逊发狂，对 ${victim.name} 造成 ${DEMON_BURST_DMG} 点真实伤害！`,
