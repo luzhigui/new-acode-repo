@@ -9,6 +9,7 @@
 //   4) 主代码海克斯池（content.buffs） vs 827 HEX_NAMES → 漏登会退化成英文 key；
 //      并盯 808 是否保持「直接引用 827」的单一真源（808 曾自带一份手写副本，已收编）
 //   5) 主代码关卡列表（encounters.enemySquads） vs 808 ALL_STAGES → 加关漏登会静默少跑一关的数据
+//   6) 源码 .state._xxx 引用 vs core/218 schema → 漏登记会让 clone 整批炸（218 V2.13.0 起自动兜底，本项做提交前提醒）
 // 4/5 于 2026-11-08 补：主代码加新海克斯/新关卡时，工具侧名单漏一处不报错、只是少数据。
 
 import fs from 'node:fs';
@@ -247,6 +248,37 @@ if (missStage.length) {
 }
 if (extraStage.length) console.log(`  • 808 有、主代码已无：第 ${extraStage.join('、')} 关（疑似历史关保留，不计红）`);
 if (!missStage.length) console.log('  ✅ 关卡列表一致（819-auto-tuner 用 allStages() 动态取，无需同步）');
+
+// ---- 7. 状态字段登记（源码 .state._xxx vs core/218 schema）----
+// 机制作者新增私有旗子只写 state、不登记 218，clone 时整批炸（2026-11-24 一天连炸 3 次：
+//   _doubleStrikeRolled / _kuchanHealed / _noRestMark）。218 V2.13.0 起会自动补登记兜底，
+//   但显式登记才是「字段来源可查」的正式口径，本段负责在提交前把它顶出来。
+const stateDirs = ['core', 'modules', 'player', 'ui', 'fx', 'render', 'infra'];
+const stateUsed = new Set();
+const walkStateJs = (dir) => {
+  for (const ent of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+    const rel = `${dir}/${ent.name}`;
+    if (ent.isDirectory()) { walkStateJs(rel); continue; }
+    if (!ent.name.endsWith('.js')) continue;
+    // 按行扫并跳过注释行：218 的说明文字里有「state._xxx = true」这类示例，不做过滤会假红
+    for (const line of read(rel).split(/\r?\n/)) {
+      const t = line.trim();
+      if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) continue;
+      for (const m of line.matchAll(/\.state\.(_[A-Za-z0-9_]+)/g)) stateUsed.add(m[1]);
+    }
+  }
+};
+for (const d of stateDirs) if (fs.existsSync(path.join(ROOT, d))) walkStateJs(d);
+const sk218 = read('core/218-state-keys.js');
+// 只认 schema 条目形态 `_xxx: {`，不认注释里提到名字（否则日志行会把漏登记刷成假绿）
+const stateMissing = [...stateUsed].filter(k => !new RegExp(`(^|\\s)${k}\\s*:\\s*\\{`, 'm').test(sk218)).sort();
+console.log('\n── F. 状态字段登记（源码 .state._xxx vs core/218 schema）──');
+console.log(`  源码引用 ${stateUsed.size} 个 | 218 未登记 ${stateMissing.length} 个`);
+if (stateMissing.length) {
+  console.log(`  ⚠ 未登记：${stateMissing.join('、')}`);
+  console.log('      → 补进 core/218 BATTLE_STATE_SCHEMA（运行时会自动兜底，但显式登记才有来源可查）');
+  newProblems.push(...stateMissing.map(k => `F:${k}`));
+} else console.log('  ✅ 全部状态字段已在 218 登记');
 
 console.log('\n══════════════════════════════════════════════════════════════');
 const problems = newProblems.length;

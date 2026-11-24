@@ -15,7 +15,11 @@
 //           _sanDu70 / _sanDu40（阵位血量跌破 70%/40% 各触发一次，回满 95% 复位）。
 //           已用全仓扫描（\.state\._ 提取 vs 本文件 schema）核对 169 个字段，本次补完后无遗漏。
 // V2.12.2 | 2026-11-24 补登记 _noRestMark（魔化谢逊：格子不显示 😴 休息标记，342 写 / render 读）。
-export const VER = 'core/218-state-keys.js V2.12.2';
+// V2.13.0 | 2026-11-24 状态字段漏登记不再整批炸（老板要求「彻底限制死」）：
+//   BATTLE_STATE_SCHEMA 去 freeze + BATTLE_STATE_KEYS 可变；assertStateFullyRegistered 遇到未登记字段
+//   按运行时值自动推断类型（布尔/数字/字符串/数组/普通对象）补登记并只 warn 一次；Map/Set/函数/类实例才抛错。
+//   配套门禁：tools/828-verify-registry.mjs 新增源码扫描（.state._xxx 必须在 218 出现），漏登记提交前即红。
+export const VER = 'core/218-state-keys.js V2.13.0';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -76,7 +80,9 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
 });
 
 // 整场状态：跨回合持续，不重置
-export const BATTLE_STATE_SCHEMA = Object.freeze({
+// V2.13.0 去掉 Object.freeze：允许运行时自动补登记未声明字段（见 assertStateFullyRegistered），
+//   机制写完 state._xxx 忘了改本文件也不会再整批炸；拷贝语义按运行时值的形态推断。
+export const BATTLE_STATE_SCHEMA = {
     // 谢逊幼狮归属（多实例化）：召唤时写召唤者 uid，成长/振奋/随动按此认主——整场级，跨回合克隆保留
     // scope:'create' = 创建期字段（跨局复用时保留，不归零）
     _lionOwnerUid:           { type: STATE_FIELD_TYPES.STRING,  default: null, scope: 'create' },
@@ -357,11 +363,11 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     // 彭莹玉·双面观音（modules/338）：女装剩余回合 / 是否已进入过女装
     _crossdressRounds:       { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _crossdressRolled:       { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-});
+};
 
 /** 保留旧导出名以兼容现有代码：合并 key 清单 */
 export const ROUND_STATE_KEYS = Object.freeze(Object.keys(ROUND_STATE_SCHEMA));
-export const BATTLE_STATE_KEYS = Object.freeze(Object.keys(BATTLE_STATE_SCHEMA));
+export const BATTLE_STATE_KEYS = Object.keys(BATTLE_STATE_SCHEMA);   // 可变：自动补登记会 push
 
 // ── 标签索引（模块加载时建一次）──────────────────────────────────────
 // 读取侧拿 tag → 字段名列表，逐字段判真值。避免每帧遍历上百个 schema 条目。
@@ -537,25 +543,51 @@ export function resetStateFields(state) {
 // ── 状态字段注册校验（A1 护栏）─────────────────────────────────────
 // copyAllStateFields 只拷贝 schema 里登记过的字段；运行时如果有人往 state 里塞了
 // 未登记的字段，clone 时会静默丢掉（下一回合该字段凭空消失，不报错、不警告）。
-// 本函数是唯一校验出口：clone 等关键路径调用它，漏登记即当场报错。
+// 本函数是唯一校验出口：clone 等关键路径调用它。
+// V2.13.0：写入侧没有任何约束（一句 state._xxx = true 就能写），靠人肉同步 schema 必然漏
+//   （2026-11-24 一天内连炸 3 次：_doubleStrikeRolled / _kuchanHealed / _noRestMark），
+//   改成「未登记但形态可推断 → 自动补登记 + 只 warn 一次」，只有无法推断的怪值才抛错。
 const ALL_REGISTERED_STATE_KEYS = new Set([...ROUND_STATE_KEYS, ...BATTLE_STATE_KEYS]);
+// V2.13.0：自动补登记只 warn 一次，避免每回合刷屏
+const AUTO_REG_WARNED = new Set();
+
+/** 按运行时值推断 schema 条目；无法推断（Map/Set/函数/类实例）返回 null */
+function inferSpecFromValue(v) {
+    if (v === null || v === undefined) return { type: STATE_FIELD_TYPES.STRING,  default: null };
+    if (typeof v === 'boolean')        return { type: STATE_FIELD_TYPES.BOOLEAN, default: false };
+    if (typeof v === 'number')         return { type: STATE_FIELD_TYPES.NUMBER,  default: 0 };
+    if (typeof v === 'string')         return { type: STATE_FIELD_TYPES.STRING,  default: null };
+    if (Array.isArray(v))              return { type: STATE_FIELD_TYPES.ARRAY,   default: [] };
+    if (typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype) return { type: STATE_FIELD_TYPES.OBJECT, default: null };
+    return null;
+}
 
 /**
  * 检查 state 里是否混进了未注册的字段。
  * @param {object} state 单位 state 对象
  * @param {string} [context] 上下文（如单位名），便于报错定位
- * @throws 有未注册字段时立即抛错（不许静默丢字段）
+ * 未登记但形态可推断（原始值 / 数组 / 普通对象）→ 自动补登记到 BATTLE_STATE_SCHEMA 并只 warn 一次；
+ * 无法推断（Map/Set/函数/类实例）→ 抛错，因为拷贝语义不能猜。
  */
 export function assertStateFullyRegistered(state, context) {
     if (!state || typeof state !== 'object') return;
-    const unknown = [];
+    const bad = [];
     for (const key of Object.keys(state)) {
-        if (!ALL_REGISTERED_STATE_KEYS.has(key)) unknown.push(key);
+        if (ALL_REGISTERED_STATE_KEYS.has(key)) continue;
+        const spec = inferSpecFromValue(state[key]);
+        if (!spec) { bad.push(key); continue; }
+        BATTLE_STATE_SCHEMA[key] = { ...spec, auto: true };
+        BATTLE_STATE_KEYS.push(key);
+        ALL_REGISTERED_STATE_KEYS.add(key);
+        if (!AUTO_REG_WARNED.has(key)) {
+            AUTO_REG_WARNED.add(key);
+            console.warn(`[core/218] 自动登记未声明状态字段 ${key}（${context || '未知单位'}，推断 ${spec.type}）：请在 BATTLE_STATE_SCHEMA 补注释来源`);
+        }
     }
-    if (unknown.length > 0) {
+    if (bad.length > 0) {
         throw new Error(
-            `[core/218] 状态字段未注册（${context || '未知单位'}）：${unknown.join(', ')}\n` +
-            `  → 这些字段在 clone 时会静默丢失，必须在 ROUND_STATE_SCHEMA / BATTLE_STATE_SCHEMA 中登记。`
+            `[core/218] 状态字段未注册且类型无法推断（${context || '未知单位'}）：${bad.join(', ')}\n` +
+            `  → 必须在 BATTLE_STATE_SCHEMA 显式登记（Map/Set/函数/类实例无法自动推断拷贝语义）。`
         );
     }
 }
