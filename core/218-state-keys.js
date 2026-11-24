@@ -14,7 +14,8 @@
 // V2.12.1 | 2026-11-24 补登记 342 三渡漏登的三个字段：_kuchanHealed（8 号位枯禅每回合只回一次）、
 //           _sanDu70 / _sanDu40（阵位血量跌破 70%/40% 各触发一次，回满 95% 复位）。
 //           已用全仓扫描（\.state\._ 提取 vs 本文件 schema）核对 169 个字段，本次补完后无遗漏。
-export const VER = 'core/218-state-keys.js V2.12.1';
+// V2.12.2 | 2026-11-24 补登记 _noRestMark（魔化谢逊：格子不显示 😴 休息标记，342 写 / render 读）。
+export const VER = 'core/218-state-keys.js V2.12.2';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -192,6 +193,7 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _kuchanHealed:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 8 号位枯禅每回合只回一次（342 回合末复位）
     _sanDu70:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 三渡阵位血量跌破 70% 已触发一次（342 写，回满 95% 复位）
     _sanDu40:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 三渡阵位血量跌破 40% 已触发一次（342 写，回满 95% 复位）
+    _noRestMark:             { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 魔化谢逊格子不显示 😴 休息标记（342 写 / render 读）
     _zhangSwitched:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _fortifyStacks:          { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _fortifyIncrement:       { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
