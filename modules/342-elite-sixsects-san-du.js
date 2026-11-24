@@ -30,7 +30,8 @@
 // V2.2.1 | 2026-11-24 老板纠正：魔化谢逊 28 点真伤改可被闪避（先判闪避率，闪开则本次不掉血、飘「闪避！」），与正三角炎爆口径一致
 // V2.2.2 | 2026-11-24 老板口径：魔化谢逊真伤只打对手方（明教），不再敌我不分误伤自己人
 // V2.2.3 | 2026-11-24 老板最终口径：恢复敌我不分——落到自家人身上改为回血 28（不判闪避），打明教仍是 28 真伤可闪避
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.2.3';
+// V2.2.4 | 2026-11-24 老板四连修：①轮回三人同帧瞬移看不清 → 新增 sanDuCycle 逐条描轨迹(0/240/480ms)；②谢逊格子不显示 😴 休息标记(_noRestMark)；③谢逊真伤补炎爆同款演出(demonBurst cue)
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.2.4';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -297,6 +298,7 @@ export const demonXiexunHandler = {
         self.state._ctrlImmune = true;   // 免疫控制（同炎魔）
         self.atk = 0;                    // 不普攻：攻 0（含基础值），输出全走收尾真伤
         self.state._baseAtk = 0;
+        self.state._noRestMark = true;   // 格子不显示 😴 休息标记（老板 2026-11-24 报「谢逊职业 logo 是个晕」）
         // 三渡花名册（本队、存活）
         const trio = () => ((decl.camp === CAMP_TYPES.ALLY ? (A || []) : (B || [])))
             .filter(u => u && SAN_DU_NAME_SET.has(u.name) && u.alive);
@@ -343,7 +345,15 @@ export const demonXiexunHandler = {
             applyStatChange(victim, 'hp', -DEMON_BURST_DMG, self, '魔化·枯禅真伤', true, false);
             pushSkillAnnounce(data && data.log, self, '魔化',
                 `💀 魔化谢逊发狂，对 ${victim.name} 造成 ${DEMON_BURST_DMG} 点真实伤害！`,
-                { floatText: '💀', floatUid: victim.uid, needsSeparator: true });
+                {
+                    floatText: '💀', floatUid: victim.uid, needsSeparator: true,
+                    // 老板 2026-11-24 报「谢逊打伤害没有炎爆那种演出」：复用炎爆三段（凝球→飞行→爆开）
+                    cue: {
+                        kind: SKILL_CUE_KINDS.DEMON_BURST,
+                        self: { uid: self.uid, camp: self.camp, pos: self.pos },
+                        target: { uid: victim.uid, camp: victim.camp, pos: victim.pos }
+                    }
+                });
         }
         registerSettlementHook({
             when: SIGNAL_TYPES.ROUND_SETTLED,
@@ -373,11 +383,24 @@ export const demonXiexunHandler = {
                 const at = (p) => monks.find(u => u.pos === p) || null;
                 const u1 = at(1), u3 = at(3), u8 = at(8);
                 if (!u1 || !u3 || !u8) return;
+                const fromPos1 = u1.pos, fromPos3 = u3.pos, fromPos8 = u8.pos;
                 swapUnitPositions(u1, u3, data && data.log, { friendlyPull: true });
                 swapUnitPositions(u3, u8, data && data.log, { friendlyPull: true });
                 pushSkillAnnounce(data && data.log, u1, '枯禅轮回',
                     `☸️ 枯禅轮回：${u1.name}→3号位，${u3.name}→8号位，${u8.name}→1号位`,
-                    { floatText: '☸️', floatUid: u1.uid, needsSeparator: true });
+                    {
+                        floatText: '☸️', floatUid: u1.uid, needsSeparator: true,
+                        // 老板 2026-11-24 报「轮回动作太快看不清」：按 0/240/480ms 依次描三人的移动轨迹
+                        cue: {
+                            kind: SKILL_CUE_KINDS.SAN_DU_CYCLE,
+                            camp: u1.camp,
+                            moves: [
+                                { name: u1.name, fromPos: fromPos1, toPos: 3 },
+                                { name: u3.name, fromPos: fromPos3, toPos: 8 },
+                                { name: u8.name, fromPos: fromPos8, toPos: 1 }
+                            ]
+                        }
+                    });
             }
         });
 

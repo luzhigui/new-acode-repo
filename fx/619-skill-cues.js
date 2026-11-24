@@ -6,7 +6,8 @@
 // V1.1.1 | 2026-11-21 新增 blazeBurst：炎魔狮王炎爆改为「掌心凝球→拖尾飞行→命中爆开」三段演出（纯 CSS 火球，不再只飘 emoji）
 // V1.1.2 | 2026-11-21 炎爆三段加 minRealMs 保底（320/380/240），倍速/快进下也看得清凝聚与飞行
 // V1.1.3 | 2026-11-23 断锤三式攻防飘字补快进闸（快进统一不飘）
-export const VER = 'fx/619-skill-cues.js V1.1.3';
+// V1.2.0 | 2026-11-24 新增 demonBurst（魔化谢逊真伤复用炎爆三段演出）+ sanDuCycle（三渡轮转逐个描轨迹，修「轮回太快看不清」）
+export const VER = 'fx/619-skill-cues.js V1.2.0';
 
 import { clock } from '../infra/103-clock.js';
 import { SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
@@ -55,6 +56,8 @@ export function showSkillCue(cue) {
         case SKILL_CUE_KINDS.MASK_PEEL: return showMaskPeel(cue);
         case SKILL_CUE_KINDS.SUMMON_MOVE: return showSummonMove(cue);
         case SKILL_CUE_KINDS.BLAZE_BURST: return showBlazeBurst(cue);
+        case SKILL_CUE_KINDS.DEMON_BURST: return showBlazeBurst(cue);
+        case SKILL_CUE_KINDS.SAN_DU_CYCLE: return showSanDuCycle(cue);
         default: return;
     }
 }
@@ -383,4 +386,44 @@ function showBlazeBurst(cue) {
             flash.style.opacity = (0.95 * (1 - p)).toFixed(2);
         }, { minRealMs: 240 }).then(() => { drop(ring); drop(flash); });
     }
+}
+
+// ── 三渡·枯禅轮回：三人顺时针轮转，按 0/240/480ms 依次描出「谁从哪格去了哪格」──
+//   老版三人在同一帧瞬移，玩家根本看不清（老板 2026-11-24 报「轮回动作太快」）。
+//   载荷：cue.camp + cue.moves[{fromPos,toPos,name?}]。
+function showSanDuCycle(cue) {
+    const moves = Array.isArray(cue.moves) ? cue.moves : [];
+    moves.forEach((m, i) => {
+        clock.wait(i * 240).then(() => {
+            const from = cellOf({ camp: cue.camp, pos: m.fromPos });
+            const to = cellOf({ camp: cue.camp, pos: m.toPos });
+            if (!from || !to) return;
+            const ghost = jot(`position:fixed;left:${from.left}px;top:${from.top}px;
+                width:${from.width}px;height:${from.height}px;border-radius:6px;
+                border:1px solid rgba(255,226,150,0.55);background:rgba(255,226,150,0.12);
+                pointer-events:none;z-index:10004;opacity:0;`);
+            clock.animate(520, p => { ghost.style.opacity = (0.85 * (1 - p)).toFixed(2); }).then(() => drop(ghost));
+            for (let k = 0; k < 3; k++) {
+                clock.wait(k * 70).then(() => {
+                    const t = 0.3 + k * 0.22;
+                    const gx = from.x + (to.x - from.x) * t;
+                    const gy = from.y + (to.y - from.y) * t;
+                    const s = jot(`position:fixed;left:${gx.toFixed(1)}px;top:${gy.toFixed(1)}px;
+                        width:${Math.max(10, from.width * 0.28).toFixed(1)}px;height:${Math.max(10, from.height * 0.28).toFixed(1)}px;
+                        border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:10005;opacity:0;
+                        background:radial-gradient(circle, rgba(255,238,190,0.75) 0%, rgba(255,214,120,0) 72%);`);
+                    clock.animate(380, p => {
+                        s.style.opacity = (p < 0.2 ? 0.85 * (p / 0.2) : 0.85 * (1 - (p - 0.2) / 0.8)).toFixed(2);
+                    }).then(() => drop(s));
+                });
+            }
+            const ring = jot(`position:fixed;left:${to.x}px;top:${to.y}px;width:12px;height:12px;border-radius:50%;
+                border:2px solid rgba(255,230,150,0.95);box-shadow:0 0 10px rgba(255,200,80,0.8);
+                transform:translate(-50%,-50%);pointer-events:none;z-index:10009;`);
+            clock.animate(420, p => {
+                ring.style.transform = `translate(-50%,-50%) scale(${(1 + 3.0 * (1 - Math.pow(1 - p, 2))).toFixed(2)})`;
+                ring.style.opacity = (0.9 * (1 - p)).toFixed(2);
+            }).then(() => drop(ring));
+        });
+    });
 }

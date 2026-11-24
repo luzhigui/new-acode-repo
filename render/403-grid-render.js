@@ -4,8 +4,9 @@
 // V7.1.15 | 2026-11-21 补版本日志行（VER 常量已抬，漏写本行致 ver-drift 判领先）。
 // V7.1.16 | 2026-11-22 三渡 logo：2 号位严阵以待 🛡️、渡难流云身法 💨（两者不走团队 buff，原先格子无图标）
 // V7.1.17 | 2026-11-22 渡劫概率连击补 ⚡（不走轮盘，step.doubleStrikeUid 里没有他）
+// V7.1.18 | 2026-11-24 锁死单位（魔化谢逊 _noRestMark）不再被 😴 休息标记顶掉职业图标
 // V7.1.14 | 2026-11-19 寒毒图标去重：玄冥毒/寒离飒/蹦蹦三源同时挂时格子上只出一个 ❄️
-export const VER = 'render/403-grid-render.js V7.1.17';
+export const VER = 'render/403-grid-render.js V7.1.18';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHpText, fmtAtk } from '../infra/102-core-utils.js';
 import { eventBus } from '../infra/101-event-bus.js';
@@ -460,12 +461,12 @@ export function renderGrid(id, camp) {
             // 修 ☯/🎯/🔻 隐形：短名分支原先只拼 eliteSkillIcon+buffIcons，logoList 里的状态标记不消费
             nameHtml = `<span class="cell-name ${nameTier}">${displayName}${countBadgeHtml}${displayLogos.length ? ' ' + displayLogos.join(' ') : ''}</span>`;
         }
-        div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info">${nameHtml}<span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${displayPct}%;background:${barColor};"></div>${shieldHtml}</div>`;
+        div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead && !(unit.state && unit.state._noRestMark) ? '😴' : roleIcon}</span><div class="cell-info">${nameHtml}<span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${displayPct}%;background:${barColor};"></div>${shieldHtml}</div>`;
         if (isDead) {
             let deadMark = document.createElement('span'); deadMark.className = 'dead-mark'; deadMark.textContent = '✕'; div.appendChild(deadMark);
             div.style.transform = 'scale(0.8)'; div.style.opacity = '0.9';
         }
-        if (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead) {
+        if (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead && !(unit.state && unit.state._noRestMark)) {
             let zzz = document.createElement('div'); zzz.className = 'zzz-mark'; zzz.innerHTML = '<span>z</span><span>Z</span><span>Z</span>'; div.appendChild(zzz);
         }
         // 灭绝师太的出手计数不再走格子徽章（顶个红底数字太丑），
