@@ -1,3 +1,5 @@
+// V1.62.0 | 2026-11-24 第50轮（#82）：挂「上游落地预演」到 OBSERVES（默认 quick 档约7秒，纯取证不改退码/CHECKS分母）。
+//   夜间版此挂法在脏树上报 exit=3「不做预演对比」——OBSERVES 口径只显形不计退码，符合预期。
 // V1.61.0 | 2026-11-18 第41轮：挂「看板 open 计数守门」tests/board-state-count-guard.mjs（新建 V1.0.0）。
 //   由头（#39 验收落地件）：看板有些任务行跨两行写（标题行 + 说明行 + 状态行），按行解析会漏读
 //   状态列 ⇒ 「永远 ≥3 个 open」这条纪律无法被机器校验。本件按「取该编号首次出现行的状态列」口径
@@ -286,7 +288,7 @@ import path from 'node:path';
 //     一击致死被避开的分支，不是缺口消失）。
 //   本件只做机械静态判定（读内容表阈值 + 读主代码判定序列 + 合成穷举），**不改主代码一行**，
 //   判红与否属拍板权 ⇒ 挂 OBSERVES + hard: true（确定型守门），不改 CHECKS 分母、不改退码口径。
-export const VER = 'tests/run-all.mjs V1.61.0';
+export const VER = 'tests/run-all.mjs V1.62.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -656,7 +658,9 @@ const OBSERVES = [
     //   一键体检用关键词表把红项翻成人话，表人工维护、漏补会落"其他"；
     //   静态交叉核对 run-all 条目 vs MEANING keys（按子串匹配，指出会翻成"其他"的条目），
     //   动态段真跑一次统计报告"其他"标题数（>0 exit 1）。纯呈现自检，挂观察项不计退码。
-    { name: '一键报告翻译覆盖度自检', script: 'tests/one-click-health-translation-selfcheck.mjs', args: [] }
+    { name: '一键报告翻译覆盖度自检', script: 'tests/one-click-health-translation-selfcheck.mjs', args: [] },
+    // 2026-11-24 #82：夜间263移植的上游落地预演（默认 quick 档，纯取证；判可落须手工 --full）。
+    { name: '上游落地预演', script: 'tests/upstream-landing-rehearsal.mjs', args: [] }
 ];
 
 // 从一大段输出里挑一行最能代表结论的：优先命中结论关键词的最后一行，否则最后一个非空行。
