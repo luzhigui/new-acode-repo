@@ -1,3 +1,4 @@
+// V1.1.0 | 2026-11-24 第53轮（#86）：账本按面计数(atk定次数/maxHp同数/def不该出现)，修「战报1次vs账本2条」噪声；不采夜间乘区归一化(实测战报本就是静态+2,归一化反把对的判红)。
 // tests/health-rules/323-d10-flyer-kill-growth.js
 // 体检规则：飞行·猎杀成长「战报数字 ↔ 账本实落」一致（词条装备与套装域 D14）
 //
@@ -16,7 +17,7 @@
 //   - 没有该 skillName 的宣布 + 没有 flyerKill 账本 → skip；
 //   - uid 已不在终局名单（中途阵亡出列）时跳过 D 的条数比对；
 //   - 只判我方飞行成长口径，敌方飞行本来就不成长（不会产生这类宣布）。
-export const VER = 'tests/health-rules/323-d10-flyer-kill-growth.js V1.0.0';
+export const VER = 'tests/health-rules/323-d10-flyer-kill-growth.js V1.1.0';
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 import { fmtNum } from '../../infra/102-core-utils.js';
 
@@ -88,11 +89,20 @@ export const rule323 = {
                 bad.push(`飞行·猎杀 uid=${uid} 战报 ${declar[uid]} 次但账本 0 条（虚报成长）`);
                 continue;
             }
-            if (rec.count !== declar[uid]) {
-                bad.push(`飞行·猎杀 uid=${uid} 战报 ${declar[uid]} 次 vs 账本 ${rec.count} 条（次数不同源）`);
+            // 第53轮：账本按面计数——一次击杀同时挂 atk/maxHp 两条，只认 atk 面为次数真锚（贴 modules/302 真源，不放宽）。
+            const atkN = ((rec.values || []).filter((it) => it.stat === 'atk')).length;
+            const hpN = ((rec.values || []).filter((it) => it.stat === 'maxHp')).length;
+            if (atkN !== declar[uid]) {
+                bad.push(`飞行·猎杀 uid=${uid} 战报 ${declar[uid]} 次 vs 账本 atk 面 ${atkN} 条（次数不同源）`);
+            }
+            if (hpN !== atkN) {
+                bad.push(`飞行·猎杀 uid=${uid} 账本 maxHp 面 ${hpN} 条 ≠ atk 面 ${atkN} 条（每次击杀应各挂一条）`);
             }
         }
         for (const uid of Object.keys(led)) {
+            for (const it of (led[uid].values || [])) {
+                if (it.stat === 'def') bad.push(`飞行·猎杀 uid=${uid} 账本 def 面出现 flyerKill 词条（机制只成长 atk 与 maxHp）`);
+            }
             for (const it of led[uid].values) {
                 if (it.stat === 'atk' && !(Math.abs(it.value - FLYER_ATK_GROW) <= EPS)) {
                     bad.push(`飞行·猎杀 uid=${uid} 账本 atk 单条=${it.value}，应 ${FLYER_ATK_GROW}`);
