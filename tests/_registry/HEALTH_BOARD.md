@@ -130,6 +130,8 @@
 
 | 82 | 上游落地预演脚本挂 run-all OBSERVES（夜间版挂了，main 移植未挂） | 夜间263把 `upstream-landing-rehearsal.mjs` 挂进 run-all OBSERVES（V1.66→V1.67）；第49轮 main 移植脚本本体+清单，但**没挂 run-all**——因为夜间那次挂载同时带了别的检查项变化，按跨线铁律不整段搬。验收：在 run-all OBSERVES 段加一行 {name:'上游落地预演', script:'tests/upstream-landing-rehearsal.mjs', args:[]}(默认 quick 档约7秒)；注意夜间263实测此挂法在脏树上报 exit=3「脏树上不做预演对比」，若观察项把 exit=3 也当作异常显形，需按 dirty-exit-taxonomy 口径区分；不改 CHECKS 分母。 | open | - | - |
 
+| 83 | 预演脚本「工具自身假绿」复核（夜间263自咬一处，说留待下轮） | 夜间263首跑自咬：`normalizeStats` 被调用两次（runRulesReplay 返回已规范化对象，对比处又规范化一遍），导致「空样本假绿不只发生在被测规则上，也会发生在体检工具自己身上」。夜间把这条留给下轮，未见后续闭环。第50轮已把脚本移植到main(自证18/18过)，需复核该自咬点是否已随移植带入、工具判「可落」时是否还有假绿风险。验收：定位 normalizeStats 调用链，确认调用次数与幂等性；补一条自证断言(若夜间已修则核对修复在不在)，不改判据/退码/基线。 | open | - | - |
+
 ## 状态约定
 - `open`：待领；`doing`：进行中（同一时刻建议仅 1 人占）；`blocked`：等外部（主代码落地 / 拍板）；`done`：已闭环（含验证结论）。
 - 真缺陷需主代码的，状态写 `blocked`，**同轮报告必须贴转交块**（见 SKILL.md §4.5），等主代码落地再 `done`。
