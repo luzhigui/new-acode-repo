@@ -1381,10 +1381,7 @@ function updateReport() {
             }
         }
     }
-    if (backBtn) {
-        backBtn.style.display = 'inline-block';
-        reportArea.appendChild(backBtn);
-    }
+    if (backBtn) backBtn.style.display = 'inline-block';
     // V6.14.2：真空白名单——本场参与判决的规则里，既没 pass、没 skip、也没 fail 的
     const neverRun = lastRuleNames.filter(n => !rulePassNames.has(n) && !ruleSkipNames.has(n) && !ruleFailNames.has(n));
     if (neverRun.length > 0) {
@@ -1409,7 +1406,7 @@ function updateReport() {
     }
     const copyBtn = document.createElement('button');
     copyBtn.className = 'copy-btn';
-    copyBtn.style.cssText = 'margin-top:10px;padding:8px 16px;background:#3a3a6e;border:1px solid #555;border-radius:6px;color:#ccc;font-size:11px;cursor:pointer;';
+    copyBtn.style.cssText = 'padding:8px 16px;background:#3a3a6e;border:1px solid #555;border-radius:6px;color:#ccc;font-size:11px;cursor:pointer;';
     copyBtn.textContent = '📋 复制报告';
     copyBtn.onclick = () => {
         let text = '';
@@ -1426,7 +1423,12 @@ function updateReport() {
             setTimeout(() => { copyBtn.textContent = '📋 复制报告'; }, 1500);
         });
     };
-    reportArea.appendChild(copyBtn);
+    // 操作按钮并排一行（用户 2026-11-24）：返回游戏 + 复制报告，不再隔着 3 个提示块
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:8px;align-items:center;margin-top:10px;';
+    if (backBtn) btnRow.appendChild(backBtn);
+    btnRow.appendChild(copyBtn);
+    reportArea.appendChild(btnRow);
     reportArea.scrollTop = reportArea.scrollHeight;
 }
 
