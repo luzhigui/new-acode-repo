@@ -1,3 +1,4 @@
+// V6.14.6 | 2026-11-24：报告按钮区上移——「返回游戏+复制报告」并排一行、紧跟体检头（元数据）之下、正文之前（原在报告最底）
 // V6.14.5 | 2026-11-24：① 点 8x 期间临时摘掉 openPerfPanel（不再弹大面板挡画面/暂停游戏）；
 //   ② 一关都没开也判红（旧版仍给「异常0」的报告头）。
 // V6.14.4 | 2026-11-22：点 8x 会弹「自定义档」大面板并暂停游戏（ui/721 openPanel 置 panelPaused），
@@ -1338,6 +1339,17 @@ function updateReport() {
         metaDiv.textContent = '🕒 体检时间：' + runTime + ' ｜ 模式：' + _hexLabel + ' ｜ 起始关：第' + autoStartStage + '关 ｜ 已跑关卡：第' + stages + '关 ｜ 异常 ' + detectedIssues.length + ' 项' + _coverNote;
         reportArea.appendChild(metaDiv);
     } catch (e) {}
+    // 操作按钮紧跟体检头（用户 2026-11-24 拍板）：返回游戏 + 复制报告并排一行，放正文之前
+    if (backBtn) backBtn.style.display = 'inline-block';
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:8px;align-items:center;margin-top:8px;margin-bottom:8px;';
+    if (backBtn) btnRow.appendChild(backBtn);
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'copy-btn';
+    copyBtn.style.cssText = 'padding:8px 16px;background:#3a3a6e;border:1px solid #555;border-radius:6px;color:#ccc;font-size:11px;cursor:pointer;';
+    copyBtn.textContent = '📋 复制报告';
+    btnRow.appendChild(copyBtn);
+    reportArea.appendChild(btnRow);
     const order = { '手动': 0, '规则': 1, '引擎': 2, 'UI': 3 };
     const sorted = [...detectedIssues].sort((a, b) => {
         const oa = order[a.source] ?? 99;
@@ -1381,7 +1393,6 @@ function updateReport() {
             }
         }
     }
-    if (backBtn) backBtn.style.display = 'inline-block';
     // V6.14.2：真空白名单——本场参与判决的规则里，既没 pass、没 skip、也没 fail 的
     const neverRun = lastRuleNames.filter(n => !rulePassNames.has(n) && !ruleSkipNames.has(n) && !ruleFailNames.has(n));
     if (neverRun.length > 0) {
@@ -1404,10 +1415,6 @@ function updateReport() {
         recipeDiv.textContent = '🎯 ' + recipeNote;
         reportArea.appendChild(recipeDiv);
     }
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'copy-btn';
-    copyBtn.style.cssText = 'padding:8px 16px;background:#3a3a6e;border:1px solid #555;border-radius:6px;color:#ccc;font-size:11px;cursor:pointer;';
-    copyBtn.textContent = '📋 复制报告';
     copyBtn.onclick = () => {
         let text = '';
         const runTime = runStartedAt ? new Date(runStartedAt).toLocaleString('zh-CN') : '—';
@@ -1423,12 +1430,6 @@ function updateReport() {
             setTimeout(() => { copyBtn.textContent = '📋 复制报告'; }, 1500);
         });
     };
-    // 操作按钮并排一行（用户 2026-11-24）：返回游戏 + 复制报告，不再隔着 3 个提示块
-    const btnRow = document.createElement('div');
-    btnRow.style.cssText = 'display:flex;gap:8px;align-items:center;margin-top:10px;';
-    if (backBtn) btnRow.appendChild(backBtn);
-    btnRow.appendChild(copyBtn);
-    reportArea.appendChild(btnRow);
     reportArea.scrollTop = reportArea.scrollHeight;
 }
 
