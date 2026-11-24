@@ -12,7 +12,10 @@
 // V1.1.1 | 2026-11-19 FIX「一拖就没了」：① 压暗层加 pointer-events:none（旧版全屏遮罩把起点/终点指针全吃掉）；
 //   ② 高亮格同步挂 touch-action:none（手机拖拽被当滚动 → pointercancel 直接取消窗口）；
 //   ③ 点空白＝取消改由 document pointerdown 兜（遮罩不再拦后补回该语义）。
-export const VER = 'ui/724-zhang-target-picker.js V1.1.1';
+// V1.1.2 | 2026-11-23 修复「敌方有前排却全场灰、拖了也白拖」：原把马排除在可拖目标外，
+//   而引擎把拒马算作一列前排（203:119），该列就变成「引擎能打、UI 不给选」→ 松手落空转随机。
+//   现把马纳入可选；另在「无地面前排（全飞天/附体）」时如实提示只能随机。
+export const VER = 'ui/724-zhang-target-picker.js V1.1.2';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { getMeleeLegalTargetSet } from '../core/203-battle-utils.js';
@@ -30,8 +33,8 @@ export function showZhangTargetPicker(c, step, resolve) {
     const legalSet = getMeleeLegalTargetSet(zhang, enemySide, { noFallback: true });
     const isLegalUid = (uid) => legalSet === null || legalSet.has(uid);
 
-    // 可拖拽目标 = 敌方存活（不含马——打马走正常选目标，马不是玩家意图的主目标）
-    const enemyUids = new Set(enemySide.filter(u => u && u.alive && u.camp !== zhang.camp && !u.isHorse).map(u => u.uid));
+    // 可拖拽目标 = 敌方存活（含马：拒马是引擎认定的「一列前排」，能打；排除它会出现「该列无人可选 → 全场灰」）
+    const enemyUids = new Set(enemySide.filter(u => u && u.alive && u.camp !== zhang.camp).map(u => u.uid));
 
     // 高亮底账：每个格子记原 style，收尾精确还原
     //   touch-action:none 跟着高亮一起挂（2026-11-19）：手机上拖拽会被浏览器当成滚动 → 触发 pointercancel
@@ -69,7 +72,9 @@ export function showZhangTargetPicker(c, step, resolve) {
     overlay.id = 'zhangTargetOverlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:10010;pointer-events:none;';
     const tipBar = document.createElement('div');
-    tipBar.textContent = '☀️ 按住张无忌，金色可打／灰色是够不着的后排（松手在空白=取消）';
+    tipBar.textContent = (legalSet && legalSet.size === 0)
+        ? '☀️ 对方暂时没有可近身的地面前排（全员飞行/附体），本次只能随机出手（松手=放弃）'
+        : '☀️ 按住张无忌，金色可打／灰色是够不着的后排（松手在空白=取消）';
     tipBar.style.cssText = 'position:absolute;bottom:18%;left:50%;transform:translateX(-50%);color:#ffd700;font-size:14px;font-weight:bold;text-shadow:0 0 8px rgba(0,0,0,0.9);white-space:nowrap;';
     overlay.appendChild(tipBar);
 
