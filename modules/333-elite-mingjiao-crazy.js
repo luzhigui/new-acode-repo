@@ -74,7 +74,13 @@ function crazyAttackNote(unit, target) {
 
 // 出手开场白必须落进本击自己的攻击组：core/209 先 log.push(group) 再发 AFTER_DAMAGE_APPLIED。
 //   早期挂在 AFTER_SELECT_TARGET（组建成之前）会写进日志尾部 → 渲染成上一个攻击组的尾巴。
+// 2026-11-23 老板定调：张无忌「我命由我」的手动拖选是玩家操作的技能机制，优先级高于癫——
+//   手动指定目标时不播「不分敌友」这句（否则日志与实际行为不符），必中/无视闪避/传染照旧。
+function isManualAimed(unit) {
+    return !!(unit && unit.state && unit.state._manualTargetUid);
+}
 function pushCrazyOpening(data, unit) {
+    if (isManualAimed(unit)) return;
     const note = crazyAttackNote(unit, data.target);
     if (data.group && data.group.data && Array.isArray(data.group.data.entries)) {
         data.group.data.entries.unshift({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
@@ -163,6 +169,7 @@ export const crazyHandler = {
             handler: (data) => {
                 const unit = data.unit;
                 if (!unit || !unit.alive || !unit.state._isCrazy) return;
+                if (isManualAimed(unit)) return;   // 手动指定目标：不播「不分敌友」（2026-11-23 定调）
                 // 免疫分支不建攻击组，公告无组可依；打分隔线让它自成一段（同 337 断锤公告）。
                 if (data.log) pushSkillAnnounce(data.log, unit, '癫', crazyAttackNote(unit, data.target), { floatText: '🤪', floatUid: unit.uid, needsSeparator: true });
             }
