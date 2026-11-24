@@ -32,7 +32,10 @@
 // V2.2.3 | 2026-11-24 老板最终口径：恢复敌我不分——落到自家人身上改为回血 28（不判闪避），打明教仍是 28 真伤可闪避
 // V2.2.4 | 2026-11-24 老板四连修：①轮回三人同帧瞬移看不清 → 新增 sanDuCycle 逐条描轨迹(0/240/480ms)；②谢逊格子不显示 😴 休息标记(_noRestMark)；③谢逊真伤补炎爆同款演出(demonBurst cue)
 // V2.2.5 | 2026-11-24 谢逊拍醒队友补圣光演出（demonHeal：光柱+十字光+上浮光点），不再与真伤共用火球
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.2.5';
+// V2.3.0 | 2026-11-24 老板口径：炎魔/魔化统一改「蓄力循环炮台」——回合开始固定一发（炎魔18/魔化28），
+//   被攻击或轮到自己→进入蓄力（每次+10%最大生命护盾，可叠）；已蓄力再被攻击/轮到行动/回合收尾→
+//   立刻打一发28并马上续蓄。魔化收尾不再固定两发，改为按蓄力结算（挨打越多打越多）。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.3.0';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -58,8 +61,7 @@ const SAN_DU_DOUBLE_STRIKE_RATE = 0.8; // 概率连击：80%
 // ── 枯禅轮回阵（第6关倒三角变体）数值唯一来源 ──
 const SAN_DU_NAME_SET = new Set(['渡厄', '渡劫', '渡难']); // 三渡名单（枯禅轮回/8号位回血识别用）
 const SAN_DU_KUCHAN_HEAL_RATE = 0.3;   // 8 号位枯禅回血：30% 最大生命
-const DEMON_BURST_DMG = 28;            // 魔化谢逊收尾真伤：28 点/发
-const DEMON_BURST_COUNT = 2;           // 魔化谢逊收尾真伤：每回合 2 发
+const DEMON_BURST_DMG = 28;            // 魔化谢逊真伤：28 点/发（V2.3.0 起每回合不再固定两发，见蓄力循环）
 
 // ── 三大高僧的固定被动 ──
 export const monkFixedBuffHandler = {
@@ -259,26 +261,57 @@ export const blazeLionKingHandler = {
             }
         });
 
+        // 蓄力循环（2026-11-24 老板口径）：回合开始固定一发 18；之后处于「未蓄力」，
+        //   被攻击 / 轮到自己 → 进入蓄力（每次 +10% 最大生命护盾，可叠）；
+        //   已蓄力后再被攻击 / 轮到行动 / 回合收尾 → 立刻引爆一发 28，并马上重新蓄力。
+        //   净效果：每多挨一次打，就多打一发。
+        const CHARGE_SHIELD_PCT = 0.10;
+        function enterCharge(data, label) {
+            const shield = Math.floor(getStat(self, 'maxHp') * CHARGE_SHIELD_PCT);
+            if (shield > 0) self.state._shield = (self.state._shield || 0) + shield;
+            self.state._blazeCharged = true;
+            pushSkillAnnounce(data && data.log, self, '蓄力',
+                `🔥 ${label}烈焰凝聚，蓄力待发（护盾 +${shield}）…`,
+                { floatText: '🔥', floatUid: self.uid, needsSeparator: true });
+        }
+        function fireCharged(data, label) {
+            if (!self.state._blazeCharged) return;
+            self.state._blazeCharged = false;
+            fireBurst(28, data, label);
+        }
+
         // 「轮到自己」：炎魔被眩晕跳过，走的是 PASS 分支的 ON_UNIT_ACTED，同样能接住
         registerSettlementHook({
             when: SIGNAL_TYPES.ON_UNIT_ACTED,
             priority: 24,
             handler: (data) => {
                 if (!self.alive || !data || data.unit !== self) return;
-                self.state._blazeCharged = true;
-                pushSkillAnnounce(data.log, self, '蓄力', `🔥 炎魔狮王烈焰凝聚，蓄力待发…`, { floatText: '🔥', floatUid: self.uid, needsSeparator: true });
+                if (!self.state._blazeCharged) enterCharge(data, '炎魔狮王');
+                fireCharged(data, '炎爆');
             }
         });
 
-        // 回合收尾（所有单位行动完、回合结束结算前）：本回合轮到过它才补第二发 28
+        // 被攻击：未蓄力则开始蓄力；已蓄力则立刻引爆一发并续蓄（挨打越多打越多）
+        registerSettlementHook({
+            when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
+            priority: 25,
+            handler: (data) => {
+                if (!self.alive || !data || data.target !== self) return;
+                if (!(data.dmg > 0)) return;
+                if (!self.state._blazeCharged) { enterCharge(data, '炎魔狮王'); return; }
+                fireCharged(data, '炎爆');
+                enterCharge(data, '炎魔狮王');
+            }
+        });
+
+        // 回合收尾（所有单位行动完、回合结束结算前）：蓄着就炸出去
         //   ⚠️ 不能挂 ON_ROUND_END——那是每次出手后广播，会一回合打很多次。
         registerSettlementHook({
             when: SIGNAL_TYPES.ROUND_SETTLED,
             priority: 24,
             handler: (data) => {
-                if (!self.alive || !self.state._blazeCharged) return;
-                self.state._blazeCharged = false;
-                fireBurst(28, data, '炎爆');
+                if (!self.alive) return;
+                fireCharged(data, '炎爆');
             }
         });
     }
@@ -305,13 +338,19 @@ export const demonXiexunHandler = {
             .filter(u => u && SAN_DU_NAME_SET.has(u.name) && u.alive);
 
         // 每回合压 _stunned（同炎魔：_stunned 会被引擎每回合重置）
+        // V2.3.0：回合开始固定打一发魔化真伤（老板口径：原来是收尾两发），蓄力状态清零
         registerSettlementHook({
             when: SIGNAL_TYPES.ON_ROUND_START,
             priority: 24,
-            handler: () => { if (self.alive) self.state._stunned = true; }
+            handler: (data) => {
+                if (!self.alive) return;
+                self.state._stunned = true;
+                self.state._demonCharged = false;
+                demonStrike(data);
+            }
         });
 
-        // 回合收尾（所有单位行动完、回合结束结算前）：全场随机 2 发魔化真伤
+        // 魔化真伤统一出口（V2.2.1 起可被闪避；自家人改为回血）
         //   ⚠️ 不能挂 ON_ROUND_END——那是每次出手后广播，会一回合打很多次。
         // V2.2.1：真伤可被闪避（老板 2026-11-24 口径，与正三角炎爆一致）——先判闪避率，
         //   闪开则本次不掉血、飘「闪避！」；不走进攻链，因此不触发闪避后的反击/追击。
@@ -363,12 +402,48 @@ export const demonXiexunHandler = {
                     }
                 });
         }
+        // 蓄力循环（V2.3.0，2026-11-24 老板口径，与炎魔同构）：回合开始一发；
+        //   被攻击 / 轮到自己 → 进入蓄力（每次 +10% 最大生命护盾，可叠）；
+        //   已蓄力后再被攻击 / 轮到行动 / 回合收尾 → 立刻打一发 28 并马上续蓄。
+        //   净效果：每多挨一次打，就多打一发；收尾不再固定两发。
+        const CHARGE_SHIELD_PCT = 0.10;
+        function enterCharge(data) {
+            const shield = Math.floor(getStat(self, 'maxHp') * CHARGE_SHIELD_PCT);
+            if (shield > 0) self.state._shield = (self.state._shield || 0) + shield;
+            self.state._demonCharged = true;
+            pushSkillAnnounce(data && data.log, self, '蓄力',
+                `🔥 魔化谢逊魔气凝聚，蓄力待发（护盾 +${shield}）…`,
+                { floatText: '🔥', floatUid: self.uid, needsSeparator: true });
+        }
+        function fireCharged(data) {
+            if (!self.state._demonCharged) return;
+            self.state._demonCharged = false;
+            demonStrike(data);
+        }
+        registerSettlementHook({
+            when: SIGNAL_TYPES.ON_UNIT_ACTED,
+            priority: 23,
+            handler: (data) => {
+                if (!self.alive || !data || data.unit !== self) return;
+                if (!self.state._demonCharged) enterCharge(data);
+                fireCharged(data);
+            }
+        });
+        registerSettlementHook({
+            when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
+            priority: 24,
+            handler: (data) => {
+                if (!self.alive || !data || data.target !== self) return;
+                if (!(data.dmg > 0)) return;
+                if (!self.state._demonCharged) { enterCharge(data); return; }
+                fireCharged(data);
+                enterCharge(data);
+            }
+        });
         registerSettlementHook({
             when: SIGNAL_TYPES.ROUND_SETTLED,
             priority: 23,
-            handler: (data) => {
-                for (let i = 0; i < DEMON_BURST_COUNT; i++) demonStrike(data);
-            }
+            handler: (data) => { if (self.alive) fireCharged(data); }
         });
 
         // 枯禅轮回：任一三渡血量首次跌破 70%/40% → 三渡按实际站位顺时针轮转 1→3→8→1

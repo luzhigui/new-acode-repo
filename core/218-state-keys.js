@@ -196,6 +196,7 @@ export const BATTLE_STATE_SCHEMA = {
     _sanDuLiuYun:            { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 渡难·流云身法已授予（342 写入）
     _sanDuDoubleStrike:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 渡劫·概率连击常驻旗（342 写入，render/403 出 ⚡）
     _blazeCharged:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 炎魔狮王本回合已轮到/蓄力（342 写入，ROUND_SETTLED 收尾炎爆判据）
+    _demonCharged:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 魔化谢逊蓄力待发（342 写入，2026-11-24 蓄力循环）
     _kuchanHealed:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 8 号位枯禅每回合只回一次（342 回合末复位）
     _sanDu70:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 三渡阵位血量跌破 70% 已触发一次（342 写，回满 95% 复位）
     _sanDu40:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 三渡阵位血量跌破 40% 已触发一次（342 写，回满 95% 复位）
