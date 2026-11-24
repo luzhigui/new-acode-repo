@@ -6,15 +6,18 @@
 //   140 场实测：开局名单 ↔ 终局名单 0 缺员 0 重复、alive↔hp 0 反例、hp 超上限 0 例、camp 字段 0 异常。
 //
 // 判据（全部 0 误报）：
-//   ① 开局每个 uid 在终局同一阵营里恰好出现一次（不丢、不重、不换阵营；召唤物额外出现不算）；
+//   ① 开局每个 uid 在终局同一阵营里恰好出现一次（不丢、不重、不换阵营；召唤物额外出现不算）
+//      例外（V1.0.2）：3 秒清尸会把阵亡单位从 battleStore 摘除（player/42 设计行为）——
+//      只要 fact 流里有该 uid/名字的 UNIT_DEATH，就算正常离场，不算名单丢人。
 //   ② alive=true ⇒ hp>0；alive=false ⇒ hp<=0.001（复活/尸变若真出反例，先按红看）；
 //   ③ 0 <= hp <= maxHp、maxHp>0、hp/maxHp 为有限数、camp 只能是 ally/enemy；
 //   ④ alive=true 且 state._pendingDeath=true → 硬判（V1.0.1 起：UNIT_DEATH 统一出口上线后复查 156 场 0 例，观察项升硬判）
-export const VER = 'tests/health-rules/235-final-unit-consistency.js V1.0.1';
+export const VER = 'tests/health-rules/235-final-unit-consistency.js V1.0.2';
+import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 const EPS = 0.001;
 
-function checkSide(startUnits, endUnits, camp, errs) {
+function checkSide(startUnits, endUnits, camp, errs, deadKeys) {
     const endMap = new Map();
     for (const u of endUnits || []) {
         if (!u || u.uid == null) continue;
@@ -23,7 +26,11 @@ function checkSide(startUnits, endUnits, camp, errs) {
     for (const u of startUnits || []) {
         if (!u || u.uid == null) continue;
         const n = endMap.get(u.uid) || 0;
-        if (n === 0) errs.push((u.name || u.uid) + ' 开局在 ' + camp + '，终局名单里消失了');
+        if (n === 0) {
+            // 阵亡被 3 秒清尸摘走：有死亡事实就不算名单丢人
+            if (deadKeys && (deadKeys.has('uid:' + u.uid) || deadKeys.has('name:' + (u.name || '')))) continue;
+            errs.push((u.name || u.uid) + ' 开局在 ' + camp + '，终局名单里消失了（无死亡事实）');
+        }
         else if (n > 1) errs.push((u.name || u.uid) + ' 在终局 ' + camp + ' 名单里出现 ' + n + ' 次');
     }
     for (const u of endUnits || []) {
@@ -55,8 +62,18 @@ export const rule235 = {
         if (!beforeA.length && !beforeE.length) return 'skip';
 
         const errs = [];
-        checkSide(beforeA, afterA, '我方', errs);
-        checkSide(beforeE, afterE, '敌方', errs);
+        // 死亡事实索引：uid 与名字双键（清尸后名单里没有该单位，只能靠 fact 佐证它确实阵亡）
+        const deadKeys = new Set();
+        for (const f of (facts || [])) {
+            if (!f) continue;
+            const ft = f.factType || (f.data && f.data.factType) || f.type;
+            if (ft !== FACT_TYPES.UNIT_DEATH) continue;
+            const d = f.data || f;
+            if (d.uid != null) deadKeys.add('uid:' + d.uid);
+            if (d.name) deadKeys.add('name:' + d.name);
+        }
+        checkSide(beforeA, afterA, '我方', errs, deadKeys);
+        checkSide(beforeE, afterE, '敌方', errs, deadKeys);
 
         if (errs.length) {
             return { fail: true, msg: errs.slice(0, 3).join('；') + (errs.length > 3 ? '（共 ' + errs.length + ' 处）' : '') };

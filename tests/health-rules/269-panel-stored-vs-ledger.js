@@ -12,9 +12,11 @@
 // 是拿 atk/def 当生效值比，属口径错误，已按本文件口径修正，未再作为判据）。
 import { getStat } from '../../core/214-battle-shared.js';
 
-export const VER = 'tests/health-rules/269-panel-stored-vs-ledger.js V1.0.0';
+export const VER = 'tests/health-rules/269-panel-stored-vs-ledger.js V1.0.1';
 
 const EPS = 1e-6;
+// 测试假人：属性由 content 直配、不走 addMod（木桩弟子就是沙包），面板存值天然不等于基准，豁免对账
+const DUMMY_UNITS = new Set(['木桩弟子']);
 
 export const rule269 = {
     group: '属性与加成账本',
@@ -26,6 +28,7 @@ export const rule269 = {
         let checked = 0;
         for (const u of tail) {
             if (!u || !u._mods) continue;
+            if (DUMMY_UNITS.has(u.name)) continue;
             const st = u.state || {};
             checked++;
             if (typeof st._baseAtk === 'number' && typeof u.atk === 'number' && Math.abs(u.atk - st._baseAtk) > EPS) {

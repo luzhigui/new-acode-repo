@@ -6,7 +6,7 @@
 // 本规则是静态守卫：renderFn:null 的每个 factType 都必须在下面的白名单里登记出口，
 //   新增隐藏渲染器却不登记出口 ⇒ 直接红；白名单里的类型若已被改成可见渲染器 ⇒ 也红（防止陈旧登记）。
 // 判据来源（2026-11-08 实测 156 场）：14 类隐藏渲染器全部登记，0 条未登记。
-export const VER = 'tests/health-rules/272-hidden-renderer-outlets.js V1.0.0';
+export const VER = 'tests/health-rules/272-hidden-renderer-outlets.js V1.0.1';
 import { FACT_SPECS } from '../../infra/107-fact-contract.js';
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
@@ -33,7 +33,9 @@ var HIDDEN_OUTLETS = {
     [FACT_TYPES.TW_DASH_APPLY]: '唐文亮冲刺 apply 只记账，屏上由冲刺报幕/攻击组出',
     [FACT_TYPES.XIAO_ZHAO_CARRY_APPLY]: '小昭搬运 apply 只记账，屏上由 CARRY_APPLY 行出',
     [FACT_TYPES.WEI_DODGE_LEECH]: '韦一笑闪避吸血记账，屏上由 HEAL 行出',
-    [FACT_TYPES.ABSORB_SUMMARY]: '吸星汇总只记账，屏上由同批 SKILL_ANNOUNCE 吸星行出（规则 267 对账）'
+    [FACT_TYPES.ABSORB_SUMMARY]: '吸星汇总只记账，屏上由同批 SKILL_ANNOUNCE 吸星行出（规则 267 对账）',
+    [FACT_TYPES.SUMMON_DEAD]: '召唤物阵亡只记账（V1.0.1 补登），屏上由死亡态/清尸计时呈现，战报行由攻击组结算行承担',
+    [FACT_TYPES.DESPERATE_APPLY]: '拼命弟子 apply 只记账（V1.0.1 补登），屏上由属性变更行/buff 摘要出'
 };
 
 export const rule272 = {

@@ -169,10 +169,10 @@ export const RULE_META = {
     '头尾属性闭环(加成账本)(回归)': { tag: 'generic:通用', note: '开战初值与终局属性逐单位重算闭环（并行会话新增，登记同步）' },
     '成长声明与账本同源(加成账本)(回归)': { tag: 'generic:通用', note: '成长类 fact 声明增量与终局账本同名 group 合计逐单位对账（并行会话新增）' },
     '成长曲线量化(加成账本)': { tag: 'generic:通用', note: '按击杀/受击/回合/命中分类统计成长次数与总量，观察项不判红（并行会话新增）' },
-    '面板存值与账本一致(加成账本)(回归)': { tag: 'generic:通用', note: 'atk/def 存值==基准、maxHp 存值==getStat，抓绕过账本直写（并行会话新增）' },
+    '面板存值与账本一致(加成账本)(回归)': { tag: 'generic:通用', note: 'atk/def 存值==基准、maxHp 存值==getStat，抓绕过账本直写；测试假人（木桩弟子）豁免（V1.0.1）' },
     '词条过期闭包盘点(加成账本)': { tag: 'generic:通用', note: 'ttl 三档分布与阵亡单位 round 残留量化，观察项不判红（并行会话新增）' },
     // 第 192 轮·演出/倒针/回放状态机域（255-258 + 撞号顺延 265-266）：读导出函数源码做结构断言，不依赖出阵角色
-    '倒针静默开关完整性(进场/定位/退出)': { tag: 'generic:通用', note: '727 静默开关 5 处 + 504 演出调用点全部带 !c.isRewinding 守卫；回看不放历史死亡红墨、连续播放不误静默' },
+    '倒针静默开关完整性(进场/定位/退出)': { tag: 'generic:通用', note: '727 静默开关 4 判据（进场/退出/快进/续播）；504 倒针挂点已随功能删除（tools/839 头注），无挂点时跳过 504 守卫检查（V1.1.0）' },
     '回看不写真实账本(快照隔离)': { tag: 'generic:通用', note: '进场快照/清空 battleLog+battleFacts、退出整块还原、504 只 get/push 不 set；回看不污染本局战报' },
     '连续播放只从当前步往后(不重演)': { tag: 'generic:通用', note: 'startPlay 从 S.stepIdx 起播、起播前回摆本步之前、resumePlay 不重进 enterReview、跳步夹区间' },
     '播放状态机切换清理(无悬挂演出)': { tag: 'generic:通用', note: '粗拨 cancelRun、细拨 token、startPlay finally 清句柄、exitReview 清 watchdog/playRelease/_rewindCue' },

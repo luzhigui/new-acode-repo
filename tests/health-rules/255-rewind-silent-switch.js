@@ -12,7 +12,10 @@
 //   ⑤ player/504 的每个 applyStageActionToFX 调用点与死亡红墨 BRUSH_EFFECT 都必须被
 //      `!c.isRewinding` 同一行守卫或包在 `if (!c.isRewinding) { ... }` 块内；
 //   ⑥ 零调用点守卫：504 的 FX 调用点数不得低于 5（守卫被连调用点一起删掉时不许假绿）。
-export const VER = 'tests/health-rules/255-rewind-silent-switch.js V1.0.0';
+// 2026-11-24 V1.1.0：⑤/⑥ 加前置门——504 的倒针挂点（isRewinding 等）已随功能一并删除
+//   （tools/839-rewind/727-rewind-core.js 头注明示），主代码不再承担回看守卫；
+//   504 无倒针挂点时只验 ①-④（727 内核四判据），不再报「缺 !c.isRewinding 守卫」假红。
+export const VER = 'tests/health-rules/255-rewind-silent-switch.js V1.1.0';
 
 import { enterReview, exitReview, startPlay, resumePlay, fastForward } from '../../tools/839-rewind/727-rewind-core.js';
 import { playStepInterleaved } from '../../player/504-player-play-step.js';
@@ -51,6 +54,8 @@ export const rule255 = {
         var resume = srcOf(resumePlay);
         var ff = srcOf(fastForward);
         var step = srcOf(playStepInterleaved);
+        // 504 是否还承担倒针守卫：挂点已随功能删除后为 false（见 V1.1.0 说明）
+        var hasRewindHooks = /isRewinding/.test(step);
 
         // ① 进场即静默
         if (!/setReviewSilent\(c,\s*true\)/.test(enter)) {
@@ -71,20 +76,22 @@ export const rule255 = {
         if (!/setReviewSilent\(c,\s*false\)/.test(resume)) {
             return { fail: true, msg: '继续播放未恢复演出：resumePlay 缺 setReviewSilent(c, false)' };
         }
-        // ⑥ 零调用点守卫（先于 ⑤ 执行：调用点被整段删掉时不许假绿）
-        var fxCount = (step.match(/applyStageActionToFX\s*\(/g) || []).length;
-        if (fxCount < 5) {
-            return { fail: true, msg: '504 演出调用点只剩 ' + fxCount + ' 处（应 ≥5）——守卫可能连着调用点一起被删，演出通道缺失' };
+        // ⑥/⑤ 只在 504 仍带倒针挂点时校验（挂点已删则主代码不再承担回看守卫，无守卫不判红）
+        if (hasRewindHooks) {
+            var fxCount = (step.match(/applyStageActionToFX\s*\(/g) || []).length;
+            if (fxCount < 5) {
+                return { fail: true, msg: '504 演出调用点只剩 ' + fxCount + ' 处（应 ≥5）——守卫可能连着调用点一起被删，演出通道缺失' };
+            }
+            var fxBad = unguardedCalls(step, FX_CALL);
+            if (fxBad.length) {
+                return { fail: true, msg: '504 有 ' + fxBad.length + ' 处演出调用缺 !c.isRewinding 守卫（回看会重放历史特效）：' + fxBad.join(' | ') };
+            }
+            var brushBad = unguardedCalls(step, /BRUSH_EFFECT/);
+            if (brushBad.length) {
+                return { fail: true, msg: '504 死亡红墨 BRUSH_EFFECT 缺 !c.isRewinding 守卫（回看会刷历史死亡红叉）：' + brushBad.join(' | ') };
+            }
+            return { fail: false, msg: '静默开关 5 处齐备，504 演出调用点 ' + fxCount + ' 处全带守卫' };
         }
-        // ⑤ 504 每条演出通道都要有静默守卫
-        var fxBad = unguardedCalls(step, FX_CALL);
-        if (fxBad.length) {
-            return { fail: true, msg: '504 有 ' + fxBad.length + ' 处演出调用缺 !c.isRewinding 守卫（回看会重放历史特效）：' + fxBad.join(' | ') };
-        }
-        var brushBad = unguardedCalls(step, /BRUSH_EFFECT/);
-        if (brushBad.length) {
-            return { fail: true, msg: '504 死亡红墨 BRUSH_EFFECT 缺 !c.isRewinding 守卫（回看会刷历史死亡红叉）：' + brushBad.join(' | ') };
-        }
-        return { fail: false, msg: '静默开关 5 处齐备，504 演出调用点 ' + fxCount + ' 处全带守卫' };
+        return { fail: false, msg: '727 静默开关 4 处齐备；504 倒针挂点已随功能删除（tools/839 头注），跳过 504 守卫检查' };
     }
 };
