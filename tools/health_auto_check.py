@@ -159,6 +159,10 @@ def main():
             s = re.sub(r'（共 \d+ 处）', '', s)
             s = re.sub(r'u\d+', 'u#', s)
             s = re.sub(r'\d+(\.\d+)?', '#', s)
+            if '终局名单里消失了' in s:
+                return '开局单位在终局名单里消失'
+            if '血量轨迹断点' in s:
+                return '同回合相邻两击血量接不上'
             return s.split('；')[0].strip()[:80]
 
         groups, order = {}, []
