@@ -718,6 +718,15 @@ export const STAGE_ACTION_DEFS = {
         //   timing 允许动作自报：女装「不忍下手」要抢在攻击文本之前飘（默认仍是文本后）。
         grid: 'none', log: 'sync', timing: (action) => (action && action.timing) || 'afterText',
         fx: (c, action) => {
+            // 说不得·布袋：装袋/放生都用 🛍️ 飘字。格子里的布袋标记要跟着这一行立刻出现，
+            //   不能等整段播完、下一次 store 同步才刷（老板 2026-11-23：效果拖到全部打完才勉强装一下）。
+            //   在这里强制重推一次单位快照（state 对象与引擎共享，_inBag 已经是新值）。
+            if (action.text === '🛍️' && c.store) {
+                const cur = c.store.getState().units;
+                if (Array.isArray(cur) && cur.length) {
+                    c.store.dispatch({ type: STORE_ACTION_TYPES.SET_UNITS, units: cur.slice() });
+                }
+            }
             if (isFxSkipped()) return;
             const unit = findUnitByUidLocal(c, action.targetUid);
             if (unit) {
