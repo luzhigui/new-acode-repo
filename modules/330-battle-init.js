@@ -14,7 +14,8 @@
 // V7.9.6 | 2026-11-21 注释口径同步：变体关不再只有第 3 关（第 6 关新增「常规 / 三渡」双变体）；forcePang 报错去掉「第三关」
 // V7.9.7 | 2026-11-21 新增 forceSanDu：dev-index 🐲 按钮强制抽含炎魔狮王的第 6 关三渡变体（找不到照常随机）
 // V7.9.8 | 2026-11-22 空智(M104,少林)入六大派M104精英池(老板拍板)
-export const VER = 'modules/330-battle-init.js V7.9.8';
+// V7.9.9 | 2026-11-24 变体加权抽取：变体可带 weight（缺省 1）。第 6 关 成昆:正三角:倒三角 = 2:1:1（50%/25%/25%）；forceSanDu 🐲 改为在正/倒三角两个变体里随机
+export const VER = 'modules/330-battle-init.js V7.9.9';
 
 // ── RNG 抽签契约版本（initBattleTeams 内随机数消耗的「次数 + 顺序」指纹）──
 // 为什么必须有：V7.6.7 把明教骰子 3→7、六大派骰子 2→6 时没有任何版本标记，
@@ -438,18 +439,23 @@ export function initBattleTeams(currentStage, _rng) {
     let encounterVariant = null;
     if (squadVariants && squadVariants.length > 0) {
         // 先抽再判：forcePang 时即使覆盖结果也照抽一次，保证 RNG 流与不强制时一致（PVP 双端同源）
-        const roll = _rng.nextInt(0, squadVariants.length - 1);
+        // 加权抽取：变体可带 weight（缺省 1）。第 6 关 成昆:正三角:倒三角 = 2:1:1 → 50%/25%/25%
+        const weights = squadVariants.map(v => (v && v.weight > 0) ? v.weight : 1);
+        const totalWeight = weights.reduce((a, b) => a + b, 0);
+        const rollValue = _rng.nextInt(1, totalWeight);
+        let acc = 0, pickIdx = 0;
+        for (let i = 0; i < weights.length; i++) { acc += weights[i]; if (rollValue <= acc) { pickIdx = i; break; } }
         const forcePang = GlobalStore.get('forcePang');
-        let variant = squadVariants[roll];
+        let variant = squadVariants[pickIdx];
         if (forcePang) {
             const target = squadVariants.find(v => v.squad.some(it => it && it.name === '胖远桥'));
             if (!target) throw new Error('forcePang 生效，但当前关卡没有含「胖远桥」的阵容变体');
             variant = target;
         }
-        // 第 6 关三渡阵（dev-index 🐲 按钮）：强制抽含炎魔狮王的变体；找不到就照常随机
+        // 第 6 关三渡阵（dev-index 🐲 按钮）：在正三角（炎魔狮王）/倒三角（魔化谢逊）里随机
         if (GlobalStore.get('forceSanDu')) {
-            const target = squadVariants.find(v => v.squad.some(it => it && it.name === '炎魔狮王'));
-            if (target) variant = target;
+            const tri = squadVariants.filter(v => v.squad.some(it => it && (it.name === '炎魔狮王' || it.name === '魔化谢逊')));
+            if (tri.length > 0) variant = tri[_rng.nextInt(0, tri.length - 1)];
         }
         enemySquad = variant.squad;
         variantPosTemplate = variant.posTemplate || null;

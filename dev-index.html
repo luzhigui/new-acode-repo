@@ -132,8 +132,8 @@
                     <button class="big-btn btn-tool" id="btnCareerLog" style="flex:1;">📊 生涯记录</button>
                     <button class="big-btn btn-tool" id="btnBugRecords" style="flex:1;">🐛 Bug记录</button>
                 </div>
-                <!-- 第 6 关三渡阵（2026-11-21）：强制抽中「炎魔狮王 + 三渡」变体，直接开第 6 关 -->
-                <button class="big-btn btn-play" id="btnBlazeLionKing" style="width:100%;margin-bottom:10px;background:linear-gradient(135deg, #ff7043, #b71c1c);color:#fff;">🐲 炎魔狮王 · 第六关三渡阵</button>
+                <!-- 第 6 关三渡阵（2026-11-21）：强制抽中三渡变体（正三角/倒三角随机），直接开第 6 关 -->
+                <button class="big-btn btn-play" id="btnBlazeLionKing" style="width:100%;margin-bottom:10px;background:linear-gradient(135deg, #ff7043, #b71c1c);color:#fff;">🐲 三渡阵 · 第六关（正/倒三角随机）</button>
                 <!-- M97 机制弟子测试局（2026-11-21）：强制木桩/拼命/防化三人同时出场，验证三条新机制 -->
                 <button class="big-btn btn-play" id="btnMechTest" style="width:100%;margin-bottom:10px;background:linear-gradient(135deg, #26c6da, #00695c);">🧪 机制弟子测试局</button>
             </div>
@@ -668,7 +668,7 @@
         });
         document.getElementById('btnBlazeLionKing').addEventListener('click', () => {
             clearDemoFlags();
-            mustSet('_forceSanDu', '1');  // 第 6 关必抽「炎魔狮王 + 三渡」变体（否则两个变体随机）
+            mustSet('_forceSanDu', '1');  // 第 6 关必抽三渡变体：正三角（炎魔狮王）/ 倒三角（魔化谢逊）随机
             mustSet('_startStage', '6');
 
             window.location.href = 'index.html';
