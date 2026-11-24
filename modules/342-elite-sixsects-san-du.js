@@ -28,7 +28,9 @@
 //   8 号位三渡行动前回复 30% 最大生命（每回合一次）；枯禅阵内金刚伏魔阵 30 点平回血停用。
 //   正三角（炎魔狮王）原样保留，由 modules/330 按 squadVariants["6"] 抽变体。
 // V2.2.1 | 2026-11-24 老板纠正：魔化谢逊 28 点真伤改可被闪避（先判闪避率，闪开则本次不掉血、飘「闪避！」），与正三角炎爆口径一致
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.2.1';
+// V2.2.2 | 2026-11-24 老板口径：魔化谢逊真伤只打对手方（明教），不再敌我不分误伤自己人
+// V2.2.3 | 2026-11-24 老板最终口径：恢复敌我不分——落到自家人身上改为回血 28（不判闪避），打明教仍是 28 真伤可闪避
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.2.3';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -310,6 +312,8 @@ export const demonXiexunHandler = {
         //   ⚠️ 不能挂 ON_ROUND_END——那是每次出手后广播，会一回合打很多次。
         // V2.2.1：真伤可被闪避（老板 2026-11-24 口径，与正三角炎爆一致）——先判闪避率，
         //   闪开则本次不掉血、飘「闪避！」；不走进攻链，因此不触发闪避后的反击/追击。
+        // V2.2.2（2026-11-24 老板口径）：恢复敌我不分，但打到自家人时改为**回血 28**（不判闪避）——
+        //   魔化谢逊发狂不分敌我，落在三渡身上反而是「拍醒队友」。
         function demonStrike(data) {
             if (!self.alive) return;
             const aSide = ((data && data.A) || A) || [];
@@ -317,6 +321,16 @@ export const demonXiexunHandler = {
             const pool = [...aSide, ...bSide].filter(u => u && u.alive && !u.isSummon && u.uid !== self.uid);
             if (pool.length === 0) return;
             const victim = pool[getBattleRng().nextInt(0, pool.length - 1)];
+            // 自家人：改判回血，不回血判闪避
+            if (victim.camp === self.camp) {
+                const hpBefore = victim.hp;
+                applyStatChange(victim, 'hp', DEMON_BURST_DMG, self, '魔化·枯禅回血');
+                const healed = Math.max(0, Math.round(victim.hp - hpBefore));
+                pushSkillAnnounce(data && data.log, self, '魔化',
+                    `💚 魔化谢逊反手一掌拍醒 ${victim.name}，回复 ${healed} 点生命`,
+                    { floatText: '💚', floatUid: victim.uid, tone: 'heal', needsSeparator: true });
+                return;
+            }
             const vSide = victim.camp === CAMP_TYPES.ALLY ? aSide : bSide;
             const dodgeStats = computeBuffStats(victim, (vSide && vSide._activeBuffs) || [], vSide);
             const dodgeRate = computeDodgeChance(victim, self, dodgeStats);
