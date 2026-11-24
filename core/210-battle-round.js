@@ -760,7 +760,10 @@ function finalizeRoundEnd(A, B, ctx) {
     eventBus.emit(SIGNAL_TYPES.ON_ROUND_END, { A, B, log: ctx.log, forced: true });
 
     if (winner) {
-        let losers = winner === '明教' ? B : A;
+        // 平局不清场：原写法 `winner === '明教' ? B : A` 把「平局」归进了 else 分支，
+        //   平局时整队明教被 killUnit 标死 → 格子上挂出一片死亡特效（老板 2026-11-23 报）。
+        //   平局双方都没输，谁都不该演死亡。
+        const losers = winner === '明教' ? B : (winner === '六大派' ? A : []);
         losers.forEach(u => {
             // 终局清场也要留死亡事实（字段与 resolveDeaths 完全一致：uid/name/camp/reason/hpBefore/hpAfter）。
             //   只对清场时仍活着的单位记账：已阵亡者早在 resolveDeaths 落过 UNIT_DEATH，重复记会多出死亡。
