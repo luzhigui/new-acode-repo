@@ -22,14 +22,14 @@
         }
         h1 { color: #ffd700; text-align: center; margin-bottom: 8px; font-size: 1.8rem; }
         .subtitle { color: #8b7355; text-align: center; margin-bottom: 30px; font-size: 0.9rem; }
-        .section { margin-bottom: 30px; }
+        .section { margin-bottom: 20px; }
         .section-title {
             color: #aaa; font-size: 0.8rem; font-weight: bold; margin-bottom: 10px;
             padding-left: 10px; border-left: 3px solid #ffd700;
         }
-        .btn-grid { display: grid; gap: 10px; }
+        .btn-grid { display: grid; gap: 6px; }
         /* 2026-11-21 统一按钮版式：等高、文字不换行；同一行保持连体（首尾外圆角 + 中间细分隔线），不拆成小块 */
-        .btn-row { display: flex; gap: 0; margin-bottom: 10px; }
+        .btn-row { display: flex; gap: 0; margin-bottom: 6px; }
         .btn-row:last-child { margin-bottom: 0; }
         .btn-row .big-btn { border-radius: 0; }
         .btn-row .big-btn:first-child { border-radius: 10px 0 0 10px; }
@@ -37,7 +37,7 @@
         .btn-row .big-btn:not(:last-child) { border-right: 1px solid rgba(0,0,0,0.22); }
         .big-btn {
             display: flex; align-items: center; justify-content: center;
-            width: 100%; padding: 15px 10px;
+            width: 100%; padding: 19px 10px;
             border: 1px solid transparent; border-radius: 10px; font-size: 1rem; font-weight: bold;
             color: #1a1a2e; cursor: pointer; transition: 0.2s;
             text-align: center; text-decoration: none;
@@ -45,7 +45,7 @@
         }
         /* 窄屏三列防截断：字号与横向内边距收一点，仍保持单行 */
         @media (max-width: 480px) {
-            .big-btn { font-size: 0.8rem; padding: 14px 3px; }
+            .big-btn { font-size: 0.8rem; padding: 17px 3px; }
         }
         .btn-play { background: linear-gradient(135deg, #ffd700, #ffaa00); }
         .btn-play:hover { filter: brightness(1.1); transform: translateY(-2px); }
@@ -133,9 +133,9 @@
                     <button class="big-btn btn-tool" id="btnBugRecords" style="flex:1;">🐛 Bug记录</button>
                 </div>
                 <!-- 第 6 关三渡阵（2026-11-21）：强制抽中三渡变体（正三角/倒三角随机），直接开第 6 关 -->
-                <button class="big-btn btn-play" id="btnBlazeLionKing" style="width:100%;margin-bottom:10px;background:linear-gradient(135deg, #ff7043, #b71c1c);color:#fff;">🐲 三渡阵 · 第六关（正/倒三角随机）</button>
+                <button class="big-btn btn-play" id="btnBlazeLionKing" style="width:100%;margin-bottom:6px;background:linear-gradient(135deg, #ff7043, #b71c1c);color:#fff;">🐲 三渡阵 · 第六关（正/倒三角随机）</button>
                 <!-- M97 机制弟子测试局（2026-11-21）：强制木桩/拼命/防化三人同时出场，验证三条新机制 -->
-                <button class="big-btn btn-play" id="btnMechTest" style="width:100%;margin-bottom:10px;background:linear-gradient(135deg, #26c6da, #00695c);">🧪 机制弟子测试局</button>
+                <button class="big-btn btn-play" id="btnMechTest" style="width:100%;margin-bottom:6px;background:linear-gradient(135deg, #26c6da, #00695c);">🧪 机制弟子测试局</button>
             </div>
         </div>
 
