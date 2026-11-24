@@ -25,7 +25,7 @@
 //   同名克隆（拒马等召唤物）按名字认留痕，宁漏勿误；报幕前后找不到对应出手时只 observe，不染红。
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
-export const VER = 'tests/health-rules/292-control-stacking-crazy.js V1.2.0';;
+export const VER = 'tests/health-rules/292-control-stacking-crazy.js V1.2.0';
 // V1.1.1（2026-11-08）：持有者/报幕判定改「有 uid 只认 uid，名字只兜底无 uid 召唤物」。
 //   病由：seed30/5 癫传到张无忌 u213（幻影）后，名字兜底把本体 u1 也当持有者 → u1 正常出手被判「没报幕」；
 //   癫传到鹤笔翁 u373 后，u7 的普通 miss 被判「必中失效」。seed32/6 成昆同类。判定强度不变。
