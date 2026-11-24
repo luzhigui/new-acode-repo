@@ -229,6 +229,10 @@ export function bindSettleButton(currentStageGetter, isBattleStarting, getState,
             setState.selectedAdjustPos(null);
             setState.isPaused(false);
             setState.gs('IDLE');
+            // 体检 T-MAIN-1124 #5：playerContext 自带一份 gs 副本（player/503 finishBattle 里与 GlobalStore 同时写 GAMEOVER）。
+            //   随机重开只复位 GlobalStore 时，副本仍是 GAMEOVER ⇒ 体检读 ctx.gs 判「重开后未复位/主按钮跳关」。
+            const pctx = getPlayerContext();
+            if (pctx) { pctx.gs = 'IDLE'; pctx.isPaused = false; pctx.waitingForNextRound = false; pctx.isBattleStarting = false; }
             updateUI();
             renderGrid('allyGrid', CAMP_TYPES.ALLY);
             renderGrid('enemyGrid', CAMP_TYPES.ENEMY);

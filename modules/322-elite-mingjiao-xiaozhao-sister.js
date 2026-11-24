@@ -121,6 +121,11 @@ export function createXiaoZhaoSisterComponent() {
                         // 属性只算不存：加攻改走 addMod 词条（原 applyStatChange 写 unit.atk 对 getStat 无效，
                         //   真正生效的是紧随的 state._baseAtk += —— 直改基数、绕过词条系统）
                         addMod(atkTarget, 'atk', { source: '乾坤衍生', value: atkGain, ttl: 'permanent', group: 'qianKunDerived', op: 'add' });
+                        // 体检 T-MAIN-1124 #2：加词条同点补 STAT_CHANGE_APPLY 声明（group 用实际词条组名），
+                        //   否则账本有 atk 词条、声明侧为 0（声明与账本不同源）。ttl 永久、op add，与 addMod 入参同值。
+                        if (data.log) {
+                            data.log.push({ factType: FACT_TYPES.STAT_CHANGE_APPLY, data: { unitName: atkTarget.name, unitUid: atkTarget.uid, camp: atkTarget.camp, field: 'atk', delta: atkGain, group: 'qianKunDerived' } });
+                        }
                         emitHpChange(atkTarget);
                     }
                     // 记账随 beforeDamageCalc 事件 data 携带，由 12 calcFinalDamage 收入 dmgCalc 返回，不落 unit
