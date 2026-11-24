@@ -12,7 +12,7 @@ import { clock } from '../infra/103-clock.js';
 import { SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
 import { snapshotCellByPos, getCellByPos } from './611-fx-ref-manager.js';
 import { showAtkBuffFloat } from './601-fx-common-5v5-test.js';
-import { inFastForward } from '../infra/111-fx-gate.js';
+import { isFxSkipped as inFastForward } from '../infra/111-fx-gate.js';
 
 function cellOf(ref) {
     if (!ref || ref.camp == null || ref.pos == null) return null;

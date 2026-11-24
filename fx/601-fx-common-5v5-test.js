@@ -481,15 +481,16 @@ export function showWindClaw(unit) {
     const cy = rect.top + rect.height / 2;
     // 三道固定平行爪痕（不再随机角度，避免看起来像乱刷），整体从右上划到左下
     const CLAW_ANGLES = [-52, -47, -57];
-    const CLAW_OFFSETS = [-11, 0, 11];
+    const CLAW_OFFSETS = [-8, 0, 8];
 
     for (let i = 0; i < 3; i++) {
         const claw = document.createElement('div');
         claw.setAttribute('data-fx', 'temporary');
-        const len = rect.width * 1.05;
+        // 2026-11-23 老板：爪子太大，收到格子宽度的 0.72（原 1.05 会盖住整格）
+        const len = rect.width * 0.72;
         claw.style.cssText = `
             position:fixed; left:${cx - len / 2 + CLAW_OFFSETS[i] * 0.6}px; top:${cy - 2 + CLAW_OFFSETS[i]}px;
-            width:${len}px; height:4px;
+            width:${len}px; height:3px;
             background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.95) 12%, rgba(30,30,38,0.95) 38%, rgba(10,10,14,0.9) 85%, rgba(255,255,255,0) 100%);
             --ang:${CLAW_ANGLES[i]}deg;
             transform: rotate(${CLAW_ANGLES[i]}deg);
