@@ -1,4 +1,4 @@
-// modules/342-elite-sixsects-san-du.js — 少林三渡与炎魔狮王（第6关·正三角·金刚伏魔阵）
+// modules/342-elite-sixsects-san-du.js — 少林三渡与炎魔狮王、魔化谢逊（第6关·正三角金刚伏魔阵 / 倒三角枯禅轮回阵）
 // 设计：三渡技能固定、职业随站位随机（2号位=防战 / 7号位=战士 / 9号位=飞行，由 modules/330 抽位改写）。
 //   渡厄：防御 +40%（严阵以待）
 //   渡劫：每回合攻击两次（必发；走引擎 doubleStrike 额外出手通道）
@@ -22,12 +22,17 @@
 // V2.1.2 | 2026-11-22 炎爆/蓄力强制自成一组：回合开始那发 18 紧跟回合头时也画分隔符（separatorForce 放行）
 // V2.1.3 | 2026-11-22 老板口径：炎爆（开局 18 / 收尾 28）可被闪避，但不触发闪避反击——只判闪避率，不走进攻链
 // V2.1.4 | 2026-11-22 金刚伏魔阵回血日志改绿色（tone:'heal'）；飘字 💚 本就在（V1.1.4 补），确认可用
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.1.4';
+// V2.2.0 | 2026-11-24 新增第六关倒三角变体「枯禅轮回阵」：新增魔化谢逊（demonXiexun）——锁 5 号位不动（攻 0），
+//   回合收尾 ROUND_SETTLED 对全场随机 2×28 真伤（敌我不分、非召唤、不含自己；按任务书不可闪避）；
+//   任一三渡首次跌破 70%/40% → 三渡按实际站位顺时针轮转 1→3→8→1（friendlyPull 放行免控）；
+//   8 号位三渡行动前回复 30% 最大生命（每回合一次）；枯禅阵内金刚伏魔阵 30 点平回血停用。
+//   正三角（炎魔狮王）原样保留，由 modules/330 按 squadVariants["6"] 抽变体。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.2.0';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
-import { addMod, applyStatChange, getBattleRng } from '../core/214-battle-shared.js';
+import { addMod, applyStatChange, getBattleRng, getStat, swapUnitPositions } from '../core/214-battle-shared.js';
 import { computeBuffStats } from '../core/204-buff-system.js';
 import { computeDodgeChance } from '../core/213-battle-attack-edge.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
@@ -45,6 +50,12 @@ const SAN_DU_FORTIFY_REBOUND = 0.4;    // 2 号位严阵以待受击反弹：实
 const SAN_DU_LIUYUN_RATE = 0.25;       // 流云身法闪避 +25%
 const SAN_DU_DOUBLE_STRIKE_RATE = 0.8; // 概率连击：80%
 
+// ── 枯禅轮回阵（第6关倒三角变体）数值唯一来源 ──
+const SAN_DU_NAME_SET = new Set(['渡厄', '渡劫', '渡难']); // 三渡名单（枯禅轮回/8号位回血识别用）
+const SAN_DU_KUCHAN_HEAL_RATE = 0.3;   // 8 号位枯禅回血：30% 最大生命
+const DEMON_BURST_DMG = 28;            // 魔化谢逊收尾真伤：28 点/发
+const DEMON_BURST_COUNT = 2;           // 魔化谢逊收尾真伤：每回合 2 发
+
 // ── 三大高僧的固定被动 ──
 export const monkFixedBuffHandler = {
     fields: { buffType: 'string' },
@@ -53,6 +64,9 @@ export const monkFixedBuffHandler = {
         if (!self) return;
         // 三渡免疫控制（2026-11-22 老板口径）：眩晕/击退/换位一律不吃，守卫在 core/12+13
         self.state._ctrlImmune = true;
+        // 枯禅轮回阵（第6关倒三角变体）在场判定：本队含魔化谢逊 → 金刚伏魔阵 30 点平回血停用（V2.2.0）
+        const kuchanActive = ((decl.camp === CAMP_TYPES.ALLY ? (A || []) : (B || [])))
+            .some(u => u && u.name === '魔化谢逊');
 
         if (decl.buffType === 'defense') {
             // 渡厄·首当其冲（个人技，绑人）：防御 +40%（ttl:'round' 每回合重挂，避免永久 mod 逐回合叠加）
@@ -164,6 +178,7 @@ export const monkFixedBuffHandler = {
             when: SIGNAL_TYPES.ON_ROUND_START,
             priority: 21,
             handler: (data) => {
+                if (kuchanActive) return;   // 枯禅轮回阵在场：30 点平回血停用（8 号位 30% 接管）
                 if (!self.alive || ![7, 8, 9].includes(self.pos)) return;
                 const hpBefore = self.hp;
                 applyStatChange(self, 'hp', 30, self, '金刚伏魔阵回复');
@@ -266,3 +281,105 @@ export const blazeLionKingHandler = {
 
 registerMechanicHandler(MECHANIC_TYPES.MONK_FIXED_BUFF, monkFixedBuffHandler);
 registerMechanicHandler(MECHANIC_TYPES.BLAZE_LION_KING, blazeLionKingHandler);
+
+// ── 魔化谢逊：被金刚伏魔圈锁死（第6关倒三角·枯禅轮回阵核心，V2.2.0） ──
+// 锁 5 号位不动（攻 0，输出全走收尾真伤）；回合收尾对全场随机 2 发 28 点真伤（敌我不分=魔化）；
+// 任一三渡血量首次跌破 70%/40% 时驱动枯禅轮回：三渡按实际站位顺时针轮转 1→3→8→1。
+// 真伤按任务书口径不可闪避（与炎爆 V2.1.3 的「可闪」口径不同）——要改成可闪说一声。
+export const demonXiexunHandler = {
+    fields: {},
+    install({ A, B, decl }) {
+        const self = findSelf(A, B, decl);
+        if (!self) return;
+        self.state._ctrlImmune = true;   // 免疫控制（同炎魔）
+        self.atk = 0;                    // 不普攻：攻 0（含基础值），输出全走收尾真伤
+        self.state._baseAtk = 0;
+        // 三渡花名册（本队、存活）
+        const trio = () => ((decl.camp === CAMP_TYPES.ALLY ? (A || []) : (B || [])))
+            .filter(u => u && SAN_DU_NAME_SET.has(u.name) && u.alive);
+
+        // 每回合压 _stunned（同炎魔：_stunned 会被引擎每回合重置）
+        registerSettlementHook({
+            when: SIGNAL_TYPES.ON_ROUND_START,
+            priority: 24,
+            handler: () => { if (self.alive) self.state._stunned = true; }
+        });
+
+        // 回合收尾（所有单位行动完、回合结束结算前）：全场随机 2 发魔化真伤
+        //   ⚠️ 不能挂 ON_ROUND_END——那是每次出手后广播，会一回合打很多次。
+        function demonStrike(data) {
+            if (!self.alive) return;
+            const pool = [...(((data && data.A) || A) || []), ...(((data && data.B) || B) || [])]
+                .filter(u => u && u.alive && !u.isSummon && u.uid !== self.uid);
+            if (pool.length === 0) return;
+            const victim = pool[getBattleRng().nextInt(0, pool.length - 1)];
+            applyStatChange(victim, 'hp', -DEMON_BURST_DMG, self, '魔化·枯禅真伤', true, false);
+            pushSkillAnnounce(data && data.log, self, '魔化',
+                `💀 魔化谢逊发狂，对 ${victim.name} 造成 ${DEMON_BURST_DMG} 点真实伤害！`,
+                { floatText: '💀', floatUid: victim.uid, needsSeparator: true });
+        }
+        registerSettlementHook({
+            when: SIGNAL_TYPES.ROUND_SETTLED,
+            priority: 23,
+            handler: (data) => {
+                for (let i = 0; i < DEMON_BURST_COUNT; i++) demonStrike(data);
+            }
+        });
+
+        // 枯禅轮回：任一三渡血量首次跌破 70%/40% → 三渡按实际站位顺时针轮转 1→3→8→1
+        //   （回满 ≥95% 重置标记，可再次触发）。三渡免疫控制，swapUnitPositions 必须
+        //   friendlyPull:true 放行 core/214 的免控拦截（自家阵法轮转=友方拉）。
+        registerSettlementHook({
+            when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
+            priority: 26,
+            handler: (data) => {
+                const monks = trio();
+                if (monks.length < 3) return;
+                let trigger = false;
+                for (const u of monks) {
+                    const ratio = u.hp / Math.max(1, getStat(u, 'maxHp'));
+                    if (ratio >= 0.95) { u.state._sanDu70 = false; u.state._sanDu40 = false; continue; }
+                    if (!u.state._sanDu70 && ratio <= 0.7) { u.state._sanDu70 = true; trigger = true; }
+                    if (!u.state._sanDu40 && ratio <= 0.4) { u.state._sanDu40 = true; trigger = true; }
+                }
+                if (!trigger) return;
+                const at = (p) => monks.find(u => u.pos === p) || null;
+                const u1 = at(1), u3 = at(3), u8 = at(8);
+                if (!u1 || !u3 || !u8) return;
+                swapUnitPositions(u1, u3, data && data.log, { friendlyPull: true });
+                swapUnitPositions(u3, u8, data && data.log, { friendlyPull: true });
+                pushSkillAnnounce(data && data.log, u1, '枯禅轮回',
+                    `☸️ 枯禅轮回：${u1.name}→3号位，${u3.name}→8号位，${u8.name}→1号位`,
+                    { floatText: '☸️', floatUid: u1.uid, needsSeparator: true });
+            }
+        });
+
+        // 8 号位枯禅回血：轮到三渡行动前回 30% 最大生命（每回合一次 _kuchanHealed 闸，防渡劫连击双回；满血不刷行）
+        registerSettlementHook({
+            when: SIGNAL_TYPES.ON_ROUND_START,
+            priority: 17,
+            handler: () => { trio().forEach(u => { u.state._kuchanHealed = false; }); }
+        });
+        registerSettlementHook({
+            when: SIGNAL_TYPES.BEFORE_ACTION_SELECT,
+            priority: 10,
+            handler: (data) => {
+                if (!data || !data.unit || !data.unit.alive || !SAN_DU_NAME_SET.has(data.unit.name)) return;
+                if (data.unit.pos !== 8 || data.unit.state._kuchanHealed) return;
+                const maxHp = getStat(data.unit, 'maxHp');
+                if (!(data.unit.hp < maxHp)) return;
+                data.unit.state._kuchanHealed = true;
+                const hpBefore = data.unit.hp;
+                applyStatChange(data.unit, 'hp', Math.floor(maxHp * SAN_DU_KUCHAN_HEAL_RATE), self, '枯禅轮回回复');
+                const healed = data.unit.hp - hpBefore;
+                if (healed > 0) {
+                    pushSkillAnnounce(data.log, data.unit, '枯禅轮回',
+                        `🌿 ${data.unit.name} 在谢逊身后入定，回复 ${Math.round(healed)} 点生命（${Math.round(hpBefore)} → ${Math.round(data.unit.hp)}）`,
+                        { floatText: '🌿', floatUid: data.unit.uid, tone: 'heal' });
+                }
+            }
+        });
+    }
+};
+
+registerMechanicHandler(MECHANIC_TYPES.DEMON_XIEXUN, demonXiexunHandler);

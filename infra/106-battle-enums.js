@@ -233,7 +233,8 @@ export const MECHANIC_TYPES = Object.freeze({
     STEAL_SKILL: 'stealSkill',         // 11门绝技：每回合偷敌方一条 mechanic 声明
     // 第6关·少林三渡正三角（modules/342）
     MONK_FIXED_BUFF: 'monkFixedBuff',   // 三渡固定被动：防御+40% / 每回合两次攻击 / 闪避+25%
-    BLAZE_LION_KING: 'blazeLionKing'    // 炎魔狮王：锁死不动，每回合随机一发炎爆（28 真伤）
+    BLAZE_LION_KING: 'blazeLionKing',   // 炎魔狮王：锁死不动，每回合随机一发炎爆（28 真伤）
+    DEMON_XIEXUN: 'demonXiexun'         // 魔化谢逊（第6关倒三角·枯禅轮回阵）：锁死不动，收尾全场 2×28 真伤，驱动三渡轮转
 });
 
 /**

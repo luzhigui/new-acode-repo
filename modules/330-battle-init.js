@@ -575,18 +575,23 @@ export function initBattleTeams(currentStage, _rng) {
     //   渡厄/渡劫/渡难 随机分到 2/7/9 号位，职业随站位改写（2=防战 / 7=战士 / 9=飞行）；
     //   技能固定（渡厄防御 / 渡劫双击 / 渡难闪避），玩家每局都要重新判断该先打谁。
     //   走 _rng 洗位，PVP 双端同源。
+    //   枯禅轮回阵（倒三角，V2.2.0 老板任务书）：阵容含魔化谢逊时改锁 1/3/8（1=防战 / 3=战士 / 8=飞行），
+    //   谢逊固定 5 号位；轮转与 8 号位回血由 modules/342 内驱动。
     const SAN_DU_NAMES = ['渡厄', '渡劫', '渡难'];
     const SAN_DU_ROLE_BY_POS = { 2: ROLE_TYPES.DEFENDER, 7: ROLE_TYPES.WARRIOR, 9: ROLE_TYPES.FLYER };
+    const SAN_DU_ROLE_BY_POS_KUCHAN = { 1: ROLE_TYPES.DEFENDER, 3: ROLE_TYPES.WARRIOR, 8: ROLE_TYPES.FLYER };
     let sanDuLayout = null;
     if (currentStage === 6 && Array.isArray(enemySquad)
         && enemySquad.filter(it => it && it.name && SAN_DU_NAMES.includes(it.name)).length === 3) {
-        const slots = [2, 7, 9];
+        const kuchan = enemySquad.some(it => it && it.name === '魔化谢逊');
+        const slots = kuchan ? [1, 3, 8] : [2, 7, 9];
+        const roleByPos = kuchan ? SAN_DU_ROLE_BY_POS_KUCHAN : SAN_DU_ROLE_BY_POS;
         for (let i = slots.length - 1; i > 0; i--) {
             const j = _rng.nextInt(0, i);
             [slots[i], slots[j]] = [slots[j], slots[i]];
         }
         sanDuLayout = new Map();
-        SAN_DU_NAMES.forEach((n, i) => sanDuLayout.set(n, { pos: slots[i], role: SAN_DU_ROLE_BY_POS[slots[i]] }));
+        SAN_DU_NAMES.forEach((n, i) => sanDuLayout.set(n, { pos: slots[i], role: roleByPos[slots[i]] }));
     }
 
     if (enemySquad) {
@@ -696,6 +701,7 @@ export function initBattleTeams(currentStage, _rng) {
         }
         let allUnits = [...enemyUnits];
         // 三渡正三角锁位：2/7/9 号位 + 炎魔狮王 5 号位（先占位，模板排位与随机补齐自动跳过）
+        //   枯禅轮回阵（倒三角）：三渡锁 1/3/8，魔化谢逊锁 5 号位（同先占位口径）
         if (sanDuLayout) {
             for (const u of allUnits) {
                 const lay = sanDuLayout.get(u.name);
@@ -704,6 +710,8 @@ export function initBattleTeams(currentStage, _rng) {
             }
             const blazeKing = allUnits.find(u => u.name === '炎魔狮王');
             if (blazeKing) { blazeKing.pos = 5; blazeKing.state._originalPos = 5; enemyPosSet.add(5); }
+            const demonXiexun = allUnits.find(u => u.name === '魔化谢逊');
+            if (demonXiexun) { demonXiexun.pos = 5; demonXiexun.state._originalPos = 5; enemyPosSet.add(5); }
         }
         let template = variantPosTemplate || (C.ENEMY_POS_TEMPLATES && C.ENEMY_POS_TEMPLATES[currentStage] ? C.ENEMY_POS_TEMPLATES[currentStage] : null);
         let eliteUnits = allUnits.filter(u => C.ELITE_POOL && C.ELITE_POOL[currentStage] && C.ELITE_POOL[currentStage].some(e => e.name === u.name));

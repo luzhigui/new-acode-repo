@@ -278,6 +278,21 @@
       ]
     },
 
+    "魔化谢逊": {
+      "named": false, "tags": ["六大派", "少林", "首领"],
+      "m": 115, "poolTier": 115, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": false,
+      "role": "防战",
+      "skills": {
+        "demonBurst": {
+          "name": "魔化",
+          "desc": "被金刚伏魔圈锁住，无法行动且攻击为 0。每回合收尾随机对场上 2 个存活单位（敌我不分，不含召唤物）各造成 28 点真实伤害；任一三渡血量首次跌破 70%/40% 时驱动枯禅轮回换位。"
+        }
+      },
+      "mechanics": [
+        { "camp": "enemy", "type": "demonXiexun" }
+      ]
+    },
+
     "唐文亮": {
       "named": true,
       "tags": ["六大派", "崆峒", "标枪", "精英"],
@@ -1666,6 +1681,15 @@
         {
           "squad": [
             { "name": "炎魔狮王", "role": "炎魔", "m": 171 },
+            { "name": "渡厄", "role": "防战", "m": 115 },
+            { "name": "渡劫", "role": "战士", "m": 115 },
+            { "name": "渡难", "role": "飞行", "m": 115 }
+          ],
+          "posTemplate": {}
+        },
+        {
+          "squad": [
+            { "name": "魔化谢逊", "role": "防战", "m": 115 },
             { "name": "渡厄", "role": "防战", "m": 115 },
             { "name": "渡劫", "role": "战士", "m": 115 },
             { "name": "渡难", "role": "飞行", "m": 115 }
