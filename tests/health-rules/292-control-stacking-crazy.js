@@ -1,4 +1,5 @@
-﻿// tests/health-rules/292-control-stacking-crazy.js | 2026-11-08（体检总框架 D11·控制与意识类机制）
+﻿// V1.2.0 | 2026-11-24 第52轮（#85）：报幕「癫」加层数标记，6条正则兼容有无标记（判定/容差/字段不变）。
+// tests/health-rules/292-control-stacking-crazy.js | 2026-11-08（体检总框架 D11·控制与意识类机制）
 // 控制叠加一致性：癫（不分敌友）与其它控制同时存在时，癫的两条硬承诺不能被任何控制路径改写。
 //
 // 机制源（modules/333-elite-mingjiao-crazy.js）：
@@ -24,17 +25,17 @@
 //   同名克隆（拒马等召唤物）按名字认留痕，宁漏勿误；报幕前后找不到对应出手时只 observe，不染红。
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
-export const VER = 'tests/health-rules/292-control-stacking-crazy.js V1.1.1';
+export const VER = 'tests/health-rules/292-control-stacking-crazy.js V1.2.0';;
 // V1.1.1（2026-11-08）：持有者/报幕判定改「有 uid 只认 uid，名字只兜底无 uid 召唤物」。
 //   病由：seed30/5 癫传到张无忌 u213（幻影）后，名字兜底把本体 u1 也当持有者 → u1 正常出手被判「没报幕」；
 //   癫传到鹤笔翁 u373 后，u7 的普通 miss 被判「必中失效」。seed32/6 成昆同类。判定强度不变。
 
-const RE_OPEN = /🤪 (.+?) 受到「癫」的影响/;
-const RE_OPEN_TARGET = /🤪 (.+?) 受到「癫」的影响，不分敌友地向 (.+?) 发起攻击/;
-const RE_TRANSFER = /🤪 (.+?) 将「癫」传染给了 (.+?)$/;
-const RE_DEATH = /🤪 「癫」随着 (.+?) 的死亡传给了 (.+?)$/;
-const RE_BACK = /🤪 「癫」找不到攻击者，回到了 (.+?) 身上$/;
-const RE_RANDOM = /🤪 周颠已阵亡，「癫」随机传给了 (.+?)$/;
+const RE_OPEN = /🤪 (.+?) 受到「癫(?:·[^」]*)?」的影响/;
+const RE_OPEN_TARGET = /🤪 (.+?) 受到「癫(?:·[^」]*)?」的影响，不分敌友地向 (.+?) 发起攻击/;
+const RE_TRANSFER = /🤪 (.+?) 将「癫(?:·[^」]*)?」传染给了 (.+?)$/;
+const RE_DEATH = /🤪 「癫(?:·[^」]*)?」随着 (.+?) 的死亡传给了 (.+?)$/;
+const RE_BACK = /🤪 「癫(?:·[^」]*)?」找不到攻击者，回到了 (.+?) 身上$/;
+const RE_RANDOM = /🤪 周颠已阵亡，「癫(?:·[^」]*)?」随机传给了 (.+?)$/;
 const TARGET_EVENTS = [FACT_TYPES.ATTACK, FACT_TYPES.MISS, FACT_TYPES.DODGE, FACT_TYPES.IMMUNE];
 
 function stripTags(s) {
