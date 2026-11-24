@@ -37,7 +37,7 @@ import {
 } from './706-main-battle.js';
 import { setBGMVolume, fadeBGMTo, lowerBGM } from './707-audio-control.js';
 import { toggleFxPanel, syncFxButton } from './708-fx-trigger.js';
-import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindNetPvp, bindPauseButton, bindNextButton, bindDebugButton, bindBGButton, bindDodgeButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindXiaoZhaoSwitchButton, bindGridClick, bindLineupButtons, initSpeedButtons } from './709-ui-controls.js';
+import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindNetPvp, bindPauseButton, bindNextButton, bindDebugButton, bindBGButton, bindDodgeButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindXiaoZhaoSwitchButton, bindDiscipleSwitchButton, bindGridClick, bindLineupButtons, initSpeedButtons } from './709-ui-controls.js';
 import { bindCopyLogButton } from './705-main-dialogs.js';
 import * as net from '../infra/109-net-pvp.js';
 // 2026-11-10 下线存档：新手引导（原 ui/712-tutorial.js）与开场 CG（原 ui/713-opening-cg.js）已搬 archive/。
@@ -230,6 +230,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     bindLineupButtons();
     bindVoteFloat();
     bindXiaoZhaoSwitchButton();   // 小昭姊/妹摆位切换悬浮按钮（只在摆位阶段显示）
+    bindDiscipleSwitchButton();   // 机制弟子四选一（四宫格弹窗，只在摆位阶段显示）
     bindGridClick(getState, setState, updateUI);
     bindCopyLogButton(showModal, copyLogToClipboard);
     // 2026-11-10 下线存档：原 initTutorial(cb) 的作用是给头部「❓」按钮绑点击——

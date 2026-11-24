@@ -16,7 +16,9 @@
 // V7.9.8 | 2026-11-22 空智(M104,少林)入六大派M104精英池(老板拍板)
 // V7.9.9 | 2026-11-24 变体加权抽取：变体可带 weight（缺省 1）。第 6 关 成昆:正三角:倒三角 = 2:1:1（50%/25%/25%）；forceSanDu 🐲 改为在正/倒三角两个变体里随机
 // V7.9.10 | 2026-11-24 老板纠正：倒三角（枯禅轮回阵）三渡职业改绑人（渡厄防战/渡劫战士/渡难飞行），不随站位；正三角仍随站位（2/7/9）
-export const VER = 'modules/330-battle-init.js V7.9.10';
+// V7.10.0 | 2026-11-24 机制弟子四选一独立槽：4 个弟子退出 M100/普通兵随机，每局固定只出 1 个
+//   （forceDisciple 指定则必出，否则战斗 RNG 随机）；RNG 抽签契约升 v3（新增 1 次消耗）
+export const VER = 'modules/330-battle-init.js V7.10.0';
 
 // ── RNG 抽签契约版本（initBattleTeams 内随机数消耗的「次数 + 顺序」指纹）──
 // 为什么必须有：V7.6.7 把明教骰子 3→7、六大派骰子 2→6 时没有任何版本标记，
@@ -30,7 +32,8 @@ export const VER = 'modules/330-battle-init.js V7.9.10';
 //   阵容变体 1 pick（仅当该关有 squadVariants）；
 //   之后是随分支/人数变化的补齐抽签（候选池洗牌、普通兵填充、站位洗牌、何太冲职业摇）——同属契约。
 //   v2：第6关「三渡正三角」变体额外消耗 2 次洗位骰（仅该变体分支，Bubble 排序 3 位 = 2 次）。
-export const RNG_CONTRACT_VERSION = 'rng-contract-v2';
+//   v3：机制弟子槽新增 1 次四选一骰（无条件消耗；forceDisciple 只改应用，不改消耗）。
+export const RNG_CONTRACT_VERSION = 'rng-contract-v3';
 // 六大派额外精英/特殊兵混入池（M107 / M104 / M100 三档）。
 //   导出给 tools/820 参数实验室的「关卡角色过滤」用——工具里不再抄一份名单，避免两边漂移。
 export const SIX_SECTS_WEAK_ELITE_POOLS = Object.freeze({
@@ -143,6 +146,9 @@ export function initBattleTeams(currentStage, _rng) {
 
     // 明教带技能的普通兵池（M100 档补位用；反伤弟子在数据里是 m=97，建单位一律读 MING_M 实际值，不硬写 100）
     const MING_SPECIAL_M100 = ['周颠', '说不得', '彭莹玉', '张中', '反伤弟子', '木桩弟子', '拼命弟子', '防化弟子'];
+    // 机制弟子四选一（2026-11-24 老板拍板）：不参与 M100/普通兵随机，每局走独立"弟子槽"固定只出 1 个；
+    //   forceDisciple 指定则必出该弟子（摆位阶段 ui/709 四宫格可切 → ui/706 switchDisciple）。
+    const DISCIPLE_NAMES = ['反伤弟子', '木桩弟子', '拼命弟子', '防化弟子'];
 
     // ⚠️ RNG 序列更新（V7.6.7）：明教抽签次数从原 3 次变更为 7 次，旧冻结基线（固定种子回放/140 场体检）失效，
     //    联机双端需重新校准基线。骰子一律无条件消耗，force 只改「是否应用」。
@@ -304,7 +310,7 @@ export function initBattleTeams(currentStage, _rng) {
         // 实例化 M100：带技能普通兵池，排除已用名后按 idx 取
         for (let i = 0; i < m100Count && allyTeam.length < 5; i++) {
             const used = new Set(allyTeam.map(u => u.name));
-            const pool = MING_SPECIAL_M100.filter(n => !used.has(n));
+            const pool = MING_SPECIAL_M100.filter(n => !used.has(n) && !DISCIPLE_NAMES.includes(n));
             if (pool.length === 0) break;
             const pickIdx = (i === 0 ? m100PickIdxA : m100PickIdxB) % pool.length;
             pushMingSpecial(pool[pickIdx]);
@@ -316,6 +322,8 @@ export function initBattleTeams(currentStage, _rng) {
     for (const [name, tier] of Object.entries(C.MING_POOL_TIER)) {
         // 去名字字面量：用身份标记判断是否精英（与 eliteConfigs 同源）
         if (HERO_FLAGS[name]) continue;
+        // 弟子走独立槽位（每局固定 1 个），不参与普通兵随机
+        if (DISCIPLE_NAMES.includes(name)) continue;
         // 入池资格读池档 poolTier；数值档 m 只用于建单位
         const m = C.MING_M[name];
         if (tier >= 95 && tier <= 104) candidatePool.push({ name, m });
@@ -351,6 +359,26 @@ export function initBattleTeams(currentStage, _rng) {
             unit.pos = null;
             if (allyTeam.length >= 5) allyTeam.pop(); // 满 5 人则挤掉最后一个
             allyTeam.push(unit);
+        }
+    }
+
+    // 机制弟子槽（2026-11-24）：每局固定只出 1 个，四选一。
+    //   forceDisciple 指定则必出该弟子；未指定走战斗 RNG 随机（PVP 双端同源）。
+    //   forceMechTest（dev 🧪 按钮）已在上方强制三名弟子同场，此槽不再插，避免第 4 人。
+    if (!forceMechTest) {
+        const forceDisciple = GlobalStore.get('forceDisciple');
+        const discRoll = _rng.nextInt(0, DISCIPLE_NAMES.length - 1);   // 无条件消耗（force 只改是否应用，同本文件骰子纪律）
+        const pickName = DISCIPLE_NAMES.includes(forceDisciple) ? forceDisciple : DISCIPLE_NAMES[discRoll];
+        if (!allyTeam.some(u => u.name === pickName)) {
+            const chDisciple = getGameData()?.characters?.[pickName];
+            if (chDisciple) {
+                const discRole = chDisciple.role || (chDisciple.tags || []).find(t => C.ROLES.includes(t)) || C.ROLES[_rng.nextInt(0, 3)];
+                const unit = new Unit(pickName, chDisciple.m, discRole, CAMP_TYPES.ALLY);
+                unit.init(_rng); unit.applyBonus();
+                unit.pos = null;
+                if (allyTeam.length >= 5) allyTeam.pop();   // 与随机补位同口径：满 5 人挤掉最后一个
+                allyTeam.push(unit);
+            }
         }
     }
 

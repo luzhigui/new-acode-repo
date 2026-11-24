@@ -2,7 +2,7 @@
 // `export {...} from` 只转出、不产生本模块局部绑定：本文件要用的符号必须显式 import（否则 ReferenceError）。
 //   顶部 re-export 保住 61/63/75/76 的 import 点不变。
 // V7.10.1 | 2026-11-20 阵容存档含对面：保存/列表/还原都带六大派（弹窗分行显示「明教：… / 敌方：…」）
-export const VER = 'ui/709-ui-controls.js V7.10.1';
+export const VER = 'ui/709-ui-controls.js V7.11.0';
 
 // 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
@@ -434,6 +434,88 @@ export function bindXiaoZhaoSwitchButton() {
             if (typeof fn === 'function') fn();
         });
     }
+}
+
+// ========== 机制弟子四选一切换按钮（2026-11-24） ==========
+// 每局固定只出 1 个机制弟子；摆位阶段点右下角 🎭，弹出四宫格，一次点击直达目标（不用循环点 3 次）。
+// 与小昭按钮的区别：弟子本局可能不在场，无法贴格子定位，所以固定钉在右下角。
+// 显隐：只在摆位阶段（adjustMode）显示；点按钮时再校验一次，战斗中误点无副作用。
+export const DISCIPLE_NAMES = ['反伤弟子', '木桩弟子', '拼命弟子', '防化弟子'];
+const DISCIPLE_ICONS = { 反伤弟子: '🪞', 木桩弟子: '🪵', 拼命弟子: '🩸', 防化弟子: '🧪' };
+let _discipleBtn = null;
+let _disciplePanel = null;
+
+export function getDiscipleSwitchBtn() {
+    if (!_discipleBtn) _discipleBtn = document.getElementById('discipleSwitchBtn');
+    return _discipleBtn;
+}
+
+function ensureDisciplePanel() {
+    if (_disciplePanel) return _disciplePanel;
+    const panel = document.createElement('div');
+    panel.id = 'discipleSwitchPanel';
+    panel.style.cssText = 'position:fixed;right:64px;bottom:96px;display:none;grid-template-columns:repeat(2,68px);'
+        + 'gap:6px;padding:8px;background:rgba(20,20,20,0.94);border:1px solid #7ad;border-radius:10px;z-index:10000;';
+    document.body.appendChild(panel);
+    _disciplePanel = panel;
+    return panel;
+}
+
+function renderDisciplePanel() {
+    const panel = ensureDisciplePanel();
+    const UI = GlobalStore.get('UI');
+    const cur = ((UI && UI.allyTeam) || []).find(u => DISCIPLE_NAMES.includes(u.name));
+    panel.innerHTML = '';
+    DISCIPLE_NAMES.forEach(n => {
+        const on = !!(cur && cur.name === n);
+        const cell = document.createElement('button');
+        cell.textContent = (DISCIPLE_ICONS[n] || '·') + '\n' + n.replace('弟子', '');
+        cell.style.cssText = 'width:68px;height:54px;border-radius:8px;cursor:pointer;font-size:11px;color:#fff;'
+            + 'white-space:pre-line;line-height:1.35;padding:0;'
+            + 'background:' + (on ? 'rgba(255,215,0,0.22)' : 'rgba(60,60,60,0.9)') + ';'
+            + 'border:1px solid ' + (on ? '#ffd700' : '#555') + ';';
+        cell.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            const fn = GlobalStore.getUIHandler('switchDisciple');
+            if (typeof fn === 'function') fn(n);
+            renderDisciplePanel();
+        });
+        panel.appendChild(cell);
+    });
+}
+
+export function toggleDisciplePanel() {
+    if (!GlobalStore.get('adjustMode')) return;   // 只在摆位阶段可用
+    const panel = ensureDisciplePanel();
+    if (panel.style.display === 'grid') { panel.style.display = 'none'; return; }
+    renderDisciplePanel();
+    panel.style.display = 'grid';
+}
+
+export function syncDiscipleSwitchBtn() {
+    const btn = getDiscipleSwitchBtn();
+    if (!btn) return;
+    const isAdjust = !!GlobalStore.get('adjustMode');
+    btn.style.display = isAdjust ? 'flex' : 'none';
+    if (!isAdjust) { const p = ensureDisciplePanel(); p.style.display = 'none'; }
+    const UI = GlobalStore.get('UI');
+    const cur = ((UI && UI.allyTeam) || []).find(u => DISCIPLE_NAMES.includes(u.name));
+    btn.textContent = cur ? (DISCIPLE_ICONS[cur.name] || '🎭') : '🎭';
+}
+
+export function bindDiscipleSwitchButton() {
+    if (document.getElementById('discipleSwitchBtn')) return;   // 幂等
+    const btn = document.createElement('button');
+    btn.id = 'discipleSwitchBtn';
+    _discipleBtn = btn;
+    btn.textContent = '🎭';
+    btn.title = '切换机制弟子（四选一）';
+    btn.style.cssText = 'position:fixed;right:14px;bottom:96px;width:40px;height:40px;border-radius:50%;'
+        + 'background:rgba(30,30,30,0.88);border:2px solid #7ad;font-size:18px;line-height:1;'
+        + 'display:flex;align-items:center;justify-content:center;z-index:9999;cursor:pointer;'
+        + 'box-shadow:0 2px 10px rgba(0,0,0,0.45);color:#fff;padding:0;touch-action:manipulation;';
+    btn.addEventListener('click', (e) => { e.stopPropagation(); toggleDisciplePanel(); });
+    document.body.appendChild(btn);
 }
 
 // 站位交换权限：

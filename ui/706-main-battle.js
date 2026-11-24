@@ -1,7 +1,7 @@
 // ui/706-main-battle.js — UI 层战斗管理（阵容生成、Buff 选择弹窗、小昭形态切换、中止战斗）
-export const VER = 'ui/706-main-battle.js V6.1.9';
+export const VER = 'ui/706-main-battle.js V6.2.0';
 
-import { CONFIG } from '../core/201-config-5v5-test.js';
+import { CONFIG, getGameData } from '../core/201-config-5v5-test.js';
 import { SeededRNG, fmtHpText, fmtAtk, fmtNum } from '../infra/102-core-utils.js';
 import { GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
 import { addPermanentBuff } from '../modules/302-elite-skills.js';
@@ -268,6 +268,38 @@ export function syncXiaoZhaoSwitchBtn() {
 
 // 注册到 UIHandler 通道：ui/719 的 updateButtons 末尾调它同步显示状态
 GlobalStore.setUIHandler('syncXiaoZhaoSwitchBtn', syncXiaoZhaoSwitchBtn);
+
+// ========== 机制弟子四选一切换（2026-11-24） ==========
+// 每局固定只出 1 个机制弟子（modules/330 的"弟子槽"）。摆位阶段 ui/709 四宫格点选 → 本函数原地换人。
+// 换人 = 新 Unit 放进原格；forceDisciple 记住选择，下一局建队也按它出。
+const DISCIPLE_NAMES = ['反伤弟子', '木桩弟子', '拼命弟子', '防化弟子'];
+
+export function switchDisciple(name) {
+    if (!DISCIPLE_NAMES.includes(name)) return;
+    GlobalStore.set('forceDisciple', name);   // 本局 + 后续局都记
+    const UI = GlobalStore.get('UI');
+    const team = (UI && Array.isArray(UI.allyTeam)) ? UI.allyTeam : null;
+    if (!team) return;
+    const cur = team.find(u => DISCIPLE_NAMES.includes(u.name));
+    if (!cur || cur.name === name) return;   // 本局没弟子 / 已经是它：无需重建
+    const cfg = getGameData()?.characters?.[name];
+    if (!cfg) return;
+    const role = cfg.role || (cfg.tags || []).find(t => CONFIG.ROLES.includes(t)) || CONFIG.ROLES[Math.floor(Math.random() * 4)];
+    const unit = new Unit(name, cfg.m, role, CAMP_TYPES.ALLY);
+    unit.applyBonus();                        // 与 330 同口径：不掷新点数（属性随 Unit 构造生成）
+    unit.pos = cur.pos;
+    unit.state._originalPos = cur.pos;
+    unit.fixed = cur.fixed;
+    const idx = team.indexOf(cur);
+    if (idx >= 0) team[idx] = unit;
+    GlobalStore.set('UI', UI);
+    updateUI();
+    renderGrid('allyGrid', CAMP_TYPES.ALLY);
+    // 联机房主：阵容变了必须重发，否则对手端还是旧弟子（保留已准备状态，同小昭切换口径）
+    const fnLineup = GlobalStore.getUIHandler('sendNetLineup');
+    if (typeof fnLineup === 'function') fnLineup(true);
+}
+GlobalStore.setUIHandler('switchDisciple', switchDisciple);
 GlobalStore.setUIHandler('switchXiaoZhaoForm', switchXiaoZhaoForm);
 
 // Buff-计时：回合结束后递减Buff持续时间 —— 实现已移至 modules/329-buff-tools.js

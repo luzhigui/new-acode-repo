@@ -29,7 +29,7 @@ export const STORE_KEY_WHITELIST = Object.freeze(new Set([
     'battleFacts', 'battleHasZhang', 'battleHistory', 'battleLog', 'battleResultForInfo',
     'battleStore', 'bugMode', 'bulletTimeActive', 'careerLogSuppress', 'chestCount', 'crashMode',
     'currentBattleState', 'currentDoubleStrikeUid', 'currentStage', 'debugMode',
-    'dodgeEffectEnabled', 'enemyAutoHex', 'fastForwardActive', 'forceHanLiSa', 'forceMingUnit',
+    'dodgeEffectEnabled', 'enemyAutoHex', 'fastForwardActive', 'forceDisciple', 'forceHanLiSa', 'forceMingUnit',
     'forceMechTest', 'forcePang', 'forceSanDu', 'forceSectUnit', 'forceSoloWeakElite', 'forceWeakElite', 'forceWei', 'forceXiaoZhao',
     'forceXieXun', 'forceZhang', 'fxDashSlow', 'fxDodgeBullet', 'fxHanlisaAim', 'gameStarted',
     'glowColors', 'gs', 'hlsAimPlayedThisTurn', 'holyToken', 'isBattleStarting', 'isPaused',
@@ -103,6 +103,7 @@ export const STORE_SCHEMA = Object.freeze({
     fastForwardActive: { type: S.BOOLEAN },
     forceHanLiSa: { type: S.BOOLEAN, nullable: true },
     forceMingUnit: { type: S.STRING, nullable: true },
+    forceDisciple: { type: S.STRING, nullable: true },
     forceMechTest: { type: S.BOOLEAN, nullable: true },
     forcePang: { type: S.BOOLEAN, nullable: true },
     // 第 6 关三渡阵（dev-index 🐲 按钮）：强制抽含炎魔狮王的变体
