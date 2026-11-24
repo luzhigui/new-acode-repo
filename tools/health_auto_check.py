@@ -23,6 +23,10 @@ import sys
 import tempfile
 import time
 
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+import threading
+
 try:
     from playwright.sync_api import sync_playwright
 except ImportError:
@@ -50,6 +54,56 @@ def pick_port(start=8000, tries=50):
         if not port_busy(p):
             return p
     return start
+
+
+def load_rule_tags():
+    """规则名 → 机制 tag（读 tests/124rule-recipes.js），用于把 skip 规则排成定向局。"""
+    try:
+        txt = open(os.path.join(ROOT, 'tests', '124rule-recipes.js'), encoding='utf-8').read()
+        raw = dict(re.findall(r"'([^']{2,60})':\s*\{\s*tag:\s*'([^']+)'", txt))
+    except Exception:
+        return {}
+    m = {}
+    for k, v in raw.items():
+        m[k] = v
+        m[re.sub(r'[（(][^）)]*[）)]', '', k).strip()] = v
+    return m
+
+
+def tags_for(names):
+    m = load_rule_tags()
+    out = {}
+    for n in names:
+        t = m.get(n) or m.get(re.sub(r'[（(][^）)]*[）)]', '', n).strip())
+        if t:
+            out.setdefault(t, []).append(n)
+    return out
+
+
+def run_targeted(page, tag, budget):
+    """跑一场定向局（?rules=<tag>），返回结果 dict 或 None。"""
+    from urllib.parse import quote
+    url = f'{URL}?auto=1&budget={budget}&stages={STAGES}&speed={SPEED}&rules={quote(tag)}'
+    print(f'\n[定向] ?rules={tag} | 预算{budget}s', flush=True)
+    try:
+        page.goto(url, wait_until='domcontentloaded', timeout=20000)
+    except Exception as e:
+        print('[定向] 打开失败:', str(e)[:120], flush=True)
+        return None
+    deadline = time.time() + budget + 15
+    while time.time() < deadline:
+        try:
+            r = page.evaluate("() => window.__healthResult ? window.__healthResult : null")
+            if r:
+                return r
+            pr = page.evaluate("() => window.__healthProgress ? window.__healthProgress : null")
+            if pr:
+                print('\r' + render_progress(pr), end='', flush=True)
+        except Exception:
+            pass
+        page.wait_for_timeout(2000)
+    print()
+    return None
 
 
 def render_progress(pr):
@@ -104,10 +158,23 @@ def main():
     URL = f'http://localhost:{PORT}/tests/120test-runner.html'
     server = None
     if not port_busy(PORT):
-        print(f'[起服务器] python3 -m http.server {PORT} (cwd={ROOT})', flush=True)
-        server = subprocess.Popen([sys.executable, '-m', 'http.server', str(PORT), '--bind', '127.0.0.1'],
-                                  cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        time.sleep(1.2)
+        # V1.3：单线程 python -m http.server 在并发 import 时会卡死，浏览器随即 ERR_CONNECTION_REFUSED →
+        #   页面 0 关 no-result。改成同进程多线程服务器（也避免孤儿服务占端口）。
+        print(f'[起服务器] ThreadingHTTPServer {PORT} (cwd={ROOT})', flush=True)
+
+        class _Quiet(SimpleHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+        class _Srv(ThreadingHTTPServer):
+            daemon_threads = True
+            allow_reuse_address = True
+            request_queue_size = 256   # 默认 5：浏览器并发拉 169 个规则模块会被拒连 → 页面半初始化
+
+        server = _Srv(('127.0.0.1', PORT), partial(_Quiet, directory=ROOT))
+        server.daemon_threads = True
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        time.sleep(0.5)
 
     target_url = f'{URL}?auto=1&budget={BUDGET}&stages={STAGES}&speed={SPEED}'
     print(f'[打开] {target_url}', flush=True)
@@ -130,7 +197,7 @@ def main():
                 if _try == 1:
                     browser.close()
                     if server:
-                        server.terminate()
+                        server.shutdown(); server.server_close()
                     sys.exit(1)
                 time.sleep(1)
 
@@ -159,6 +226,44 @@ def main():
                 })
             else:
                 rounds_meta.append({'idx': i, 'elapsed': None, 'max': 0, 'reason': 'no-result', 'pass': 0, 'skip': 0})
+
+        # V1.3：首轮 no-result 自动重载一次（页面偶发初始化失败，旧版直接判无效收工）
+        if len(rounds_meta) == 1 and rounds_meta[0].get('reason') == 'no-result':
+            print('[重试] 首轮 no-result，重载页面再跑一次…', flush=True)
+            _r = run_one_round(page, 2, 2)
+            if _r:
+                for _it in _r.get('issues', []):
+                    _key = (_it.get('stage'), _it.get('type'), _it.get('detail'))
+                    if _key not in seen_issue_keys:
+                        seen_issue_keys.add(_key)
+                        all_issues.append(_it)
+                all_pass_names.update(_r.get('rulePassNames', []))
+                all_skip_names.update(_r.get('ruleSkippedNames', []))
+                rounds_meta[0] = {'idx': 1, 'elapsed': _r.get('elapsed', 0), 'max': _r.get('maxStageSeen', 0),
+                                  'reason': _r.get('reason'), 'pass': _r.get('rulePass', 0),
+                                  'skip': _r.get('ruleSkip', 0)}
+
+        # V1.3：定向补跑——按 tag 把「机制没触发」的规则排成最多 3 场定向局（默认 30s/场，可用 env 关掉）
+        targeted_meta = []
+        if os.environ.get('HEALTH_TARGETED', '1') != '0' and all_skip_names:
+            _tb = int(os.environ.get('HEALTH_TARGET_BUDGET', '50'))
+            _cand = tags_for(all_skip_names)
+            for _tag, _ns in sorted(_cand.items(), key=lambda kv: -len(kv[1]))[:2]:
+                _r = run_targeted(page, _tag, _tb)
+                if not _r:
+                    targeted_meta.append({'tag': _tag, 'reason': 'no-result', 'pass': 0, 'skip': 0, 'max': 0})
+                    continue
+                for _it in _r.get('issues', []):
+                    _key = (_it.get('stage'), _it.get('type'), _it.get('detail'))
+                    if _key not in seen_issue_keys:
+                        seen_issue_keys.add(_key)
+                        all_issues.append(_it)
+                _p = set(_r.get('rulePassNames', [])) | set(_r.get('ruleFailNames', []))
+                all_pass_names.update(_p)
+                all_skip_names.update(_r.get('ruleSkippedNames', []))
+                all_skip_names -= _p
+                targeted_meta.append({'tag': _tag, 'reason': _r.get('reason'), 'pass': _r.get('rulePass', 0),
+                                      'skip': _r.get('ruleSkip', 0), 'max': _r.get('maxStageSeen', 0)})
 
         # V1.1：无结果 / 0 关 = 本轮无效，不是通过（页面初始化失败、端口冲突都会被旧版当成 ✅）
         invalid_rounds = [m for m in rounds_meta if m['reason'] == 'no-result' or (m['max'] or 0) == 0]
@@ -250,27 +355,22 @@ def main():
         except Exception:
             pass
 
-        # V1.2：定向补跑建议 —— 用 tests/124rule-recipes.js 的 tag，把「没触发的规则」翻成一场定向局
-        try:
-            _txt = open(os.path.join(ROOT, 'tests', '124rule-recipes.js'), encoding='utf-8').read()
-            _raw = dict(re.findall(r"'([^']{2,60})':\s*\{\s*tag:\s*'([^']+)'", _txt))
-        except Exception:
-            _raw = {}
-        # 规则名的后缀 (回归)/(观测) 在 RULE_META 里可能带或不带，统一去掉括号再匹配
-        _map = {}
-        for _k, _v in _raw.items():
-            _map[_k] = _v
-            _map[re.sub(r'[（(][^）)]*[）)]', '', _k).strip()] = _v
-        _tags = {}
-        for _n in all_skip_names:
-            _t = _map.get(_n) or _map.get(re.sub(r'[（(][^）)]*[）)]', '', _n).strip())
-            if _t:
-                _tags.setdefault(_t, []).append(_n)
+        if targeted_meta:
+            _tp = sum(m.get('pass', 0) for m in targeted_meta)
+            print(f'🎯 定向轮 {len(targeted_meta)} 场：新增判决 {_tp} 条', flush=True)
+            for m in targeted_meta:
+                print(f"   ↳ ?rules={m['tag']}：{m.get('reason')} | 最远第{m.get('max', 0)}关 | "
+                      f"通过{m.get('pass', 0)}/跳过{m.get('skip', 0)}", flush=True)
+
+        # V1.2：还没触发的规则 → 下一轮可直接用的定向命令
+        _tags = tags_for(all_skip_names)
         if _tags:
-            print('🎯 定向补跑（把没触发的机制排成定向局，比加预算有用）：', flush=True)
-            for _t, _ns in sorted(_tags.items(), key=lambda kv: -len(kv[1]))[:8]:
-                print(f"   · ?rules={_t} —— 可补 {len(_ns)} 条：{'、'.join(_ns[:4])}", flush=True)
-        _no_tag = [n for n in all_skip_names if n not in _map and re.sub(r'[（(][^）)]*[）)]', '', n).strip() not in _map]
+            print('🎯 仍未触发，下一轮可补：', flush=True)
+            for _t, _ns in sorted(_tags.items(), key=lambda kv: -len(kv[1]))[:5]:
+                print(f"   · ?rules={_t} —— 可补 {len(_ns)} 条：{'、'.join(_ns[:3])}", flush=True)
+        _map = load_rule_tags()
+        _no_tag = [n for n in all_skip_names
+                   if n not in _map and re.sub(r'[（(][^）)]*[）)]', '', n).strip() not in _map]
         if _no_tag:
             print(f'   · 另有 {len(_no_tag)} 条没登记机制 tag，补 124 才能定向', flush=True)
 
@@ -309,7 +409,7 @@ def main():
         browser.close()
 
     if server:
-        server.terminate()
+        server.shutdown(); server.server_close()
         print('[关服务器] 完成', flush=True)
 
 
