@@ -298,6 +298,10 @@ export function switchDisciple(name) {
     // 联机房主：阵容变了必须重发，否则对手端还是旧弟子（保留已准备状态，同小昭切换口径）
     const fnLineup = GlobalStore.getUIHandler('sendNetLineup');
     if (typeof fnLineup === 'function') fnLineup(true);
+
+    // 新 Unit 的 uid 变了，切换按钮要重新贴到新格子上（ui/709）
+    const fnSync = GlobalStore.getUIHandler('syncDiscipleSwitchBtn');
+    if (typeof fnSync === 'function') fnSync();
 }
 GlobalStore.setUIHandler('switchDisciple', switchDisciple);
 GlobalStore.setUIHandler('switchXiaoZhaoForm', switchXiaoZhaoForm);

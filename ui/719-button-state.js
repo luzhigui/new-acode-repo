@@ -182,6 +182,9 @@ function updateButtons() {
     // 小昭姊/妹切换按钮：显示状态跟着 adjustMode + 队里有无小昭走（实现与 DOM 在 ui/706 / ui/709）
     const fnXz = GlobalStore.getUIHandler('syncXiaoZhaoSwitchBtn');
     if (typeof fnXz === 'function') fnXz();
+    // 机制弟子切换按钮：贴弟子格子定位，摆位/换位/换人后都要重新对齐（ui/709）
+    const fnDs = GlobalStore.getUIHandler('syncDiscipleSwitchBtn');
+    if (typeof fnDs === 'function') fnDs();
 }
 
 function enableAllButtons() { document.querySelectorAll('.controls button').forEach(b => b.disabled = false); updateButtons(); updateSpeedButtons(); }
