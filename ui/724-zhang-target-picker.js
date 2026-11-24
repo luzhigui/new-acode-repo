@@ -15,7 +15,9 @@
 // V1.1.2 | 2026-11-23 修复「敌方有前排却全场灰、拖了也白拖」：原把马排除在可拖目标外，
 //   而引擎把拒马算作一列前排（203:119），该列就变成「引擎能打、UI 不给选」→ 松手落空转随机。
 //   现把马纳入可选；另在「无地面前排（全飞天/附体）」时如实提示只能随机。
-export const VER = 'ui/724-zhang-target-picker.js V1.1.2';
+// V1.1.3 | 2026-11-23 修「有前排也不亮、拖了照样随机」：① 敌方归属改按队伍数组判（不再看 camp 字段，
+//   该字段可被复制/叛变/召唤改写）；② 判定集算空时 UI 全亮 + 引擎 212 放行手动目标，两边口径一致。
+export const VER = 'ui/724-zhang-target-picker.js V1.1.3';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { getMeleeLegalTargetSet } from '../core/203-battle-utils.js';
@@ -31,10 +33,16 @@ export function showZhangTargetPicker(c, step, resolve) {
     // 合法目标 = 引擎单一真源（core/203）。noFallback：UI 预览零 RNG 消耗。
     //   legalSet===null ⇒ 远程形态，全部敌方合法；否则仅前排 uid 合法。
     const legalSet = getMeleeLegalTargetSet(zhang, enemySide, { noFallback: true });
-    const isLegalUid = (uid) => legalSet === null || legalSet.has(uid);
+    // 自愈：判定集为空但场上明明有活敌 ⇒ 不再把整场锁成灰（老板多次撞见「有前排也不亮」）。
+    //   此时一律按可选处理，引擎侧 212 同步放行手动目标，保证「拖到谁就打谁」。
+    const legalNone = (legalSet !== null && legalSet.size === 0);
+    const isLegalUid = (uid) => legalSet === null || legalNone || legalSet.has(uid);
 
-    // 可拖拽目标 = 敌方存活（含马：拒马是引擎认定的「一列前排」，能打；排除它会出现「该列无人可选 → 全场灰」）
-    const enemyUids = new Set(enemySide.filter(u => u && u.alive && u.camp !== zhang.camp).map(u => u.uid));
+    // 可拖拽目标 = 敌方半场（step.enemy = 引擎 B 队）的存活单位。
+    //   不再按 u.camp 过滤：camp 会被复制/叛变/召唤类机制改写，某个敌人的 camp 一旦变成我方，
+    //   他那一列就被判成「不是我方敌人」→ 整列灰、拖上去引擎也判非法 → 随机出手（老板 2026-11-23 报的现象）。
+    //   战场归属只认「他在不在敌方队伍数组里」。含马：拒马是引擎认定的一列前排，能打。
+    const enemyUids = new Set(enemySide.filter(u => u && u.alive).map(u => u.uid));
 
     // 高亮底账：每个格子记原 style，收尾精确还原
     //   touch-action:none 跟着高亮一起挂（2026-11-19）：手机上拖拽会被浏览器当成滚动 → 触发 pointercancel
@@ -72,9 +80,7 @@ export function showZhangTargetPicker(c, step, resolve) {
     overlay.id = 'zhangTargetOverlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:10010;pointer-events:none;';
     const tipBar = document.createElement('div');
-    tipBar.textContent = (legalSet && legalSet.size === 0)
-        ? '☀️ 对方暂时没有可近身的地面前排（全员飞行/附体），本次只能随机出手（松手=放弃）'
-        : '☀️ 按住张无忌，金色可打／灰色是够不着的后排（松手在空白=取消）';
+    tipBar.textContent = '☀️ 按住张无忌，金色可打／灰色是够不着的后排（松手在空白=取消）';
     tipBar.style.cssText = 'position:absolute;bottom:18%;left:50%;transform:translateX(-50%);color:#ffd700;font-size:14px;font-weight:bold;text-shadow:0 0 8px rgba(0,0,0,0.9);white-space:nowrap;';
     overlay.appendChild(tipBar);
 

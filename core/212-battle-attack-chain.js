@@ -13,7 +13,7 @@ import { CONFIG, getSkillParams, getGameData } from './201-config-5v5-test.js';
 // 小昭运行时改名为「小昭·姊/妹」，查任何以角色名为键的数据表都要退回主名（否则圣火令气运永不生效）
 import { baseHeroName } from './202-unit.js';
 import { eventBus, EFFECT_TYPES } from '../infra/101-event-bus.js';
-import { calcDamage, getFangLevel, isMelee, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getMissBreakdown, canBeTargeted, getMeleeLegalTargetSet, isMeleeLegalTarget } from './203-battle-utils.js';
+import { calcDamage, getFangLevel, isMelee, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getMissBreakdown, canBeTargeted, getMeleeLegalTargetSet, isMeleeLegalTarget, getFrontsPure } from './203-battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, recordCombatStat, getStat, addMod, recordHpAudit } from './214-battle-shared.js';
 import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, persistValue, loadPersistedValue, fmtHp } from '../infra/102-core-utils.js';
 import { getDodgeRules } from './221-registry-dodge.js';
@@ -38,7 +38,10 @@ export function selectAttackTarget(unit, enemySide, allySide) {
     //   手动目标已不可选（死亡/飞天/附身）**或近战够不着（后排）** → 落回正常选目标链路。
     if (unit.state && unit.state._manualTargetUid) {
         const manual = enemySide.find(u => u.uid === unit.state._manualTargetUid && canBeTargeted(u));
-        if (manual && isMeleeLegalTarget(unit, manual, enemySide)) return { target: manual, phantomFact: null };
+        // 判定集为空（算不出任何地面前排）时，手动目标直接放行：UI 在同样条件下全亮，两边口径一致，
+        //   杜绝「场上有人、UI 全灰、拖上去被判非法 → 落回随机」。
+        if (manual && (isMeleeLegalTarget(unit, manual, enemySide)
+            || getFrontsPure(enemySide).length === 0)) return { target: manual, phantomFact: null };
     }
     const rng = getBattleRng();
     // 统一走 canBeTargeted：含 pendingDeath / flyMode / 附身 / FSM 飞行
