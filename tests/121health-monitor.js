@@ -1,3 +1,5 @@
+// V6.14.4 | 2026-11-22：点 8x 会弹「自定义档」大面板并暂停游戏（ui/721 openPanel 置 panelPaused），
+//   面板挡住战斗画面且游戏不动；体检点完立刻走面板「关闭」，恢复暂停源并保按钮高亮。
 // V6.14.3 | 2026-11-22：自动模式加「15s 未完就结算」：单场在 8x 下仍可跑 60s+，
 //   预算内连一次终局都没有 ⇒ 规则零样本。现在每关至少强制收一场，规则必然有 log 可验。
 // V6.14.2 | 2026-11-22：规则对账——本场参与判决的规则若 pass/skip/fail 一个都没走，
@@ -17,7 +19,7 @@
 //   （本文件不再 import 123static-scan.js / 不绑 btnModeStatic / 不留第二份 renderStaticReport）；
 //   ② 报告加 coverage 字段与「覆盖不足」显形：在册/执行/未触发/跳过率一次写清，
 //     不再把「规则大面积没触发」呈现成「代码没问题」。判据、规则表、回放口径一字未动。
-export const VER = 'tests/121health-monitor.js V6.14.3';
+export const VER = 'tests/121health-monitor.js V6.14.4';
 // V6.12.1 | 2026-11-09 白天合入：保留夜间第 196 轮的表驱动逐条容错骨架，把白天新增的 39 条规则补回 RULE_MODULES 表与 allRules（两边都动过 121，直接取任一边都会让规则掉出执行面）。
 // V6.12.0 | 2026-11-08 夜间第 196 轮：规则装载从 123 条**静态 import** 改为 RULE_MODULES 表 + 动态 import 逐条容错。
 //   动因：249~252 四个规则文件上游从未提交，静态 import 让整个模块解析失败 —— 浏览器侧 120test-runner.html
@@ -624,7 +626,31 @@ export async function initMonitor() {
                         // V6.14.1：按 autoSpeedVal 选对应档位按钮（50→8x / 150→4x），
                         //   旧代码固定点 4x 却把 speed 写成 300/50，倍速一致性检查必然失配。
                         const spBtn = doc.getElementById(autoSpeedVal <= 50 ? 'btnSpeed8x' : 'btnSpeed4x');
-                        if (spBtn && !spBtn.classList.contains('active')) spBtn.click();
+                        if (spBtn && !spBtn.classList.contains('active')) {
+                            spBtn.click();
+                            // V6.14.4：点 8x 会连带弹出「自定义档」大面板（ui/721）并置 panelPaused=true 暂停游戏，
+                            //   面板挡住战斗画面 → 体检看不到细节、还跑不动。点完立刻走面板「关闭」（保留 closePanel 的
+                            //   panelPaused=false + syncPauseState 全逻辑），不用裸 remove 漏掉恢复暂停。
+                            if (autoSpeedVal <= 50) {
+                                const ov = doc.getElementById('perfPanelOverlay');
+                                if (ov) {
+                                    const closeBtn = Array.from(ov.querySelectorAll('button')).find(b => /关闭/.test(b.textContent));
+                                    if (closeBtn) closeBtn.click();
+                                    else {
+                                        ov.remove();
+                                        try {
+                                            w.GlobalStore.set('panelPaused', false);
+                                            const fnResume = w.GlobalStore.getUIHandler && w.GlobalStore.getUIHandler('syncPauseState');
+                                            if (fnResume) fnResume();
+                                        } catch (e) {}
+                                    }
+                                }
+                                try {
+                                    const fnHi = w.GlobalStore.getUIHandler && w.GlobalStore.getUIHandler('updateSpeedButtons');
+                                    if (fnHi) fnHi();
+                                } catch (e) {}
+                            }
+                        }
                     }
                 } catch (e) {}
                 // 自动后台模式：快进(1ms/步) + 计时，结束后输出报告，保证快速出结果
