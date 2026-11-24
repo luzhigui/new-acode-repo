@@ -2,15 +2,23 @@
 // 受击黄闪按「本击是否溢杀」分档：伤害直接把血打空（isDead 且 hpAfter<=0）→ 黄闪 600ms 即上死亡态，
 //   不等整段战报播完；血量没打空、靠斩杀/处决才死的 → 维持原时长，死亡落地由 player/42 步末 pendingDeaths 统一处理。
 // 特效只发信号（FX_SIGNALS），不直接 import fx 实现；本文件保留文本、格子闪示与血条推进。
-export const VER = 'player/509-attack-group.js V6.3.2';
+export const VER = 'player/509-attack-group.js V6.3.3';
 
 // 本组涉及的溅射目标 uid（buff-splash 条目在 core/209 上挂着 splashUids）
+// V6.3.3 | 2026-11-24 修溅射剧透复发：504 传给 handleAttackGroup 的是 render/407 的**渲染组对象**，
+//   子条目在顶层 entry.entries（没有 .data 包装）；旧代码只读 entry.data.entries → 恒空 →
+//   溅射血账不延后，分裂箭（afterText 动作）还没飞到位，2/4/6/8 号位血条与状态就先变了。
+//   两个位置都读：entry.entries（现役路径）+ entry.data.entries（引擎侧/回放旧结构）。
 function collectSplashUids(entry) {
     const set = new Set();
-    const entries = (entry && entry.data && Array.isArray(entry.data.entries)) ? entry.data.entries : [];
-    for (const e of entries) {
-        if (!e || !Array.isArray(e.splashUids)) continue;
-        for (const uid of e.splashUids) if (uid != null) set.add(uid);
+    const lists = [];
+    if (entry && Array.isArray(entry.entries)) lists.push(entry.entries);
+    if (entry && entry.data && Array.isArray(entry.data.entries)) lists.push(entry.data.entries);
+    for (const entries of lists) {
+        for (const e of entries) {
+            if (!e || !Array.isArray(e.splashUids)) continue;
+            for (const uid of e.splashUids) if (uid != null) set.add(uid);
+        }
     }
     return set;
 }
