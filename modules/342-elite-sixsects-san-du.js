@@ -35,7 +35,8 @@
 // V2.3.0 | 2026-11-24 老板口径：炎魔/魔化统一改「蓄力循环炮台」——回合开始固定一发（炎魔18/魔化28），
 //   被攻击或轮到自己→进入蓄力（每次+10%最大生命护盾，可叠）；已蓄力再被攻击/轮到行动/回合收尾→
 //   立刻打一发28并马上续蓄。魔化收尾不再固定两发，改为按蓄力结算（挨打越多打越多）。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.3.0';
+// V2.3.1 | 2026-11-24 老板口径：蓄力不再加护盾（炎魔/魔化都取消），只保留「多挨一次打多打一发」。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.3.1';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -262,16 +263,14 @@ export const blazeLionKingHandler = {
         });
 
         // 蓄力循环（2026-11-24 老板口径）：回合开始固定一发 18；之后处于「未蓄力」，
-        //   被攻击 / 轮到自己 → 进入蓄力（每次 +10% 最大生命护盾，可叠）；
+        //   被攻击 / 轮到自己 → 进入蓄力；
         //   已蓄力后再被攻击 / 轮到行动 / 回合收尾 → 立刻引爆一发 28，并马上重新蓄力。
         //   净效果：每多挨一次打，就多打一发。
-        const CHARGE_SHIELD_PCT = 0.10;
+        // V2.3.1 | 2026-11-24 老板口径：蓄力不再加护盾（护盾让炎魔太强）。
         function enterCharge(data, label) {
-            const shield = Math.floor(getStat(self, 'maxHp') * CHARGE_SHIELD_PCT);
-            if (shield > 0) self.state._shield = (self.state._shield || 0) + shield;
             self.state._blazeCharged = true;
             pushSkillAnnounce(data && data.log, self, '蓄力',
-                `🔥 ${label}烈焰凝聚，蓄力待发（护盾 +${shield}）…`,
+                `🔥 ${label}烈焰凝聚，蓄力待发…`,
                 { floatText: '🔥', floatUid: self.uid, needsSeparator: true });
         }
         function fireCharged(data, label) {
@@ -403,16 +402,13 @@ export const demonXiexunHandler = {
                 });
         }
         // 蓄力循环（V2.3.0，2026-11-24 老板口径，与炎魔同构）：回合开始一发；
-        //   被攻击 / 轮到自己 → 进入蓄力（每次 +10% 最大生命护盾，可叠）；
+        //   被攻击 / 轮到自己 → 进入蓄力（V2.3.1 起不加护盾）；
         //   已蓄力后再被攻击 / 轮到行动 / 回合收尾 → 立刻打一发 28 并马上续蓄。
         //   净效果：每多挨一次打，就多打一发；收尾不再固定两发。
-        const CHARGE_SHIELD_PCT = 0.10;
         function enterCharge(data) {
-            const shield = Math.floor(getStat(self, 'maxHp') * CHARGE_SHIELD_PCT);
-            if (shield > 0) self.state._shield = (self.state._shield || 0) + shield;
             self.state._demonCharged = true;
             pushSkillAnnounce(data && data.log, self, '蓄力',
-                `🔥 魔化谢逊魔气凝聚，蓄力待发（护盾 +${shield}）…`,
+                '🔥 魔化谢逊魔气凝聚，蓄力待发…',
                 { floatText: '🔥', floatUid: self.uid, needsSeparator: true });
         }
         function fireCharged(data) {
