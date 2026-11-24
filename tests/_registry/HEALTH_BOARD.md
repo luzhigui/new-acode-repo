@@ -128,6 +128,8 @@
 
 | 81 | 移植夜间263「上游落地预演脚本」到 main（640行纯工具，替代手工基线对比） | 夜间263把跨线融合复核操作单的四步脚本化：`tests/upstream-landing-rehearsal.mjs` V1.0.0（640行），quick档双边静态约7秒挂OBSERVES、--full档双边8-10分钟拿规则侧；六桶对比(新增失败/真转绿/假绿单列/更差/转好/消失新增)，自证18条，首跑自咬工具自身一处假绿(normalizeStats重复调用)。main复核：两个关键依赖都在(_lib/worktree-guard.mjs、rules-replay的RULE_STATS_OUT)，脚本无写文件/改阈值/改基线副作用，纯工具可独立移植。验收：脚本落地+打包清单登记；跑自证18条全过；quick档EXIT=0且显式声明"不构成可落依据"；不改任何判据/退码。 | doing | 钟老师/第49轮 | 2026-11-24 · 领格 |
 
+| 82 | 上游落地预演脚本挂 run-all OBSERVES（夜间版挂了，main 移植未挂） | 夜间263把 `upstream-landing-rehearsal.mjs` 挂进 run-all OBSERVES（V1.66→V1.67）；第49轮 main 移植脚本本体+清单，但**没挂 run-all**——因为夜间那次挂载同时带了别的检查项变化，按跨线铁律不整段搬。验收：在 run-all OBSERVES 段加一行 {name:'上游落地预演', script:'tests/upstream-landing-rehearsal.mjs', args:[]}(默认 quick 档约7秒)；注意夜间263实测此挂法在脏树上报 exit=3「脏树上不做预演对比」，若观察项把 exit=3 也当作异常显形，需按 dirty-exit-taxonomy 口径区分；不改 CHECKS 分母。 | open | - | - |
+
 ## 状态约定
 - `open`：待领；`doing`：进行中（同一时刻建议仅 1 人占）；`blocked`：等外部（主代码落地 / 拍板）；`done`：已闭环（含验证结论）。
 - 真缺陷需主代码的，状态写 `blocked`，**同轮报告必须贴转交块**（见 SKILL.md §4.5），等主代码落地再 `done`。
