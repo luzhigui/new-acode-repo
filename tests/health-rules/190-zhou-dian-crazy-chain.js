@@ -1,4 +1,5 @@
-﻿// 回归规则：周颠·「癫」传染链一致性 —— 弱判据（V1.1.0 判 C 降级）
+﻿// V1.2.0 | 2026-11-24 第51轮（#84）：报幕文案「癫」加层数标记「癫·N」，5条正则兼容有无标记（判定语义/容差/字段全不动）。
+// 回归规则：周颠·「癫」传染链一致性 —— 弱判据（V1.1.0 判 C 降级）
 // 机制源（modules/333-elite-mingjiao-crazy.js）：
 //   开局「癫」在周颠身上；持有者出手必中且无视闪避，目标随机不分敌友；
 //   攻击后若目标仍存活 → 癫传给目标（报幕：🤪 {持有者} 将「癫」传染给了 {目标}）；
@@ -13,7 +14,7 @@
 //   2) 传染/死亡传递的源必须出现在**已追踪链**中（开局周颠 + 历次报幕出现过的 uid）——
 //      源凭空出现说明报幕与真实传递脱节。
 // 误报规避：本场没有任何癫报幕直接 skip；「周颠已阵亡」随机传递那条只登记目的地，不校验来源。
-export const VER = 'tests/health-rules/190-zhou-dian-crazy-chain.js V1.1.0';
+export const VER = 'tests/health-rules/190-zhou-dian-crazy-chain.js V1.2.0';
 import { plain } from '../122health-utils.js';
 
 export const rule190 = {
@@ -21,11 +22,11 @@ export const rule190 = {
     name: '周颠癫传染链一致性(回归)',
     test: function(ctx, log, beforeA, beforeE, afterA, afterE, facts) {
         var list = facts || [];
-        var RE_ATTACK = /^🤪 (.+?) 受到「癫」的影响，不分敌友地向 (.+?) 发起攻击！?$/;
-        var RE_TRANSFER = /^🤪 (.+?) 将「癫」传染给了 (.+?)$/;
-        var RE_DEATH = /^🤪 「癫」随着 (.+?) 的死亡传给了 (.+?)$/;
-        var RE_BACK = /^🤪 「癫」找不到攻击者，回到了 (.+?) 身上$/;
-        var RE_RANDOM = /^🤪 周颠已阵亡，「癫」随机传给了 (.+?)$/;
+        var RE_ATTACK = /^🤪 (.+?) 受到「癫(?:·[^」]*)?」的影响，不分敌友地向 (.+?) 发起攻击！?$/;
+        var RE_TRANSFER = /^🤪 (.+?) 将「癫(?:·[^」]*)?」传染给了 (.+?)$/;
+        var RE_DEATH = /^🤪 「癫(?:·[^」]*)?」随着 (.+?) 的死亡传给了 (.+?)$/;
+        var RE_BACK = /^🤪 「癫(?:·[^」]*)?」找不到攻击者，回到了 (.+?) 身上$/;
+        var RE_RANDOM = /^🤪 周颠已阵亡，「癫(?:·[^」]*)?」随机传给了 (.+?)$/;
 
         // 已追踪链：uid → 名字。癫报幕都是 SKILL_ANNOUNCE fact（modules/305 pushSkillAnnounce）：
         //   data.unitUid = 源（出手报幕里就是持有者自己），data.floatUid = 目标（传染/死亡/回收/随机）。
