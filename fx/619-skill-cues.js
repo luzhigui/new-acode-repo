@@ -7,7 +7,8 @@
 // V1.1.2 | 2026-11-21 炎爆三段加 minRealMs 保底（320/380/240），倍速/快进下也看得清凝聚与飞行
 // V1.1.3 | 2026-11-23 断锤三式攻防飘字补快进闸（快进统一不飘）
 // V1.2.0 | 2026-11-24 新增 demonBurst（魔化谢逊真伤复用炎爆三段演出）+ sanDuCycle（三渡轮转逐个描轨迹，修「轮回太快看不清」）
-export const VER = 'fx/619-skill-cues.js V1.2.0';
+// V1.2.1 | 2026-11-24 新增 demonHeal（谢逊拍醒队友：圣光光柱 + 十字光 + 上浮光点）
+export const VER = 'fx/619-skill-cues.js V1.2.1';
 
 import { clock } from '../infra/103-clock.js';
 import { SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
@@ -58,6 +59,7 @@ export function showSkillCue(cue) {
         case SKILL_CUE_KINDS.BLAZE_BURST: return showBlazeBurst(cue);
         case SKILL_CUE_KINDS.DEMON_BURST: return showBlazeBurst(cue);
         case SKILL_CUE_KINDS.SAN_DU_CYCLE: return showSanDuCycle(cue);
+        case SKILL_CUE_KINDS.DEMON_HEAL: return showDemonHeal(cue);
         default: return;
     }
 }
@@ -385,6 +387,46 @@ function showBlazeBurst(cue) {
             flash.style.transform = `translate(-50%,-50%) scale(${(0.6 + 0.9 * p).toFixed(2)})`;
             flash.style.opacity = (0.95 * (1 - p)).toFixed(2);
         }, { minRealMs: 240 }).then(() => { drop(ring); drop(flash); });
+    }
+}
+
+// ── 魔化谢逊·拍醒队友：头顶降下圣光 + 十字光 + 上浮光点（老板 2026-11-24 要「圣光回血」的十字架感）──
+function showDemonHeal(cue) {
+    const cell = cellOf(cue.target || {});
+    if (!cell) return;
+    const beam = jot(`position:fixed;left:${cell.x}px;top:${cell.y}px;
+        width:${Math.max(26, cell.width * 0.5)}px;height:${Math.round(cell.height * 1.6)}px;
+        transform:translate(-50%,-100%);pointer-events:none;z-index:10006;opacity:0;border-radius:8px;
+        background:linear-gradient(to top, rgba(255,248,205,0.10) 0%, rgba(255,246,190,0.55) 55%, rgba(255,255,255,0.85) 100%);
+        box-shadow:0 0 18px rgba(255,240,170,0.75);`);
+    clock.animate(620, p => {
+        beam.style.opacity = (p < 0.22 ? 0.95 * (p / 0.22) : 0.95 * (1 - (p - 0.22) / 0.78)).toFixed(2);
+        beam.style.height = `${Math.round(cell.height * (1.4 + 0.9 * Math.min(1, p * 1.6)))}px`;
+    }).then(() => drop(beam));
+
+    // 十字光：竖 + 横各一道，一闪即散
+    const cross = jot(`position:fixed;left:${cell.x}px;top:${cell.y}px;
+        width:${Math.round(cell.width * 0.9)}px;height:${Math.round(cell.height * 0.9)}px;
+        transform:translate(-50%,-50%);pointer-events:none;z-index:10007;opacity:0;`);
+    cross.innerHTML = `<div style="position:absolute;left:50%;top:0;width:14%;height:100%;transform:translateX(-50%);background:linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,250,215,0.95), rgba(255,255,255,0));border-radius:4px;box-shadow:0 0 12px rgba(255,244,180,0.9);"></div>
+        <div style="position:absolute;top:42%;left:0;width:100%;height:14%;transform:translateY(-50%);background:linear-gradient(to right, rgba(255,255,255,0), rgba(255,250,215,0.95), rgba(255,255,255,0));border-radius:4px;box-shadow:0 0 12px rgba(255,244,180,0.9);"></div>`;
+    clock.animate(560, p => {
+        cross.style.opacity = (p < 0.15 ? 0.95 * (p / 0.15) : 0.95 * (1 - (p - 0.15) / 0.85)).toFixed(2);
+        cross.style.transform = `translate(-50%,-50%) scale(${(1 + 0.35 * p).toFixed(2)})`;
+    }).then(() => drop(cross));
+
+    // 上浮光点 4 颗
+    for (let i = 0; i < 4; i++) {
+        clock.wait(i * 90).then(() => {
+            const dx = (i - 1.5) * cell.width * 0.22;
+            const s = jot(`position:fixed;left:${(cell.x + dx).toFixed(1)}px;top:${cell.y}px;
+                width:9px;height:9px;border-radius:50%;pointer-events:none;z-index:10008;opacity:0;
+                background:radial-gradient(circle, #fffbe0 0%, rgba(255,235,150,0) 70%);`);
+            clock.animate(560, p => {
+                s.style.opacity = (p < 0.2 ? 0.95 * (p / 0.2) : 0.95 * (1 - (p - 0.2) / 0.8)).toFixed(2);
+                s.style.transform = `translate(-50%, ${(-cell.height * 0.9 * p).toFixed(1)}px)`;
+            }).then(() => drop(s));
+        });
     }
 }
 

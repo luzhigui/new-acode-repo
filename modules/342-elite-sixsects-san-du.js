@@ -31,7 +31,8 @@
 // V2.2.2 | 2026-11-24 老板口径：魔化谢逊真伤只打对手方（明教），不再敌我不分误伤自己人
 // V2.2.3 | 2026-11-24 老板最终口径：恢复敌我不分——落到自家人身上改为回血 28（不判闪避），打明教仍是 28 真伤可闪避
 // V2.2.4 | 2026-11-24 老板四连修：①轮回三人同帧瞬移看不清 → 新增 sanDuCycle 逐条描轨迹(0/240/480ms)；②谢逊格子不显示 😴 休息标记(_noRestMark)；③谢逊真伤补炎爆同款演出(demonBurst cue)
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.2.4';
+// V2.2.5 | 2026-11-24 谢逊拍醒队友补圣光演出（demonHeal：光柱+十字光+上浮光点），不再与真伤共用火球
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.2.5';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -330,7 +331,14 @@ export const demonXiexunHandler = {
                 const healed = Math.max(0, Math.round(victim.hp - hpBefore));
                 pushSkillAnnounce(data && data.log, self, '魔化',
                     `💚 魔化谢逊反手一掌拍醒 ${victim.name}，回复 ${healed} 点生命`,
-                    { floatText: '💚', floatUid: victim.uid, tone: 'heal', needsSeparator: true });
+                    {
+                        floatText: '💚', floatUid: victim.uid, tone: 'heal', needsSeparator: true,
+                        // 老板 2026-11-24 口径：回血不要火球，要「圣光/十字架」那种治疗演出
+                        cue: {
+                            kind: SKILL_CUE_KINDS.DEMON_HEAL,
+                            target: { uid: victim.uid, camp: victim.camp, pos: victim.pos }
+                        }
+                    });
                 return;
             }
             const vSide = victim.camp === CAMP_TYPES.ALLY ? aSide : bSide;
