@@ -313,6 +313,8 @@ export const ALL_PROJECT_FILES = [
     // run-all/fact-dead-field-scan 为文档与 SCAN_FILES 引用的直跑入口，同 rules-replay 先例）
     '../tests/_lib/buff-picker.mjs', '../tests/_lib/rule-branch-extract.mjs',
     '../tests/fact-dead-field-scan.mjs', '../tests/run-all.mjs',
+    // 2026-11-24 第49轮：夜间263移植的上游落地预演脚本（quick/full 双档，纯工具不改判据）
+    '../tests/upstream-landing-rehearsal.mjs',
     // 2026-10-27 自动补全：以下 tests 顶层脚本被 run-all.mjs 的 CHECKS/OBSERVES 引用（spawnSync 直跑），漏登则包内套件找不到文件即跳过/报错
     '../tests/contract-binding-drift-selftest.mjs', '../tests/contract-consistency.mjs', '../tests/contract-guard-selftest.mjs', '../tests/fact-emission-census.mjs',
     '../tests/fuzz-invariants.mjs', '../tests/hit-shapes-consistency.mjs', '../tests/isdead-fix-guard.mjs', '../tests/rule-binding-drift-selftest.mjs',
