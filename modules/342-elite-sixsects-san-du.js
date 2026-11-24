@@ -37,7 +37,8 @@
 //   立刻打一发28并马上续蓄。魔化收尾不再固定两发，改为按蓄力结算（挨打越多打越多）。
 // V2.3.1 | 2026-11-24 老板口径：蓄力不再加护盾（炎魔/魔化都取消），只保留「多挨一次打多打一发」。
 // V2.3.2 | 2026-11-24 老板口径：倒三角 8 号位枯禅回血 30% → 40% 最大生命。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.3.2';
+// V2.3.3 | 2026-11-24 老板口径：枯禅轮回不再「首次」——血量回到 70%/40% 以上就重新武装，每次跌破都再转。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.3.3';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -443,9 +444,10 @@ export const demonXiexunHandler = {
             handler: (data) => { if (self.alive) fireCharged(data); }
         });
 
-        // 枯禅轮回：任一三渡血量首次跌破 70%/40% → 三渡按实际站位顺时针轮转 1→3→8→1
-        //   （回满 ≥95% 重置标记，可再次触发）。三渡免疫控制，swapUnitPositions 必须
-        //   friendlyPull:true 放行 core/214 的免控拦截（自家阵法轮转=友方拉）。
+        // 枯禅轮回：任一三渡血量跌破 70%/40% 就转（不是一次性「首次」）——V2.3.3 老板口径：
+        //   血量回到该档以上即重新武装标记，于是每次「从上往下穿过阈值」都会再触发一次。
+        //   三渡按实际站位顺时针轮转 1→3→8→1（回满 ≥该档即重置，可再次触发）。
+        //   ！三渡免疫控制，swapUnitPositions 必须 friendlyPull:true 放行 core/214 的免控拦截（自家阵法轮转=友方拉）。
         registerSettlementHook({
             when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
             priority: 26,
@@ -455,8 +457,10 @@ export const demonXiexunHandler = {
                 let trigger = false;
                 for (const u of monks) {
                     const ratio = u.hp / Math.max(1, getStat(u, 'maxHp'));
-                    if (ratio >= 0.95) { u.state._sanDu70 = false; u.state._sanDu40 = false; continue; }
-                    if (!u.state._sanDu70 && ratio <= 0.7) { u.state._sanDu70 = true; trigger = true; }
+                    // 回到该档以上就解除标记 → 下次再跌破又能触发（不再是「只此一次」）
+                    if (ratio > 0.7) { u.state._sanDu70 = false; u.state._sanDu40 = false; continue; }
+                    if (ratio > 0.4) u.state._sanDu40 = false;
+                    if (!u.state._sanDu70) { u.state._sanDu70 = true; trigger = true; }
                     if (!u.state._sanDu40 && ratio <= 0.4) { u.state._sanDu40 = true; trigger = true; }
                 }
                 if (!trigger) return;
