@@ -36,7 +36,8 @@
 //   被攻击或轮到自己→进入蓄力（每次+10%最大生命护盾，可叠）；已蓄力再被攻击/轮到行动/回合收尾→
 //   立刻打一发28并马上续蓄。魔化收尾不再固定两发，改为按蓄力结算（挨打越多打越多）。
 // V2.3.1 | 2026-11-24 老板口径：蓄力不再加护盾（炎魔/魔化都取消），只保留「多挨一次打多打一发」。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.3.1';
+// V2.3.2 | 2026-11-24 老板口径：倒三角 8 号位枯禅回血 30% → 40% 最大生命。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.3.2';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -61,7 +62,7 @@ const SAN_DU_DOUBLE_STRIKE_RATE = 0.8; // 概率连击：80%
 
 // ── 枯禅轮回阵（第6关倒三角变体）数值唯一来源 ──
 const SAN_DU_NAME_SET = new Set(['渡厄', '渡劫', '渡难']); // 三渡名单（枯禅轮回/8号位回血识别用）
-const SAN_DU_KUCHAN_HEAL_RATE = 0.3;   // 8 号位枯禅回血：30% 最大生命
+const SAN_DU_KUCHAN_HEAL_RATE = 0.4;   // 8 号位枯禅回血：40% 最大生命（V2.3.2 老板上调）
 const DEMON_BURST_DMG = 28;            // 魔化谢逊真伤：28 点/发（V2.3.0 起每回合不再固定两发，见蓄力循环）
 
 // ── 三大高僧的固定被动 ──
@@ -483,7 +484,7 @@ export const demonXiexunHandler = {
             }
         });
 
-        // 8 号位枯禅回血：轮到三渡行动前回 30% 最大生命（每回合一次 _kuchanHealed 闸，防渡劫连击双回；满血不刷行）
+        // 8 号位枯禅回血：轮到三渡行动前回 40% 最大生命（每回合一次 _kuchanHealed 闸，防渡劫连击双回；满血不刷行）
         registerSettlementHook({
             when: SIGNAL_TYPES.ON_ROUND_START,
             priority: 17,
