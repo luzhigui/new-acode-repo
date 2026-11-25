@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// V1.0.0 | 2026-11-25 第56轮：补 VER 常量与日志行（原文件无 VER，ver-drift 断言⑩判无版本孤儿）。
+export const VER = 'tests/enum-contract-check.mjs V1.0.0';
+
 // tests/enum-contract-check.mjs — 枚举契约表静态守门（秒级，纯 node 只读）
 //
 // 背景（2026-11-25）：并行会话连续两次给 UI 处理器加键、却没登记 infra/106 UI_HANDLER_KEYS，
