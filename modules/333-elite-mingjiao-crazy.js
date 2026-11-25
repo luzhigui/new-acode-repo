@@ -3,13 +3,14 @@
 // 死亡时传给攻击者，找不到给周颠，周颠死了随机传。
 // 带「癫」时：必中，且无视目标闪避（从而不会触发闪避反击）。
 // V1.1.4 | 2026-11-19 grant/revoke 导出给 311：张三丰持癫乱回后传染走同一出口
-// V1.1.5 | 2026-11-22 传染拦截免疫控制者（寒离飒等）：isCCImmune 挡住，癫留在本人身上并播报
+// V1.1.5 | 2026-11-22 传染拦截免疫控制者（寒离飒等）：isCCImmune 挡住，癫留在本人身上并播报（V1.2.2 已撤销）
 // V1.2.0 | 2026-11-22 多来源「癫」共存：state._crazySources 记来源（周颠 / 偷·空智…），各自独立存在，
 //             日志与格子图标可区分；传染互斥——目标已带任意癫则不覆盖，癫留在攻击者身上
 // V1.2.1 | 2026-11-25 老板口径：癫照样能传染，但「免疫控制 / 自带选敌机制」的单位行为不受癫覆盖——
 //   寒离飒（_ctrlImmune）按自身机制选敌、杨逍（_ownTargetRule）走鹰眼分层、韦一笑/宋青书靠 216 先定目标；
 //   癫选敌 priority 1→20，排在 216 的 lowestHp/highestHpPct 之后，且不覆盖已定 targetResult。
-export const VER = 'modules/333-elite-mingjiao-crazy.js V1.2.1';
+// V1.2.2 | 2026-11-25 传染不再排除免疫控制者（撤 V1.1.5 的 isCCImmune 拦截）：谁都会被传染，只是免疫/自选机制者行为不受影响。
+export const VER = 'modules/333-elite-mingjiao-crazy.js V1.2.2';
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -158,11 +159,8 @@ export const crazyHandler = {
                 pushCrazyOpening(data, unit);
                 const target = data.target;
                 if (target && target.alive && target.uid !== unit.uid) {
-                    // 免疫控制者（寒离飒等）不吃「癫」：传染被挡，癫留在本人身上
-                    if (isCCImmune(target)) {
-                        if (data.log) pushSkillAnnounce(data.log, unit, '癫', `🤪 ${unit.name} 想传染「癫」给 ${target.name}，但对方免疫控制，传染失败`, { floatText: '🛡️', floatUid: target.uid });
-                        return;
-                    }
+                    // 2026-11-25 老板口径：传染不排除任何人（寒离飒等免疫控制者照样会被传染）；
+                    //   只是他们感染后行为仍按自身机制走，不被「不分敌友」覆盖（见选敌 handler）。
                     const mine = crazyLabels(unit).join('/');
                     // 互斥：对方已有「癫」就不再接收（来源可以不同，同时在场但不叠加）
                     if (!moveCrazy(unit, target)) {
