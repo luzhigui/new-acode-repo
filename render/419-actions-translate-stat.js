@@ -1,6 +1,6 @@
 // render/419-actions-translate-stat.js — fact → stageAction 翻译器·属性召唤族（38 拆分）
 import { STAGE_ACTION_TYPES, FACT_TYPES, BUFF_EFFECT_TYPES } from '../infra/106-battle-enums.js';
-export const VER = 'render/419-actions-translate-stat.js V1.1.1';
+export const VER = 'render/419-actions-translate-stat.js V1.1.2';
 
 // 属性召唤族翻译器表（键=factType）
 export const STAT_TRANSLATORS = {
@@ -162,6 +162,25 @@ export const STAT_TRANSLATORS = {
 //   带 floatText+floatUid 才产 SKILL_FLOAT；无浮字的报幕返回 null，只落战报行。
 function translateSkillAnnounce(data, index) {
     if (!data) return null;
+    // 三渡·枯禅轮回（2026-11-25）：三角轮转拆成多条 POS_SWAP，逐条走 fx/604 滑行互换，
+    //   节奏与击退换位一致（老板要肉眼看清谁挪到哪；旧版自绘残影点太快看不清）。
+    if (Array.isArray(data.swapChain) && data.swapChain.length) {
+        const acts = data.swapChain
+            .filter(s => s && s.aUid != null && s.bUid != null)
+            .map(s => ({
+                kind: STAGE_ACTION_TYPES.POS_SWAP,
+                actorUid: s.aUid,
+                targetUid: s.bUid,
+                oldPosA: s.posA,
+                oldPosB: s.posB,
+                factIndex: index,
+                timing: 'beforeText'
+            }));
+        if (data.floatText && data.floatUid != null) {
+            acts.push({ kind: STAGE_ACTION_TYPES.SKILL_FLOAT, targetUid: data.floatUid, text: data.floatText, factIndex: index, timing: 'afterText' });
+        }
+        return acts.length ? acts : null;
+    }
     // 两仪互换（红血）：带 swap 载荷的报幕先翻出一条「连线换位」POS_SWAP（beforeText——触发挂 ON_UNIT_ACTED，
     //   事实序在整段攻击组之后，先挨打成红血、演出完再播换位）；☯ 飘字照旧 afterText。
     //   返回数组由 translateFactsToStageActions 展平。

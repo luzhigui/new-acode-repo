@@ -38,7 +38,9 @@
 // V2.3.1 | 2026-11-24 老板口径：蓄力不再加护盾（炎魔/魔化都取消），只保留「多挨一次打多打一发」。
 // V2.3.2 | 2026-11-24 老板口径：倒三角 8 号位枯禅回血 30% → 40% 最大生命。
 // V2.3.3 | 2026-11-24 老板口径：枯禅轮回不再「首次」——血量回到 70%/40% 以上就重新武装，每次跌破都再转。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.3.3';
+// V2.3.4 | 2026-11-25 老板二钉「换位太快、要击退换位那种节奏」：撤掉 sanDuCycle 自绘残影，
+//   轮转改发 swapChain 载荷 → render/419 翻成两条 POS_SWAP，走 fx/604 滑行互换（逐段可见）
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.3.4';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -467,23 +469,20 @@ export const demonXiexunHandler = {
                 const at = (p) => monks.find(u => u.pos === p) || null;
                 const u1 = at(1), u3 = at(3), u8 = at(8);
                 if (!u1 || !u3 || !u8) return;
-                const fromPos1 = u1.pos, fromPos3 = u3.pos, fromPos8 = u8.pos;
+                const from1 = u1.pos, from3 = u3.pos, from8 = u8.pos;
                 swapUnitPositions(u1, u3, data && data.log, { friendlyPull: true });
+                const midPos = u3.pos;   // 第一次换完 u3 的落点（=from1），第二轮它从这里再去 8 号位
                 swapUnitPositions(u3, u8, data && data.log, { friendlyPull: true });
                 pushSkillAnnounce(data && data.log, u1, '枯禅轮回',
                     `☸️ 枯禅轮回：${u1.name}→3号位，${u3.name}→8号位，${u8.name}→1号位`,
                     {
                         floatText: '☸️', floatUid: u1.uid, needsSeparator: true,
-                        // 老板 2026-11-24 报「轮回动作太快看不清」：按 0/240/480ms 依次描三人的移动轨迹
-                        cue: {
-                            kind: SKILL_CUE_KINDS.SAN_DU_CYCLE,
-                            camp: u1.camp,
-                            moves: [
-                                { name: u1.name, fromPos: fromPos1, toPos: 3 },
-                                { name: u3.name, fromPos: fromPos3, toPos: 8 },
-                                { name: u8.name, fromPos: fromPos8, toPos: 1 }
-                            ]
-                        }
+                        // 老板 2026-11-25：换位太快看不清，要击退换位那种节奏 ⇒ 不再用「残影小点」自绘，
+                        //   改为把环形轮转拆成两条 POS_SWAP 交给 render/419，走 fx/604 的滑行互换（逐段可见）。
+                        swapChain: [
+                            { aUid: u1.uid, bUid: u3.uid, posA: from1, posB: from3 },
+                            { aUid: u3.uid, bUid: u8.uid, posA: midPos, posB: from8 }
+                        ]
                     });
             }
         });
