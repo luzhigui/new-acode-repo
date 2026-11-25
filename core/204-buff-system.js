@@ -12,9 +12,7 @@
 // V6.9.13 | 2026-11-22 热血门放行三渡阵位旗(_sanDuHotBlood)
 // V6.9.14 | 2026-11-23 召唤 fact 带 campLabel：日志写明「明教·众志成城 召唤」/「六大派·众志成城 召唤」
 // V6.9.15 | 2026-11-23 召唤阵营改由调用方显式传入（原 team.find(alive).camp 猜法会把池子翻面→六大派召出张中）
-// V6.9.16 | 2026-11-25 圣火不熄单位级名额泛化：原只认 isXiaoZhaoBrother，改为任意 _permanentBuffs 持 holyFire 的单位
-//   （modules/342 给三渡各发一个）；妹的条件集合不变，行为不漂移。
-export const VER = 'core/204-buff-system.js V6.9.16';
+export const VER = 'core/204-buff-system.js V6.9.15';
 import {
     applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -761,19 +759,14 @@ export function submitHolyFireRecord(data) {
             if (victim && victim.pos != null) victim.state._holyFire = 'pending';
         }
     }
-    // 单位级圣火名额（小昭·妹 / 三渡等）：本人阵亡 → 独立名额再复活一次。
-    //   V6.9.16（2026-11-25）：原先只在 isXiaoZhaoBrother 上找，泛化为「任意 _permanentBuffs 持有 holyFire 的单位」，
-    //   供 modules/342 给三渡各发一个名额；妹的判定集合不变（她本身满足原条件），行为不漂移。
+    // 妹永久补 holyFire：小昭·妹自己阵亡，独立名额再复活一次。
     for (const team of teams) {
-        const holders = (data.deadUnits || []).filter(u => u && team.includes(u) && !u.isHorse && !u.isSummon
-            && u.state && Array.isArray(u.state._permanentBuffs)
-            && u.state._permanentBuffs.some(b => b.key === BUFF_TYPES.HOLY_FIRE));
-        for (const h of holders) {
-            if (h.pos == null) continue;
-            if (h.state._holyFire === 'pending') continue;
-            if (h.state._holyFireSelf === 'pending' || h.state._holyFireSelf === 'used') continue;
-            h.state._holyFireSelf = 'pending';
-        }
+        const bro = (data.deadUnits || []).find(u => u && team.includes(u) && u.isXiaoZhaoBrother && !u.isHorse && !u.isSummon);
+        if (!bro || bro.pos == null) continue;
+        if (bro.state._holyFire === 'pending') continue;
+        if (bro.state._holyFireSelf === 'pending' || bro.state._holyFireSelf === 'used') continue;
+        if (!(bro.state._permanentBuffs && bro.state._permanentBuffs.some(b => b.key === BUFF_TYPES.HOLY_FIRE))) continue;
+        bro.state._holyFireSelf = 'pending';
     }
 }
 

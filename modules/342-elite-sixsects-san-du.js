@@ -51,9 +51,10 @@
 //   开局先轰一发再蓄力，被攻击立刻轰一发、回合收尾再轰一发，轮到自己行动不再单独开轰；
 //   ②取消枯禅轮回轮转时三渡+谢逊各回 10% 最大生命；
 //   ③枯禅轮回换位演出改走击退式 PUSH（fx/605 animatePushSwap），撤掉 POS_SWAP 滑行连闪的花哨演出。
-// V2.5.1 | 2026-11-25 老板口径：三渡开局各送一个「圣火不熄」（正/倒三角通用）——
-//   挂单位级独立名额（core/204 _permanentBuffs 持 holyFire → _holyFireSelf），阵亡后原地复活一次、回 40% 最大生命。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.5.1';
+// V2.5.1 | 2026-11-25 老板口径：三渡所在队伍开局携带「圣火不熄」（正/倒三角通用）。
+// V2.5.2 | 2026-11-25 老板纠正：圣火不熄是全局海克斯（每队每局只有 1 个复活名额），
+//   改为挂队伍 _activeBuffs（谁先阵亡谁复活一次），不再给三渡每人各发一份。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.5.2';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -91,6 +92,14 @@ export const monkFixedBuffHandler = {
         if (!self) return;
         // 三渡免疫控制（2026-11-22 老板口径）：眩晕/击退/换位一律不吃，守卫在 core/12+13
         self.state._ctrlImmune = true;
+        // 三渡所在队伍开局携带「圣火不熄」（老板 2026-11-25 口径，正/倒三角通用）：
+        //   走全局海克斯名额——每局首次有本队非巨马/非召唤单位阵亡 → 该单位原地复活一次（回 40% 最大生命）。
+        //   挂在队伍 _activeBuffs（core/204 submitHolyFireRecord 认队伍 buff），不是每个三渡各发一份。
+        const myTeam = (decl.camp === CAMP_TYPES.ALLY ? (A || []) : (B || []));
+        if (!Array.isArray(myTeam._activeBuffs)) myTeam._activeBuffs = [];
+        if (!myTeam._activeBuffs.some(b => b && b.key === BUFF_TYPES.HOLY_FIRE)) {
+            myTeam._activeBuffs.push({ key: BUFF_TYPES.HOLY_FIRE, name: '圣火不熄', icon: '🕯️', permanent: true });
+        }
         // 枯禅轮回阵（第6关倒三角变体）在场判定：本队含魔化谢逊 → 金刚伏魔阵 30 点平回血停用（V2.2.0）
         const kuchanActive = ((decl.camp === CAMP_TYPES.ALLY ? (A || []) : (B || [])))
             .some(u => u && u.name === '魔化谢逊');
@@ -354,16 +363,6 @@ export const demonXiexunHandler = {
         // 三渡花名册（本队、存活）
         const trio = () => ((decl.camp === CAMP_TYPES.ALLY ? (A || []) : (B || [])))
             .filter(u => u && SAN_DU_NAME_SET.has(u.name) && u.alive);
-
-        // 三渡开局各送一个「圣火不熄」（老板 2026-11-25 口径；正/倒三角通用）：
-        //   走单位级独立名额（core/204：_permanentBuffs 持 holyFire → _holyFireSelf），
-        //   本人阵亡后下一个行动步原地复活一次、回复 40% 最大生命；不占团队海克斯名额。
-        trio().forEach(u => {
-            if (!Array.isArray(u.state._permanentBuffs)) u.state._permanentBuffs = [];
-            if (!u.state._permanentBuffs.some(b => b.key === BUFF_TYPES.HOLY_FIRE)) {
-                u.state._permanentBuffs.push({ key: BUFF_TYPES.HOLY_FIRE, name: '圣火不熄', icon: '🕯️', permanent: true });
-            }
-        });
 
         // 开局先轰一发 28（轰完立刻续蓄）；之后只由 ①被攻击 ②回合收尾 触发开轰。
         // 每回合压 _stunned（同炎魔：_stunned 会被引擎每回合重置）
