@@ -1,5 +1,5 @@
 // ui/706-main-battle.js — UI 层战斗管理（阵容生成、Buff 选择弹窗、小昭形态切换、中止战斗）
-export const VER = 'ui/706-main-battle.js V6.2.1';
+export const VER = 'ui/706-main-battle.js V6.2.2';
 
 import { CONFIG, getGameData } from '../core/201-config-5v5-test.js';
 import { SeededRNG, fmtHpText, fmtAtk, fmtNum } from '../infra/102-core-utils.js';
@@ -274,6 +274,13 @@ GlobalStore.setUIHandler('syncXiaoZhaoSwitchBtn', syncXiaoZhaoSwitchBtn);
 // 换人 = 新 Unit 放进原格；forceDisciple 记住选择，下一局建队也按它出。
 const DISCIPLE_NAMES = ['反伤弟子', '木桩弟子', '拼命弟子', '防化弟子'];
 
+// 弟子属性骰子的名字盐：FNV-1a 32 位（同时给联机双端同一弟子派生同一 seed）
+function discipleSeedSalt(name) {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < name.length; i++) { h ^= name.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    return h >>> 0;
+}
+
 export function switchDisciple(name) {
     if (!DISCIPLE_NAMES.includes(name)) return;
     GlobalStore.set('forceDisciple', name);   // 本局 + 后续局都记
@@ -286,10 +293,14 @@ export function switchDisciple(name) {
     if (!cfg) return;
     const role = cfg.role || (cfg.tags || []).find(t => CONFIG.ROLES.includes(t)) || CONFIG.ROLES[Math.floor(Math.random() * 4)];
     const unit = new Unit(name, cfg.m, role, CAMP_TYPES.ALLY);
-    // 修（2026-11-25 老板报「属性不对」）：这里原先漏了 init(_rng)，atk/def/maxHp 停在 0，
-    //   只吃 applyBonus 的职业加成 ⇒ 战士弟子 攻3 防3 血30。换人必须和 330 建队同口径先掷点。
+    // 属性掷点（2026-11-25 老板报「切换后属性不对劲」）：
+    //   ① 必须先 init，否则 atk/def/maxHp 停在 0、只剩职业加成（防化弟子 攻3 防3 血30）；
+    //   ② 骰子种子 = 本局种子 ⊕ 名字盐：旧版四个弟子共用同一个种子 ⇒ 同职业同 M 的三个弟子
+    //      （反伤/拼命/防化，都是 M97 战士）属性一模一样；且每切一次就重掷，数值来回跳。
+    //      按名字派生后：同一弟子反复切回数值不变，不同弟子互不相同，联机双端亦可复现。
     const _snap = GlobalStore.get('snapshot');
-    unit.init(new SeededRNG(_snap && _snap._rngSeed ? _snap._rngSeed : Date.now()));
+    const _baseSeed = (_snap && Number.isFinite(_snap._rngSeed)) ? _snap._rngSeed : Date.now();
+    unit.init(new SeededRNG((_baseSeed ^ discipleSeedSalt(name)) >>> 0));
     unit.applyBonus();                        // 与 330 同口径：掷完点再吃职业加成
     unit.pos = cur.pos;
     unit.state._originalPos = cur.pos;
