@@ -146,7 +146,7 @@
 
 | 90 | 预演脚本 --full 档端到端验证（quick+selftest跑过，full未跑） | 第49轮移植的 `tests/upstream-landing-rehearsal.mjs` V1.0.0 只验证了 --selftest(18/18) 与 quick 档(EXIT=0无差异可预演)，--full 档（双边 rules-replay、约8-10分钟）从未在 main 实跑。验收：在干净 detached worktree 用 `--base` 指向一个已知有差异的提交跑 --full，确认六桶对比(新增失败/真转绿/假绿单列/更差/转好/消失新增)正常产出、不误把假绿算转绿；属长任务，放用户方便时/夜检跑，不在日常迭代轮。 | open | - | - |
 
-| 91 | 大框架快照三红快修：235 name提取假红 / ver-drift登记232过时 / #86转交块未登记 | 第55轮大框架审视发现三类红：① registration-check 把规则235 test函数体内的字符串 JS字符串拼接 name 前缀(u.name 或空串) 误当规则名(真名在L58「终局单位存活与名单一致性」)——检查器取name正则太宽，属假红；② ver-drift 断言⑬「229<登记232」——我第45轮重校的登记值现在过时，双向棘轮正确报警，须按实测229回退；③ transfer-block 2红——我第53轮#86口头说发了转交块T-FLYER-SHOW但没在看板做交付登记，守门判空头话。验收：三红全清且各自咬牙不被改钝；主代码零触碰。 | doing | 钟老师/第55轮 | 2026-11-25 · 领格 |
+| 91 | 大框架快照三红快修：235 name提取假红 / ver-drift登记232过时 / #86转交块未登记 | 第55轮大框架审视发现三类红：① registration-check 把规则235 test函数体内的字符串 JS字符串拼接 name 前缀(u.name 或空串) 误当规则名(真名在L58「终局单位存活与名单一致性」)——检查器取name正则太宽，属假红；② ver-drift 断言⑬「229<登记232」——我第45轮重校的登记值现在过时，双向棘轮正确报警，须按实测229回退；③ transfer-block 2红——我第53轮#86口头说发了转交块T-FLYER-SHOW但没在看板做交付登记，守门判空头话。验收：三红全清且各自咬牙不被改钝；主代码零触碰。  ★ 第55轮闭环：三红全清。① registration-check ruleName 改为只认含中文字面name，避开规则235函数体内拼接串假红；咬牙3/3(中文命中/拼接不命中/英文不命中)；② ver-drift EXPECT_NO_LOG 232→229按实测回退，VER V1.5.31补日志；咬牙改回232→断言⑬立刻红、还原0；③ 看板#86补「转交块已交付T-FLYER-SHOW」登记，transfer-block 2红清零。证据：registration EXIT=0/transfer EXIT=0/ver-drift断言⑬=0。另加(F) one-click-health V1.1.1 的 --selfcheck 早退分支(S6四证)：当晚实测该参数被静默忽略→跑完整体检→递归建4棵嵌套树，已清理；现 `node tests/one-click-health.mjs --selfcheck` 秒级 EXIT=0「4/4」，咬牙删模板插值→EXIT=1点名。主代码零触碰，阈值/基线未动。 | done | 钟老师/第55轮 | 2026-11-25 |
 
 ## 状态约定
 - `open`：待领；`doing`：进行中（同一时刻建议仅 1 人占）；`blocked`：等外部（主代码落地 / 拍板）；`done`：已闭环（含验证结论）。
