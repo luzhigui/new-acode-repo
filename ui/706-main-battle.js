@@ -1,5 +1,5 @@
 // ui/706-main-battle.js — UI 层战斗管理（阵容生成、Buff 选择弹窗、小昭形态切换、中止战斗）
-export const VER = 'ui/706-main-battle.js V6.2.0';
+export const VER = 'ui/706-main-battle.js V6.2.1';
 
 import { CONFIG, getGameData } from '../core/201-config-5v5-test.js';
 import { SeededRNG, fmtHpText, fmtAtk, fmtNum } from '../infra/102-core-utils.js';
@@ -286,7 +286,11 @@ export function switchDisciple(name) {
     if (!cfg) return;
     const role = cfg.role || (cfg.tags || []).find(t => CONFIG.ROLES.includes(t)) || CONFIG.ROLES[Math.floor(Math.random() * 4)];
     const unit = new Unit(name, cfg.m, role, CAMP_TYPES.ALLY);
-    unit.applyBonus();                        // 与 330 同口径：不掷新点数（属性随 Unit 构造生成）
+    // 修（2026-11-25 老板报「属性不对」）：这里原先漏了 init(_rng)，atk/def/maxHp 停在 0，
+    //   只吃 applyBonus 的职业加成 ⇒ 战士弟子 攻3 防3 血30。换人必须和 330 建队同口径先掷点。
+    const _snap = GlobalStore.get('snapshot');
+    unit.init(new SeededRNG(_snap && _snap._rngSeed ? _snap._rngSeed : Date.now()));
+    unit.applyBonus();                        // 与 330 同口径：掷完点再吃职业加成
     unit.pos = cur.pos;
     unit.state._originalPos = cur.pos;
     unit.fixed = cur.fixed;
