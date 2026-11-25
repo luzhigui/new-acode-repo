@@ -10,7 +10,7 @@ import { getSkillDesc, getGameData, isNamedCharacter, hasSkills } from '../core/
 import { baseHeroName } from '../core/202-unit.js';
 import { ROLE_TYPES } from '../infra/106-battle-enums.js';
 
-export const VER = 'render/414-role-cards.js V2.1.1';
+export const VER = 'render/414-role-cards.js V2.1.2';
 
 // 显示名唯一出口（#16，老板 2026-11 定调）：数据名 / 机制键 / 归属判据一律不动，
 //   只把展示用的全名换算成短名 —— 金毛狮王谢逊 →「金毛狮王」（格子、幻影、战报/日志同源）。
@@ -39,8 +39,9 @@ export function normalizeDisplayText(text) {
 //   isStunned / isDead —— 眩晕、死亡；pangTaunting —— 胖远桥本回合已锁敌
 export const ROLE_CARDS = [
     // 眩晕不属于身份，但图标优先级最高（盖过一切），故单独占首位
-    // 炎魔狮王是被金刚伏魔圈「锁死」的常驻状态（引擎借 _stunned 跳过出手），不是被打晕，保持身份图标
-    { id: 'stunned', name: '眩晕', match: (u, ctx) => ctx && ctx.isStunned && !ctx.isDead && u.name !== '炎魔狮王', icon: () => '😵' },
+    // 炎魔狮王 / 魔化谢逊是被金刚伏魔圈「锁死」的常驻状态（引擎借 _stunned 跳过出手），不是被打晕，保持身份图标
+    //   （2026-11-25 老板报「魔化谢逊职业 logo 还是不对」：谢逊每回合也压 _stunned，只排除炎魔时它显示 😵）
+    { id: 'stunned', name: '眩晕', match: (u, ctx) => ctx && ctx.isStunned && !ctx.isDead && u.name !== '炎魔狮王' && !(u.state && u.state._noRestMark), icon: () => '😵' },
     {
         id: 'zhang', name: '张无忌', match: u => !!u.isZhang,
         // 远程形态不挂剑，交回职业图标（🏹）
