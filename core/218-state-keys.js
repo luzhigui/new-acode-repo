@@ -19,7 +19,7 @@
 //   BATTLE_STATE_SCHEMA 去 freeze + BATTLE_STATE_KEYS 可变；assertStateFullyRegistered 遇到未登记字段
 //   按运行时值自动推断类型（布尔/数字/字符串/数组/普通对象）补登记并只 warn 一次；Map/Set/函数/类实例才抛错。
 //   配套门禁：tools/828-verify-registry.mjs 新增源码扫描（.state._xxx 必须在 218 出现），漏登记提交前即红。
-export const VER = 'core/218-state-keys.js V2.13.1';
+export const VER = 'core/218-state-keys.js V2.13.2';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -198,6 +198,7 @@ export const BATTLE_STATE_SCHEMA = {
     _blazeCharged:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 炎魔狮王本回合已轮到/蓄力（342 写入，ROUND_SETTLED 收尾炎爆判据）
     _demonCharged:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 魔化谢逊蓄力待发（342 写入，2026-11-24 蓄力循环）
     _demonOpened:            { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 魔化谢逊开局那一发只打一次（342 写，2026-11-25）
+    _ownTargetRule:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 自带选敌机制优先于癫（327 杨逍写；333 读，2026-11-25）
     _kuchanHealed:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 8 号位枯禅每回合只回一次（342 回合末复位）
     _sanDu70:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 三渡阵位血量跌破 70% 已触发一次（342 写，回满 95% 复位）
     _sanDu40:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 三渡阵位血量跌破 40% 已触发一次（342 写，回满 95% 复位）

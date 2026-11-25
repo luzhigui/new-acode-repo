@@ -19,6 +19,10 @@ export function createYangXiaoComponent() {
             const sameYang = [...A, ...B].filter(o => o.alive && o.isYangXiao).sort((a, b) => (a.pos - b.pos) || (a.uid < b.uid ? -1 : 1));
             const isPrimary = sameYang.length > 0 && sameYang[0].uid === yangxiao.uid;
 
+            // 自带选敌（鹰眼分层：未行动优先）凌驾于癫之上（2026-11-25 老板）：
+            //   癫照样能传染、必中照旧，但目标按杨逍自己的机制选，不被随机覆盖。
+            yangxiao.state._ownTargetRule = true;
+
             const dian = requireSkillParams('杨逍', 'dianXueShenTong');
             const jie = requireSkillParams('杨逍', 'dianXueJieMai');
             const xian = getSkillParams('杨逍', 'xianJi') || { jumpProb: 0 };

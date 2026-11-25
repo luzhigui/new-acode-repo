@@ -6,7 +6,10 @@
 // V1.1.5 | 2026-11-22 传染拦截免疫控制者（寒离飒等）：isCCImmune 挡住，癫留在本人身上并播报
 // V1.2.0 | 2026-11-22 多来源「癫」共存：state._crazySources 记来源（周颠 / 偷·空智…），各自独立存在，
 //             日志与格子图标可区分；传染互斥——目标已带任意癫则不覆盖，癫留在攻击者身上
-export const VER = 'modules/333-elite-mingjiao-crazy.js V1.2.0';
+// V1.2.1 | 2026-11-25 老板口径：癫照样能传染，但「免疫控制 / 自带选敌机制」的单位行为不受癫覆盖——
+//   寒离飒（_ctrlImmune）按自身机制选敌、杨逍（_ownTargetRule）走鹰眼分层、韦一笑/宋青书靠 216 先定目标；
+//   癫选敌 priority 1→20，排在 216 的 lowestHp/highestHpPct 之后，且不覆盖已定 targetResult。
+export const VER = 'modules/333-elite-mingjiao-crazy.js V1.2.1';
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -81,6 +84,8 @@ function isManualAimed(unit) {
 }
 function pushCrazyOpening(data, unit) {
     if (isManualAimed(unit)) return;
+    // 免疫控制 / 自带选敌机制的单位：行为不受癫覆盖，别播「不分敌友」（2026-11-25 老板）
+    if (isCCImmune(unit) || (unit.state && unit.state._ownTargetRule)) return;
     const note = crazyAttackNote(unit, data.target);
     if (data.group && data.group.data && Array.isArray(data.group.data.entries)) {
         data.group.data.entries.unshift({ factType: FACT_TYPES.SKILL_ANNOUNCE, data: {
@@ -111,7 +116,9 @@ export const crazyHandler = {
         // ① 选敌随机（不分敌友）
         registerSettlementHook({
             when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
-            priority: 1, // 极高优先级，直接覆盖随机选敌
+            // 2026-11-25 老板口径：自带选敌机制凌驾于癫之上。priority 必须排在 core/216 的
+            //   lowestHp/highestHpPct（PANG_TAUNT_FORCE-1≈17）之后，让韦一笑/宋青书先定目标。
+            priority: 20,
             handler: (data) => {
                 if (!data.unit || !data.unit.alive || !data.unit.state._isCrazy) return;
                 
@@ -124,6 +131,12 @@ export const crazyHandler = {
                 //   必中 / 无视闪避 / 无视遮挡（core/210 isCrazyHost）照常保留——这是癫给源头的真正面。
                 //   传染后的持有者（被传染者）没有豁免，照样随机打。
                 if (data.unit.name === decl.name) return;
+
+                // 2026-11-25 老板口径：癫照样能传染，但「免疫控制 / 自带选敌机制」的单位不受癫覆盖——
+                //   寒离飒（_ctrlImmune）照常按自己的机制选敌、杨逍（_ownTargetRule）走鹰眼分层；
+                //   韦一笑/宋青书由下面的 targetResult 检测让 216 的 lowestHp/highestHpPct 先生效。
+                if (isCCImmune(data.unit) || data.unit.state._ownTargetRule) return;
+                if (data.declaration.targetResult) return;   // 自带选敌规则已定目标
 
                 // V1.1.2：候选池统一走 core/207 出口，内部固定含 canBeTargeted + 全部引擎级过滤器，
                 //   这里不再自己拼池、也不再显式跑过滤链（技能侧不记得「要过滤」也不会漏）。
@@ -170,6 +183,7 @@ export const crazyHandler = {
                 const unit = data.unit;
                 if (!unit || !unit.alive || !unit.state._isCrazy) return;
                 if (isManualAimed(unit)) return;   // 手动指定目标：不播「不分敌友」（2026-11-23 定调）
+                if (isCCImmune(unit) || unit.state._ownTargetRule) return;   // 自带机制凌驾于癫（2026-11-25）
                 // 免疫分支不建攻击组，公告无组可依；打分隔线让它自成一段（同 337 断锤公告）。
                 if (data.log) pushSkillAnnounce(data.log, unit, '癫', crazyAttackNote(unit, data.target), { floatText: '🤪', floatUid: unit.uid, needsSeparator: true });
             }
