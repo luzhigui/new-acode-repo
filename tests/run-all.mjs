@@ -608,9 +608,9 @@ const OBSERVES = [
     //   的研判灰度。由条目作者自称，汇总时额外标注「建议升 CHECKS 开红」；默认不写 = 取证项，红了供人工研判。
     //   ★ 不开第二份名单：属性跟条目走，新增守门不会再有「名单与清单失同步」的漂移面。
     { name: '体检模块语法扫描守门', script: 'tests/health-rules-syntax-sweep.mjs', args: [], hard: true },
-    // 2026-11-25：UI 处理器白名单守门——连续两次因漏登记 UI_HANDLER_KEYS 导致模块初始化期
-    //   setUIHandler throw、整页 btnMain 监听没绑上（表现「开局卡住」）。纯 node 静态扫，秒级。
-    { name: 'UI 处理器白名单守门', script: 'tests/ui-handler-keys-check.mjs', args: [], hard: true },
+    // 2026-11-25：枚举契约表守门——连续两次因漏登记 UI_HANDLER_KEYS 导致初始化期 throw（「开局卡住」）。
+    //   同时覆盖：NAME.KEY 引用、content mechanics[].type、when/factType 字面量、UI 处理器键。纯 node 秒级。
+    { name: '枚举契约表守门', script: 'tests/enum-contract-check.mjs', args: [], hard: true },
     // V1.39.0 | 2026-11-06 迭代：编排器自身完整性守门（详见头顶 V1.39.0 日志行）。
     //   纯 node 只读、零执行被扫脚本；正反路径均已实测（含真身源码副本），不是纸面文章。
     { name: '编排器自身完整性守门', script: 'tests/run-all-integrity-selftest.mjs', args: [], hard: true },
