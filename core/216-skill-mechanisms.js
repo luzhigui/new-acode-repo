@@ -4,12 +4,14 @@
 //   裸 A/B 必抛 ReferenceError 且会中断本条命中的后续 onHit 效果；core/209 L564 载荷已带 A,B）
 // V6.8.9 | 2026-11-20 | lowestHp/highestHpPct 目标规则统一提前到嘲讽之前（priority 17）+ targetRuleApplied 标记：
 //   自带选敌规则的单位（韦一笑/宋青书）不再被胖远桥的正义国字脸嘲讽拉走。
-export const VER = 'core/216-skill-mechanisms.js V6.8.10';
+// V6.8.11 | 2026-11-25 | 玄冥毒挂毒遇 _immunePoison（防化弟子/庄铮）补拦毒回调 + 战报行：此前裸 continue
+//   既不给提示也不触发防化弟子「拦毒回明教全体 10% 最大生命」，与 319/331/339 三个消费点口径不一致。
+export const VER = 'core/216-skill-mechanisms.js V6.8.11';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/101-event-bus.js';
 import { CONFIG } from './201-config-5v5-test.js';
 import { registerDodgeRule } from './221-registry-dodge.js';
-import { getBattleRng, previewHeal, getStat, stealShieldByHook } from './214-battle-shared.js';
+import { getBattleRng, previewHeal, getStat, stealShieldByHook, poisonBlockedByHook } from './214-battle-shared.js';
 import { fmtHp } from '../infra/102-core-utils.js';
 import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES, MECHANIC_EFFECT_TYPES, MECHANIC_TARGET_RULES } from '../infra/106-battle-enums.js';
 import { installMechanicByType, hasMechanicHandler, getMechanicHandler } from './219-mechanic-registry.js';
@@ -284,8 +286,17 @@ function submitOnHitEffects(data, onHitDecls) {
                     unit.state._permShield = (unit.state._permShield || 0) + stealShieldByHook(unit, shieldGain, data.A, data.B, data.log);
                 }
             } else if (eff.type === MECHANIC_EFFECT_TYPES.ON_HIT.POISON) {
-                // 免疫毒素（庄铮·断锤形态）：完全不上毒，格子不挂 ❄️
-                if (target.state && target.state._immunePoison) continue;
+                // 免疫毒素（庄铮·断锤形态 / 防化弟子）：完全不上毒，格子不挂 ❄️。
+                //   必须回调 core/214 拦毒钩子并落一行提示——否则鹿杖客打免疫目标时战报完全静默，
+                //   玩家以为玄冥神掌没上毒（2026-11-25 老板报）；此前 319 寒毒 / 331 dotTick / 339 蹦蹦毒
+                //   三个消费点都调了 poisonBlockedByHook，只有本处裸 continue，防化弟子的拦毒回血永远不触发。
+                if (target.state && target.state._immunePoison) {
+                    poisonBlockedByHook(target, { stateKey: '_xuanmingPoison', declarations: data.declarations, log: data.log, A: data.A, B: data.B });
+                    const blockedLine = { type: 'info', text: `<span class="purple">❄️ ${unit.name} 的玄冥神掌：${target.name} 免疫毒素，寒毒未附着</span>` };
+                    if (data.group && data.group.data && Array.isArray(data.group.data.entries)) data.group.data.entries.push(blockedLine);
+                    else if (data.log) data.log.push(blockedLine);
+                    continue;
+                }
                 // 不衰减 + 可叠加 + 无上限：每命中 stacks+1、remaining 刷新为 duration。
                 //   每回合伤害 = maxHp × dotPercents[0] × stacks（结算见 modules/30 dotTick）
                 const prev = target.state._xuanmingPoison;
