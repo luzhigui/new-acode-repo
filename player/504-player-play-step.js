@@ -1,7 +1,8 @@
 // player/504-player-play-step.js — 单步日志交错播放（stageAction 生命周期 + 逐条日志分发）
 //   playStepInterleaved / playSingleLogEntry 整块迁入。三条播放路径（单机/从机/回放）共用本文件。
 // V1.1.3 | 2026-11-19 提示跑错攻击组根治：报幕事实若是本人出手的开场白（后接本人攻击事实），强制独立起组
-export const VER = 'player/504-player-play-step.js V1.1.3';
+// V1.1.4 | 2026-11-25 同格召唤当场摘尸：灭绝师太死亡当帧召周芷若时，尸体不再按 corpseDelay 压住召唤物。
+export const VER = 'player/504-player-play-step.js V1.1.4';
 
 import { eventBus } from '../infra/101-event-bus.js';
 import { FX_SIGNALS } from '../infra/105-fx-signals.js';
@@ -203,6 +204,24 @@ export async function playStepInterleaved(c, step, isFirstAttackRef) {
     //   syncStoreFromStep 是整步血量/生死的唯一权威落账点，必须排在死亡红叉之前：
     //   先 SET_UNITS（hp=0 + alive=false），再切 DEAD 态，避免「特效先播、血条还没归零」。
     syncStoreFromStep(c, step);
+
+    // 同格召唤（灭绝师太死亡当帧召周芷若）：尸体与召唤物同格时 render/403 优先渲尸体，
+    //   若还等 corpseDelay 清尸，周芷若会一直露不出来（老板 2026-11-25 报）。
+    //   本步当场摘掉该格尸体（连同未到点的清尸 timer），让召唤物立即显形。
+    const summonPos = new Set();
+    for (const f of log) {
+        if (f && f.factType === FACT_TYPES.SUMMON_UNIT && f.data && f.data.pos != null) summonPos.add(f.data.pos);
+    }
+    if (summonPos.size) {
+        for (const su of c.store.getState().units) {
+            if (!summonPos.has(su.pos)) continue;
+            if (!(su.alive === false || (su.state && su.state._isDead))) continue;
+            if (c._deathTimers && c._deathTimers[su.uid]) { clearTimeout(c._deathTimers[su.uid]); delete c._deathTimers[su.uid]; }
+            if (c._corpseDue) c._corpseDue.delete(su.uid);
+            if (c._removedUids) c._removedUids.add(su.uid);
+            c.store.dispatch({ type: STORE_ACTION_TYPES.REMOVE_UNIT, uid: su.uid });
+        }
+    }
 
     for (const uid of pendingDeaths) {
         const du = c.store.getState().units.find(u => u.uid === uid);
