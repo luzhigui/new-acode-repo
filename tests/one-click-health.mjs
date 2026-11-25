@@ -3,9 +3,10 @@
 // 为什么需要它：浏览器"全能体检"只查战中当场出错；账本对账/判据空转/基线回归这类问题
 //   打一百局也看不出来，只能靠 node 全套守门。浏览器按钮跑不了 node，故做本地双击入口。
 // 红线：只读跑现有测试，不改任何判据/阈值/基线/主代码；本报告纯呈现，不参与任何判定。
+// V1.1.1 | 2026-11-25 第55轮：加 --selfcheck 早退分支（S6 四证），防参数被忽略导致递归建树（当晚实踩4棵残留）。
 // V1.1.0 | 2026-11-22 第44轮：陈旧 worktree 注册从只打印 console 升级为写进 HTML 报告显著提示（只报告不自动删，防误伤别的会话）。
 // V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
-export const VER = 'tests/one-click-health.mjs V1.1.0';
+export const VER = 'tests/one-click-health.mjs V1.1.1';
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -89,6 +90,20 @@ function cleanWorktree() {
         STALE_WORKTREES.push(...paths);
     }
 }
+// ── S6 自证（第55轮）：防「--selfcheck 被静默忽略 → 直接跑完整体检 → 递归建树」事故 ──
+//   纯读自身源码、不建树不跑子进程，秒级。任何一项不成立即退 1。
+if (process.argv.includes('--selfcheck')) {
+    const src = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8');
+    const errs = [];
+    if (!/const STALE_WORKTREES = \[\]/.test(src)) errs.push('S6 缺 STALE_WORKTREES 收集数组');
+    if (!/STALE_WORKTREES\.push\(\.\.\.paths\)/.test(src)) errs.push('S6 警示数据未被填充');
+    if (!/\$\{STALE_WORKTREES\.length \?/.test(src)) errs.push('S6 HTML 模板缺插值（警示块没进报告）');
+    if (!/if \(process\.argv\.includes\('--selfcheck'\)\)/.test(src)) errs.push('S6 自证早退分支自身丢失');
+    if (errs.length) { errs.forEach(e => console.log('❌ ' + e)); process.exit(1); }
+    console.log('RESULT: PASS —— 一键体检 selfcheck 4/4（警示块收集/填充/插值/早退分支在位）');
+    process.exit(0);
+}
+
 cleanWorktree();  // 清理上次残留
 const wt = spawnSync('git', ['worktree', 'add', '--detach', WORKTREE, 'HEAD'], { cwd: ROOT, encoding: 'utf8' });
 if (wt.status !== 0) {

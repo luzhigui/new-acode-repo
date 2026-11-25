@@ -113,7 +113,7 @@
 //   每条都做过验牙（见体检迭代日志第 135 / 136 / 137 轮），验牙时均转红、还原后回绿。
 //
 // 用法：node tests/ver-drift-selftest.mjs
-export const VER = 'tests/ver-drift-selftest.mjs V1.5.30';
+export const VER = 'tests/ver-drift-selftest.mjs V1.5.31';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -173,8 +173,8 @@ const MIN_LOG_PARSED = 60;
 //   258-rewind/332-career-log/round-order-check/126-xuanming-link/704-main-state) 全部有正文版本痕迹(V1.1.0 等)，
 //   属既有「版本史写在注释正文」模式，非日志写坏；差额来自并行会话新并入文件。
 //   注意：夜间第256轮把它重校到 220(夜间基底)，main 基底不同故按 main 实测 232，不照搬 220。
-//   双向棘轮照旧：谁补了标准日志行实测下降，这条会反过来红，逼着把登记值改小。
-const EXPECT_NO_LOG = 232;
+// V1.5.31 | 2026-11-25 第55轮：232 → 229，按 main 实测回退（并行会话补了3个标准日志行，双向棘轮正确报警）。
+const EXPECT_NO_LOG = 229;
 
 // 刻意 hold 白名单：key = 相对仓库根的路径，value = 理由（不得为空）。
 const HOLD_WHITELIST = {

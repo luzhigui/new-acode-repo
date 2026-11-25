@@ -96,7 +96,9 @@ export function checkSixsectsStructure(entryCode, compSources) {
 
 // 规则文件导出的中文名（124 的 RULE_META 以它为 key）
 function ruleName(code) {
-    const m = code.match(/name:\s*['"]([^'"]+)['"]/);
+    // 第55轮：只认「含非ASCII字符」的字面 name——规则名都是中文。
+    //   旧正则会把函数体内的字符串拼接 `'name:' + (u.name || '')` 误当规则名（235 假红）。
+    const m = code.match(/name:\s*['"]([^'"]*[\u4e00-\u9fff][^'"]*)['"]/);
     return m ? m[1] : null;
 }
 
