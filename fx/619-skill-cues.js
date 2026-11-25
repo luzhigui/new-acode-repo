@@ -8,7 +8,7 @@
 // V1.1.3 | 2026-11-23 断锤三式攻防飘字补快进闸（快进统一不飘）
 // V1.2.0 | 2026-11-24 新增 demonBurst（魔化谢逊真伤复用炎爆三段演出）+ sanDuCycle（三渡轮转逐个描轨迹，修「轮回太快看不清」）
 // V1.2.1 | 2026-11-24 新增 demonHeal（谢逊拍醒队友：圣光光柱 + 十字光 + 上浮光点）
-export const VER = 'fx/619-skill-cues.js V1.2.2';   // V1.2.2 2026-11-25 移除 sanDuCycle（轮转改走 POS_SWAP 滑行互换，见 modules/342 V2.3.4）
+export const VER = 'fx/619-skill-cues.js V1.2.3';   // V1.2.3 2026-11-25 火球/圣光 cue 改 Promise + queueBurst 串行，支持 cue.slow 放慢（魔化开轰两下）
 
 import { clock } from '../infra/103-clock.js';
 import { SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
@@ -45,6 +45,14 @@ function refUnit(ref) {
     return { uid: ref.uid, camp: ref.camp, pos: ref.pos };
 }
 
+// 火球/圣光排队播放：魔化谢逊一次开轰是「两下」，两下的 cue 会同一批 fact 里几乎同时到达，
+//   不排队就会叠在一起（老板 2026-11-25：动画要慢、要看得清两下）。只有这两类进队列。
+let _burstChain = Promise.resolve();
+function queueBurst(fn) {
+    _burstChain = _burstChain.then(fn).catch(() => {});
+    return _burstChain;
+}
+
 export function showSkillCue(cue) {
     if (!cue || !cue.kind) return;
     switch (cue.kind) {
@@ -57,8 +65,8 @@ export function showSkillCue(cue) {
         case SKILL_CUE_KINDS.MASK_PEEL: return showMaskPeel(cue);
         case SKILL_CUE_KINDS.SUMMON_MOVE: return showSummonMove(cue);
         case SKILL_CUE_KINDS.BLAZE_BURST: return showBlazeBurst(cue);
-        case SKILL_CUE_KINDS.DEMON_BURST: return showBlazeBurst(cue);
-        case SKILL_CUE_KINDS.DEMON_HEAL: return showDemonHeal(cue);
+        case SKILL_CUE_KINDS.DEMON_BURST: return queueBurst(() => showBlazeBurst(cue));
+        case SKILL_CUE_KINDS.DEMON_HEAL: return queueBurst(() => showDemonHeal(cue));
         default: return;
     }
 }
@@ -318,79 +326,74 @@ function showSummonMove(cue) {
 // ── 炎魔狮王·炎爆：掌心凝聚火球 → 拖尾飞向目标 → 命中爆开 ──
 //   三段全部走逻辑时间：凝球 420ms、飞行 460ms、爆点 340ms（不阻塞战斗）。
 //   纯 CSS 火球（无 emoji），一眼能看出「从狮王手里打出去」而不是凭空在对方头上冒字。
-function showBlazeBurst(cue) {
+// slow:true 时全段放慢（老板 2026-11-25：开轰动画慢一点）；返回 Promise，供 queueBurst 串行播两下
+async function showBlazeBurst(cue) {
     const from = cellOf(cue.self);
     const to = cellOf(cue.target);
     if (!from || !to) return;
+    const sp = cue.slow ? 1.9 : 1;
 
-    // ① 凝聚：火球在狮王身前由小到大亮起，带脉动
+    // ① 凝聚：火球在身前由小到大亮起，带脉动
     const orb = jot(`position:fixed;left:${from.x}px;top:${from.y}px;width:38px;height:38px;
         transform:translate(-50%,-50%) scale(0.15);opacity:0;border-radius:50%;pointer-events:none;z-index:10006;
         background:radial-gradient(circle at 38% 35%, #FFFBE0 0%, #FFD24A 30%, #FF8A1E 62%, #D8340A 88%, rgba(216,52,10,0) 100%);
         box-shadow:0 0 18px 6px rgba(255,150,30,0.70), 0 0 46px 16px rgba(255,72,0,0.30);`);
-    clock.animate(420, p => {
+    await clock.animate(420 * sp, p => {
         orb.style.opacity = (p < 0.22 ? p / 0.22 : 1).toFixed(2);
         const grow = Math.min(1, p / 0.82);
         const pulse = 0.08 * Math.sin(p * Math.PI * 6) * grow;
         orb.style.transform = `translate(-50%,-50%) scale(${(0.15 + 0.85 * grow + pulse).toFixed(3)})`;
-    }, { minRealMs: 320 }).then(() => {
-        drop(orb);
-        fly();
-    });
+    }, { minRealMs: 320 * sp });
+    drop(orb);
 
-    // ② 飞行：火球本体 + 拖尾，从狮王飞向目标
-    function fly() {
-        const dx = to.x - from.x, dy = to.y - from.y;
-        const dist = Math.hypot(dx, dy);
-        if (dist < 1) return;
-        const ang = Math.atan2(dy, dx);
-        const ball = jot(`position:fixed;left:${from.x}px;top:${from.y}px;width:24px;height:24px;
-            transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;z-index:10007;
-            background:radial-gradient(circle at 38% 35%, #FFFBE6 0%, #FFD24A 32%, #FF7A12 68%, #C22A06 92%, rgba(194,42,6,0) 100%);
-            box-shadow:0 0 16px 6px rgba(255,160,40,0.75), 0 0 38px 14px rgba(255,70,0,0.32);`);
-        const tail = jot(`position:fixed;left:${from.x}px;top:${from.y}px;width:${Math.min(96, dist).toFixed(0)}px;height:9px;
-            transform-origin:0 50%;border-radius:5px;pointer-events:none;z-index:10006;
-            background:linear-gradient(90deg, rgba(255,210,74,0) 0%, rgba(255,150,30,0.55) 55%, rgba(255,244,180,0.95) 100%);
-            box-shadow:0 0 10px rgba(255,140,26,0.55);`);
-        const tailLen = Math.min(96, dist);
-        clock.animate(460, p => {
-            const e = 1 - Math.pow(1 - p, 2);   // 前快后慢：出膛快、临近略收
-            const bx = from.x + dx * e, by = from.y + dy * e;
-            ball.style.left = bx.toFixed(1) + 'px';
-            ball.style.top = by.toFixed(1) + 'px';
-            ball.style.transform = `translate(-50%,-50%) scale(${(1 + 0.18 * Math.sin(p * Math.PI)).toFixed(2)})`;
-            const len = tailLen * (0.35 + 0.65 * Math.sin(Math.min(1, p) * Math.PI));
-            tail.style.left = (bx - Math.cos(ang) * len).toFixed(1) + 'px';
-            tail.style.top = (by - Math.sin(ang) * len).toFixed(1) + 'px';
-            tail.style.width = len.toFixed(1) + 'px';
-            tail.style.transform = `rotate(${ang}rad)`;
-            tail.style.opacity = (0.9 * (1 - p * 0.45)).toFixed(2);
-        }, { minRealMs: 380 }).then(() => {
-            drop(ball); drop(tail);
-            impact();
-        });
-    }
+    // ② 飞行：火球本体 + 拖尾，飞向目标
+    const dx = to.x - from.x, dy = to.y - from.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 1) return;
+    const ang = Math.atan2(dy, dx);
+    const ball = jot(`position:fixed;left:${from.x}px;top:${from.y}px;width:24px;height:24px;
+        transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;z-index:10007;
+        background:radial-gradient(circle at 38% 35%, #FFFBE6 0%, #FFD24A 32%, #FF7A12 68%, #C22A06 92%, rgba(194,42,6,0) 100%);
+        box-shadow:0 0 16px 6px rgba(255,160,40,0.75), 0 0 38px 14px rgba(255,70,0,0.32);`);
+    const tail = jot(`position:fixed;left:${from.x}px;top:${from.y}px;width:${Math.min(96, dist).toFixed(0)}px;height:9px;
+        transform-origin:0 50%;border-radius:5px;pointer-events:none;z-index:10006;
+        background:linear-gradient(90deg, rgba(255,210,74,0) 0%, rgba(255,150,30,0.55) 55%, rgba(255,244,180,0.95) 100%);
+        box-shadow:0 0 10px rgba(255,140,26,0.55);`);
+    const tailLen = Math.min(96, dist);
+    await clock.animate(460 * sp, p => {
+        const e = 1 - Math.pow(1 - p, 2);   // 前快后慢：出膛快、临近略收
+        const bx = from.x + dx * e, by = from.y + dy * e;
+        ball.style.left = bx.toFixed(1) + 'px';
+        ball.style.top = by.toFixed(1) + 'px';
+        ball.style.transform = `translate(-50%,-50%) scale(${(1 + 0.18 * Math.sin(p * Math.PI)).toFixed(2)})`;
+        const len = tailLen * (0.35 + 0.65 * Math.sin(Math.min(1, p) * Math.PI));
+        tail.style.left = (bx - Math.cos(ang) * len).toFixed(1) + 'px';
+        tail.style.top = (by - Math.sin(ang) * len).toFixed(1) + 'px';
+        tail.style.width = len.toFixed(1) + 'px';
+        tail.style.transform = `rotate(${ang}rad)`;
+        tail.style.opacity = (0.9 * (1 - p * 0.45)).toFixed(2);
+    }, { minRealMs: 380 * sp });
+    drop(ball); drop(tail);
 
     // ③ 命中：橙色冲击环外扩 + 中心白闪
-    function impact() {
-        const ring = jot(`position:fixed;left:${to.x}px;top:${to.y}px;width:26px;height:26px;border-radius:50%;
-            border:3px solid rgba(255,178,64,0.95);pointer-events:none;z-index:10008;
-            box-shadow:0 0 18px rgba(255,120,20,0.80), inset 0 0 12px rgba(255,220,120,0.65);
-            transform:translate(-50%,-50%);`);
-        const flash = jot(`position:fixed;left:${to.x}px;top:${to.y}px;width:46px;height:46px;border-radius:50%;
-            pointer-events:none;z-index:10009;transform:translate(-50%,-50%);opacity:0.95;
-            background:radial-gradient(circle, rgba(255,255,235,0.95) 0%, rgba(255,196,90,0.55) 42%, rgba(255,120,20,0) 72%);`);
-        clock.animate(340, p => {
-            ring.style.transform = `translate(-50%,-50%) scale(${(0.5 + 2.6 * (1 - Math.pow(1 - p, 2))).toFixed(2)})`;
-            ring.style.opacity = (0.95 * (1 - p)).toFixed(2);
-            flash.style.transform = `translate(-50%,-50%) scale(${(0.6 + 0.9 * p).toFixed(2)})`;
-            flash.style.opacity = (0.95 * (1 - p)).toFixed(2);
-        }, { minRealMs: 240 }).then(() => { drop(ring); drop(flash); });
-    }
+    const ring = jot(`position:fixed;left:${to.x}px;top:${to.y}px;width:26px;height:26px;border-radius:50%;
+        border:3px solid rgba(255,178,64,0.95);pointer-events:none;z-index:10008;
+        box-shadow:0 0 18px rgba(255,120,20,0.80), inset 0 0 12px rgba(255,220,120,0.65);
+        transform:translate(-50%,-50%);`);
+    const flash = jot(`position:fixed;left:${to.x}px;top:${to.y}px;width:46px;height:46px;border-radius:50%;
+        pointer-events:none;z-index:10009;transform:translate(-50%,-50%);opacity:0.95;
+        background:radial-gradient(circle, rgba(255,255,235,0.95) 0%, rgba(255,196,90,0.55) 42%, rgba(255,120,20,0) 72%);`);
+    await clock.animate(340 * sp, p => {
+        ring.style.transform = `translate(-50%,-50%) scale(${(0.5 + 2.6 * (1 - Math.pow(1 - p, 2))).toFixed(2)})`;
+        ring.style.opacity = (0.95 * (1 - p)).toFixed(2);
+        flash.style.transform = `translate(-50%,-50%) scale(${(0.6 + 0.9 * p).toFixed(2)})`;
+        flash.style.opacity = (0.95 * (1 - p)).toFixed(2);
+    }, { minRealMs: 240 * sp });
+    drop(ring); drop(flash);
 }
 
 // ── 魔化谢逊·拍醒队友：头顶降下圣光 + 十字光 + 上浮光点（老板 2026-11-24 要「圣光回血」的十字架感）──
-function showDemonHeal(cue) {
+async function showDemonHeal(cue) {
     const cell = cellOf(cue.target || {});
     if (!cell) return;
     const beam = jot(`position:fixed;left:${cell.x}px;top:${cell.y}px;
@@ -398,10 +401,11 @@ function showDemonHeal(cue) {
         transform:translate(-50%,-100%);pointer-events:none;z-index:10006;opacity:0;border-radius:8px;
         background:linear-gradient(to top, rgba(255,248,205,0.10) 0%, rgba(255,246,190,0.55) 55%, rgba(255,255,255,0.85) 100%);
         box-shadow:0 0 18px rgba(255,240,170,0.75);`);
-    clock.animate(620, p => {
+    await clock.animate(620, p => {
         beam.style.opacity = (p < 0.22 ? 0.95 * (p / 0.22) : 0.95 * (1 - (p - 0.22) / 0.78)).toFixed(2);
         beam.style.height = `${Math.round(cell.height * (1.4 + 0.9 * Math.min(1, p * 1.6)))}px`;
-    }).then(() => drop(beam));
+    });
+    drop(beam);
 
     // 十字光：竖 + 横各一道，一闪即散
     const cross = jot(`position:fixed;left:${cell.x}px;top:${cell.y}px;

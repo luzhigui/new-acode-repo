@@ -5,6 +5,8 @@
 //   渡难：自带流云身法，闪避 +25%
 //   共有：站 7~9 号位时每回合开始回复 30 点生命（金刚伏魔阵）
 //   炎魔狮王：锁在 5 号位、永久无法行动；每回合收尾（所有单位行动完、回合结束结算前）随机对一名明教角色打出一发炎爆（28 点真实伤害）。
+//   魔化谢逊（倒三角）：0 攻 / 18 防 / 1888 血，锁在 5 号位不行动；开局蓄力，之后每被攻击一次 / 轮到自己 / 回合收尾
+//     就「开轰两下」——每下独立掷 18 点真伤（打明教，可闪避）或 18 点回血（打自家三渡），轰完立刻续蓄。
 // 注：引擎的 ON_ROUND_END 在每个出手后都会广播（并非整回合只一次），
 //   故「每回合收尾」类效果统一挂 ROUND_SETTLED（core/210 行动循环结束后只发一次）。
 // V1.1.2 | 2026-11-21 炎爆从「回合开始」改到 ROUND_SETTLED（回合结束前）；ON_ROUND_START 只负责每回合重新压 _stunned
@@ -40,7 +42,10 @@
 // V2.3.3 | 2026-11-24 老板口径：枯禅轮回不再「首次」——血量回到 70%/40% 以上就重新武装，每次跌破都再转。
 // V2.3.4 | 2026-11-25 老板二钉「换位太快、要击退换位那种节奏」：撤掉 sanDuCycle 自绘残影，
 //   轮转改发 swapChain 载荷 → render/419 翻成两条 POS_SWAP，走 fx/604 滑行互换（逐段可见）
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.3.4';
+// V2.4.0 | 2026-11-25 老板最终口径（魔化谢逊）：属性锁 0攻/18防/1888血；开局直接蓄力；
+//   蓄力期间被攻击 / 轮到自己行动 / 回合收尾 → 开轰「两下」并立刻续蓄；每下独立掷 18 真伤（可闪避）或
+//   对自家回 18 生命；火球动画放慢（cue.slow）且两发串行播放。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.4.0';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -66,7 +71,8 @@ const SAN_DU_DOUBLE_STRIKE_RATE = 0.8; // 概率连击：80%
 // ── 枯禅轮回阵（第6关倒三角变体）数值唯一来源 ──
 const SAN_DU_NAME_SET = new Set(['渡厄', '渡劫', '渡难']); // 三渡名单（枯禅轮回/8号位回血识别用）
 const SAN_DU_KUCHAN_HEAL_RATE = 0.4;   // 8 号位枯禅回血：40% 最大生命（V2.3.2 老板上调）
-const DEMON_BURST_DMG = 28;            // 魔化谢逊真伤：28 点/发（V2.3.0 起每回合不再固定两发，见蓄力循环）
+const DEMON_BURST_DMG = 18;            // 魔化谢逊每发：18 点（打敌方=真伤 / 落自家=回血），V2.4.0 老板改为 18
+const DEMON_SHOTS_PER_VOLLEY = 2;      // 每次「开轰」两下；两下各自独立掷「打人 or 回血」
 
 // ── 三大高僧的固定被动 ──
 export const monkFixedBuffHandler = {
@@ -340,16 +346,19 @@ export const demonXiexunHandler = {
         const trio = () => ((decl.camp === CAMP_TYPES.ALLY ? (A || []) : (B || [])))
             .filter(u => u && SAN_DU_NAME_SET.has(u.name) && u.alive);
 
+        // 开局直接蓄力（老板 2026-11-25 口径）：第 1 回合开始就进入「已蓄力」，之后只由
+        //   ①被攻击 ②轮到自己行动 ③回合收尾 触发开轰；轰完立刻续蓄。
         // 每回合压 _stunned（同炎魔：_stunned 会被引擎每回合重置）
-        // V2.3.0：回合开始固定打一发魔化真伤（老板口径：原来是收尾两发），蓄力状态清零
         registerSettlementHook({
             when: SIGNAL_TYPES.ON_ROUND_START,
             priority: 24,
             handler: (data) => {
                 if (!self.alive) return;
                 self.state._stunned = true;
-                self.state._demonCharged = false;
-                demonStrike(data);
+                if (!self.state._demonOpened) {
+                    self.state._demonOpened = true;
+                    enterCharge(data);
+                }
             }
         });
 
@@ -400,50 +409,54 @@ export const demonXiexunHandler = {
                     // 老板 2026-11-24 报「谢逊打伤害没有炎爆那种演出」：复用炎爆三段（凝球→飞行→爆开）
                     cue: {
                         kind: SKILL_CUE_KINDS.DEMON_BURST,
+                        slow: true,   // 老板 2026-11-25：开轰动画慢一点，两发之间要看得清
                         self: { uid: self.uid, camp: self.camp, pos: self.pos },
                         target: { uid: victim.uid, camp: victim.camp, pos: victim.pos }
                     }
                 });
         }
-        // 蓄力循环（V2.3.0，2026-11-24 老板口径，与炎魔同构）：回合开始一发；
-        //   被攻击 / 轮到自己 → 进入蓄力（V2.3.1 起不加护盾）；
-        //   已蓄力后再被攻击 / 轮到行动 / 回合收尾 → 立刻打一发 28 并马上续蓄。
-        //   净效果：每多挨一次打，就多打一发；收尾不再固定两发。
+        // 蓄力循环（V2.4.0，2026-11-25 老板最终口径）：
+        //   开局直接蓄力；蓄力状态下 ①被攻击 ②轮到自己行动 ③回合收尾 —— 任一发生就「开轰两下」，
+        //   轰完立刻续蓄（所以只要还在挨打，就会一直「挨一下→轰两下→再蓄」）。
+        //   两下各自独立掷目标：落到明教=18 真伤（可闪避），落到自家三渡=回 18 生命（圣光演出）。
         function enterCharge(data) {
             self.state._demonCharged = true;
             pushSkillAnnounce(data && data.log, self, '蓄力',
                 '🔥 魔化谢逊魔气凝聚，蓄力待发…',
                 { floatText: '🔥', floatUid: self.uid, needsSeparator: true });
         }
-        function fireCharged(data) {
+        function fireVolley(data) {
             if (!self.state._demonCharged) return;
             self.state._demonCharged = false;
-            demonStrike(data);
+            for (let i = 0; i < DEMON_SHOTS_PER_VOLLEY; i++) demonStrike(data);
+            enterCharge(data);   // 轰完立刻重新蓄力
         }
+        // 轮到自己行动（本质是被 _stunned 跳过的 pass 回合）：蓄力中就开轰
         registerSettlementHook({
             when: SIGNAL_TYPES.ON_UNIT_ACTED,
             priority: 23,
             handler: (data) => {
                 if (!self.alive || !data || data.unit !== self) return;
-                if (!self.state._demonCharged) enterCharge(data);
-                fireCharged(data);
+                if (self.state._demonCharged) fireVolley(data);
+                else enterCharge(data);
             }
         });
+        // 被攻击：蓄力中就开轰（没蓄力就先蓄，正常流程下开局已蓄满，此分支只在极端时序出现）
         registerSettlementHook({
             when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
             priority: 24,
             handler: (data) => {
                 if (!self.alive || !data || data.target !== self) return;
                 if (!(data.dmg > 0)) return;
-                if (!self.state._demonCharged) { enterCharge(data); return; }
-                fireCharged(data);
-                enterCharge(data);
+                if (self.state._demonCharged) fireVolley(data);
+                else enterCharge(data);
             }
         });
+        // 回合收尾：蓄力中就开轰（轰完续蓄，下一回合开局即处于蓄力）
         registerSettlementHook({
             when: SIGNAL_TYPES.ROUND_SETTLED,
             priority: 23,
-            handler: (data) => { if (self.alive) fireCharged(data); }
+            handler: (data) => { if (self.alive) fireVolley(data); }
         });
 
         // 枯禅轮回：任一三渡血量跌破 70%/40% 就转（不是一次性「首次」）——V2.3.3 老板口径：
