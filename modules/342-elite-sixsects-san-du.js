@@ -51,11 +51,13 @@
 //   开局先轰一发再蓄力，被攻击立刻轰一发、回合收尾再轰一发，轮到自己行动不再单独开轰；
 //   ②取消枯禅轮回轮转时三渡+谢逊各回 10% 最大生命；
 //   ③枯禅轮回换位演出改走击退式 PUSH（fx/605 animatePushSwap），撤掉 POS_SWAP 滑行连闪的花哨演出。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.5.0';
+// V2.5.1 | 2026-11-25 老板口径：三渡开局各送一个「圣火不熄」（正/倒三角通用）——
+//   挂单位级独立名额（core/204 _permanentBuffs 持 holyFire → _holyFireSelf），阵亡后原地复活一次、回 40% 最大生命。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.5.1';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
-import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
+import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES, SKILL_CUE_KINDS, BUFF_TYPES } from '../infra/106-battle-enums.js';
 import { addMod, applyStatChange, getBattleRng, getStat, swapUnitPositions } from '../core/214-battle-shared.js';
 import { computeBuffStats } from '../core/204-buff-system.js';
 import { computeDodgeChance } from '../core/213-battle-attack-edge.js';
@@ -352,6 +354,16 @@ export const demonXiexunHandler = {
         // 三渡花名册（本队、存活）
         const trio = () => ((decl.camp === CAMP_TYPES.ALLY ? (A || []) : (B || [])))
             .filter(u => u && SAN_DU_NAME_SET.has(u.name) && u.alive);
+
+        // 三渡开局各送一个「圣火不熄」（老板 2026-11-25 口径；正/倒三角通用）：
+        //   走单位级独立名额（core/204：_permanentBuffs 持 holyFire → _holyFireSelf），
+        //   本人阵亡后下一个行动步原地复活一次、回复 40% 最大生命；不占团队海克斯名额。
+        trio().forEach(u => {
+            if (!Array.isArray(u.state._permanentBuffs)) u.state._permanentBuffs = [];
+            if (!u.state._permanentBuffs.some(b => b.key === BUFF_TYPES.HOLY_FIRE)) {
+                u.state._permanentBuffs.push({ key: BUFF_TYPES.HOLY_FIRE, name: '圣火不熄', icon: '🕯️', permanent: true });
+            }
+        });
 
         // 开局先轰一发 28（轰完立刻续蓄）；之后只由 ①被攻击 ②回合收尾 触发开轰。
         // 每回合压 _stunned（同炎魔：_stunned 会被引擎每回合重置）
