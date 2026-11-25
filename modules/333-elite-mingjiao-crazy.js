@@ -10,12 +10,13 @@
 //   寒离飒（_ctrlImmune）按自身机制选敌、杨逍（_ownTargetRule）走鹰眼分层、韦一笑/宋青书靠 216 先定目标；
 //   癫选敌 priority 1→20，排在 216 的 lowestHp/highestHpPct 之后，且不覆盖已定 targetResult。
 // V1.2.2 | 2026-11-25 传染不再排除免疫控制者（撤 V1.1.5 的 isCCImmune 拦截）：谁都会被传染，只是免疫/自选机制者行为不受影响。
-export const VER = 'modules/333-elite-mingjiao-crazy.js V1.2.2';
+// V1.3.0 | 2026-11-25 老板新增：任何带「癫」的单位出手后，在场的周颠随机 +1 攻 / +1 防（永久累加，无上限）。
+export const VER = 'modules/333-elite-mingjiao-crazy.js V1.3.0';
 
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, FACT_TYPES } from '../infra/106-battle-enums.js';
-import { getBattleRng } from '../core/214-battle-shared.js';
+import { getBattleRng, addMod } from '../core/214-battle-shared.js';
 import { canBeTargeted } from '../core/203-battle-utils.js';
 import { buildTargetCandidates } from '../core/207-target-strategies.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
@@ -157,6 +158,16 @@ export const crazyHandler = {
                 const unit = data.unit;
                 if (!unit || !unit.alive || !unit.state._isCrazy) return;
                 pushCrazyOpening(data, unit);
+                // 2026-11-25 老板口径：任何带「癫」的单位出手（去打人）之后，在场的周颠随机 +1 攻 / +1 防，
+                //   永久累加、无上限；周颠本人带癫出手同样算。
+                const zhouDian = [...(A || []), ...(B || [])].find(o => o && o.name === decl.name && o.alive);
+                if (zhouDian) {
+                    const stat = getBattleRng().next() < 0.5 ? 'atk' : 'def';
+                    addMod(zhouDian, stat, { source: '癫·周颠狂性', value: 1, ttl: 'permanent', op: 'add', group: 'crazyZhouDianGain' });
+                    if (data.log) pushSkillAnnounce(data.log, zhouDian, '癫',
+                        `🤪 周颠见 ${unit.name} 犯癫出手，狂性大发：${stat === 'atk' ? '攻击' : '防御'} +1（永久）`,
+                        { floatText: stat === 'atk' ? '⚔️' : '🛡️', floatUid: zhouDian.uid });
+                }
                 const target = data.target;
                 if (target && target.alive && target.uid !== unit.uid) {
                     // 2026-11-25 老板口径：传染不排除任何人（寒离飒等免疫控制者照样会被传染）；
