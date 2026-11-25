@@ -45,7 +45,9 @@
 // V2.4.0 | 2026-11-25 老板最终口径（魔化谢逊）：属性锁 0攻/18防/1888血；开局直接蓄力；
 //   蓄力期间被攻击 / 轮到自己行动 / 回合收尾 → 开轰「两下」并立刻续蓄；每下独立掷 18 真伤（可闪避）或
 //   对自家回 18 生命；火球动画放慢（cue.slow）且两发串行播放。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.4.0';
+// V2.4.1 | 2026-11-25 枯禅轮回不再固定顺时针：70% 概率把血最少的渡送回 8 号位（其余 1/3 对调），
+//   30% 维持顺时针；每次轮转三渡 + 谢逊各回复 10% 最大生命。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.4.1';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -73,6 +75,8 @@ const SAN_DU_NAME_SET = new Set(['渡厄', '渡劫', '渡难']); // 三渡名单
 const SAN_DU_KUCHAN_HEAL_RATE = 0.4;   // 8 号位枯禅回血：40% 最大生命（V2.3.2 老板上调）
 const DEMON_BURST_DMG = 18;            // 魔化谢逊每发：18 点（打敌方=真伤 / 落自家=回血），V2.4.0 老板改为 18
 const DEMON_SHOTS_PER_VOLLEY = 2;      // 每次「开轰」两下；两下各自独立掷「打人 or 回血」
+const SAN_DU_KUCHAN_LOWHP_RATE = 0.7;  // 枯禅轮回：血最少者回 8 号位的概率（不再固定顺时针，V2.4.1 老板口径）
+const SAN_DU_KUCHAN_HEAL_ON_CYCLE = 0.1; // 每次轮转：三渡 + 谢逊各回复 10% 最大生命
 
 // ── 三大高僧的固定被动 ──
 export const monkFixedBuffHandler = {
@@ -461,7 +465,8 @@ export const demonXiexunHandler = {
 
         // 枯禅轮回：任一三渡血量跌破 70%/40% 就转（不是一次性「首次」）——V2.3.3 老板口径：
         //   血量回到该档以上即重新武装标记，于是每次「从上往下穿过阈值」都会再触发一次。
-        //   三渡按实际站位顺时针轮转 1→3→8→1（回满 ≥该档即重置，可再次触发）。
+        //   V2.4.1 老板口径：不再固定顺时针——70% 概率把血量比例最低的三渡送回 8 号位（1/3 对调），
+        //   30% 仍走顺时针 1→3→8→1；每次轮转三渡 + 谢逊各回 10% 最大生命。
         //   ！三渡免疫控制，swapUnitPositions 必须 friendlyPull:true 放行 core/214 的免控拦截（自家阵法轮转=友方拉）。
         registerSettlementHook({
             when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
@@ -479,24 +484,52 @@ export const demonXiexunHandler = {
                     if (!u.state._sanDu40 && ratio <= 0.4) { u.state._sanDu40 = true; trigger = true; }
                 }
                 if (!trigger) return;
+                // 轮转排布（V2.4.1 老板口径：不固定顺时针，更倾向于让血少的回 8 号位）：
+                //   70% → 血量比例最低的三渡挪到 8 号位（其余两人 1↔3 对调，保留「转」的观感）；
+                //   30% → 维持原顺时针 1→3→8→1。
+                //   两种排布都 ≤2 段互换，演出仍走 swapChain（render/419 翻 POS_SWAP 滑行）。
                 const at = (p) => monks.find(u => u.pos === p) || null;
-                const u1 = at(1), u3 = at(3), u8 = at(8);
-                if (!u1 || !u3 || !u8) return;
-                const from1 = u1.pos, from3 = u3.pos, from8 = u8.pos;
-                swapUnitPositions(u1, u3, data && data.log, { friendlyPull: true });
-                const midPos = u3.pos;   // 第一次换完 u3 的落点（=from1），第二轮它从这里再去 8 号位
-                swapUnitPositions(u3, u8, data && data.log, { friendlyPull: true });
-                pushSkillAnnounce(data && data.log, u1, '枯禅轮回',
-                    `☸️ 枯禅轮回：${u1.name}→3号位，${u3.name}→8号位，${u8.name}→1号位`,
+                if (!at(1) || !at(3) || !at(8)) return;
+                const ratioOf = (u) => u.hp / Math.max(1, getStat(u, 'maxHp'));
+                const lowest = monks.reduce((a, b) => (ratioOf(b) < ratioOf(a) ? b : a));
+                const preferLowHp = getBattleRng().nextInt(1, 100) <= Math.round(SAN_DU_KUCHAN_LOWHP_RATE * 100);
+                const chain = [];
+                const move = (a, b) => {
+                    if (!a || !b || a === b) return;
+                    const pa = a.pos, pb = b.pos;
+                    if (!swapUnitPositions(a, b, data && data.log, { friendlyPull: true })) return;
+                    chain.push({ aUid: a.uid, bUid: b.uid, posA: pa, posB: pb });
+                };
+                if (preferLowHp) {
+                    move(lowest, at(8));     // 血最少的去 8 号位（本来就在 8 号位则这一段自然跳过）
+                    move(at(1), at(3));      // 1/3 对调
+                } else {
+                    const u3 = at(3);
+                    move(at(1), u3);         // 顺时针：1→3→8→1
+                    move(u3, at(8));
+                }
+                if (chain.length === 0) return;
+                const holder8 = at(8) || lowest;
+                pushSkillAnnounce(data && data.log, holder8, '枯禅轮回',
+                    `☸️ 枯禅轮回：${monks.map(u => `${u.name}→${u.pos}号位`).join('，')}`,
                     {
-                        floatText: '☸️', floatUid: u1.uid, needsSeparator: true,
-                        // 老板 2026-11-25：换位太快看不清，要击退换位那种节奏 ⇒ 不再用「残影小点」自绘，
-                        //   改为把环形轮转拆成两条 POS_SWAP 交给 render/419，走 fx/604 的滑行互换（逐段可见）。
-                        swapChain: [
-                            { aUid: u1.uid, bUid: u3.uid, posA: from1, posB: from3 },
-                            { aUid: u3.uid, bUid: u8.uid, posA: midPos, posB: from8 }
-                        ]
+                        floatText: '☸️', floatUid: holder8.uid, needsSeparator: true,
+                        swapChain: chain
                     });
+
+                // 每次轮转：三渡 + 魔化谢逊 各回复 10% 最大生命（V2.4.1 老板口径）
+                const healTargets = [...monks, self].filter(u => u && u.alive);
+                healTargets.forEach((u, i) => {
+                    const maxHp = getStat(u, 'maxHp');
+                    const hpBefore = u.hp;
+                    applyStatChange(u, 'hp', Math.floor(maxHp * SAN_DU_KUCHAN_HEAL_ON_CYCLE), u, '枯禅·轮回回血');
+                    const healed = Math.max(0, Math.round(u.hp - hpBefore));
+                    if (healed > 0) {
+                        pushSkillAnnounce(data && data.log, u, '枯禅轮回',
+                            `🌿 ${u.name} 枯禅入定，回复 ${healed} 点生命`,
+                            { floatText: '🌿', floatUid: u.uid, tone: 'heal', needsSeparator: i === 0 });
+                    }
+                });
             }
         });
 
