@@ -162,17 +162,17 @@ export const STAT_TRANSLATORS = {
 //   带 floatText+floatUid 才产 SKILL_FLOAT；无浮字的报幕返回 null，只落战报行。
 function translateSkillAnnounce(data, index) {
     if (!data) return null;
-    // 三渡·枯禅轮回（2026-11-25）：三角轮转拆成多条 POS_SWAP，逐条走 fx/604 滑行互换，
-    //   节奏与击退换位一致（老板要肉眼看清谁挪到哪；旧版自绘残影点太快看不清）。
+    // 三渡·枯禅轮回（2026-11-25）：三角轮转翻成击退式换位（PUSH → fx/605 animatePushSwap，
+    //   推挤拱动 + 闪两下），与乘风突袭的击退换位同一套演出；旧的 POS_SWAP 滑行连闪太花哨（老板点名）。
     if (Array.isArray(data.swapChain) && data.swapChain.length) {
         const acts = data.swapChain
             .filter(s => s && s.aUid != null && s.bUid != null)
             .map(s => ({
-                kind: STAGE_ACTION_TYPES.POS_SWAP,
+                kind: STAGE_ACTION_TYPES.PUSH,
                 actorUid: s.aUid,
                 targetUid: s.bUid,
-                oldPosA: s.posA,
-                oldPosB: s.posB,
+                label: '☸️ 枯禅轮回',
+                skipBanner: true,
                 factIndex: index,
                 timing: 'beforeText'
             }));

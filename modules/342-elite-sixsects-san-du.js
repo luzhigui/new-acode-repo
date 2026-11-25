@@ -5,8 +5,8 @@
 //   渡难：自带流云身法，闪避 +25%
 //   共有：站 7~9 号位时每回合开始回复 30 点生命（金刚伏魔阵）
 //   炎魔狮王：锁在 5 号位、永久无法行动；每回合收尾（所有单位行动完、回合结束结算前）随机对一名明教角色打出一发炎爆（28 点真实伤害）。
-//   魔化谢逊（倒三角）：0 攻 / 18 防 / 1888 血，锁在 5 号位不行动；开局蓄力，之后每被攻击一次 / 轮到自己 / 回合收尾
-//     就「开轰两下」——每下独立掷 18 点真伤（打明教，可闪避）或 18 点回血（打自家三渡），轰完立刻续蓄。
+//   魔化谢逊（倒三角）：0 攻 / 28 防 / 2888 血，锁在 5 号位不行动；开局先轰一发 28，之后每次被攻击 /
+//     回合收尾各轰一发 28——每发独立掷打明教（可闪避，真伤）或给自家三渡回 28 血，轰完立刻续蓄。
 // 注：引擎的 ON_ROUND_END 在每个出手后都会广播（并非整回合只一次），
 //   故「每回合收尾」类效果统一挂 ROUND_SETTLED（core/210 行动循环结束后只发一次）。
 // V1.1.2 | 2026-11-21 炎爆从「回合开始」改到 ROUND_SETTLED（回合结束前）；ON_ROUND_START 只负责每回合重新压 _stunned
@@ -47,7 +47,11 @@
 //   对自家回 18 生命；火球动画放慢（cue.slow）且两发串行播放。
 // V2.4.1 | 2026-11-25 枯禅轮回不再固定顺时针：70% 概率把血最少的渡送回 8 号位（其余 1/3 对调），
 //   30% 维持顺时针；每次轮转三渡 + 谢逊各回复 10% 最大生命。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.4.1';
+// V2.5.0 | 2026-11-25 老板口径：①魔化谢逊改回 0 攻/28 防/2888 血，每次只轰一发 28（不再两发）；
+//   开局先轰一发再蓄力，被攻击立刻轰一发、回合收尾再轰一发，轮到自己行动不再单独开轰；
+//   ②取消枯禅轮回轮转时三渡+谢逊各回 10% 最大生命；
+//   ③枯禅轮回换位演出改走击退式 PUSH（fx/605 animatePushSwap），撤掉 POS_SWAP 滑行连闪的花哨演出。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.5.0';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -73,10 +77,9 @@ const SAN_DU_DOUBLE_STRIKE_RATE = 0.8; // 概率连击：80%
 // ── 枯禅轮回阵（第6关倒三角变体）数值唯一来源 ──
 const SAN_DU_NAME_SET = new Set(['渡厄', '渡劫', '渡难']); // 三渡名单（枯禅轮回/8号位回血识别用）
 const SAN_DU_KUCHAN_HEAL_RATE = 0.4;   // 8 号位枯禅回血：40% 最大生命（V2.3.2 老板上调）
-const DEMON_BURST_DMG = 18;            // 魔化谢逊每发：18 点（打敌方=真伤 / 落自家=回血），V2.4.0 老板改为 18
-const DEMON_SHOTS_PER_VOLLEY = 2;      // 每次「开轰」两下；两下各自独立掷「打人 or 回血」
+const DEMON_BURST_DMG = 28;            // 魔化谢逊每发：28 点（打敌方=真伤 / 落自家=回血），V2.5.0 老板改回 28
+const DEMON_SHOTS_PER_VOLLEY = 1;      // 每次「开轰」一发（V2.5.0 老板：轰两下太夸张，改回一发）
 const SAN_DU_KUCHAN_LOWHP_RATE = 0.7;  // 枯禅轮回：血最少者回 8 号位的概率（不再固定顺时针，V2.4.1 老板口径）
-const SAN_DU_KUCHAN_HEAL_ON_CYCLE = 0.1; // 每次轮转：三渡 + 谢逊各回复 10% 最大生命
 
 // ── 三大高僧的固定被动 ──
 export const monkFixedBuffHandler = {
@@ -350,8 +353,7 @@ export const demonXiexunHandler = {
         const trio = () => ((decl.camp === CAMP_TYPES.ALLY ? (A || []) : (B || [])))
             .filter(u => u && SAN_DU_NAME_SET.has(u.name) && u.alive);
 
-        // 开局直接蓄力（老板 2026-11-25 口径）：第 1 回合开始就进入「已蓄力」，之后只由
-        //   ①被攻击 ②轮到自己行动 ③回合收尾 触发开轰；轰完立刻续蓄。
+        // 开局先轰一发 28（轰完立刻续蓄）；之后只由 ①被攻击 ②回合收尾 触发开轰。
         // 每回合压 _stunned（同炎魔：_stunned 会被引擎每回合重置）
         registerSettlementHook({
             when: SIGNAL_TYPES.ON_ROUND_START,
@@ -361,7 +363,9 @@ export const demonXiexunHandler = {
                 self.state._stunned = true;
                 if (!self.state._demonOpened) {
                     self.state._demonOpened = true;
-                    enterCharge(data);
+                    // V2.5.0 老板口径：开局轰一次 28 → 立刻蓄力
+                    self.state._demonCharged = true;
+                    fireVolley(data);
                 }
             }
         });
@@ -413,16 +417,16 @@ export const demonXiexunHandler = {
                     // 老板 2026-11-24 报「谢逊打伤害没有炎爆那种演出」：复用炎爆三段（凝球→飞行→爆开）
                     cue: {
                         kind: SKILL_CUE_KINDS.DEMON_BURST,
-                        slow: true,   // 老板 2026-11-25：开轰动画慢一点，两发之间要看得清
+                        slow: true,   // 老板 2026-11-25：开轰动画慢一点，看得清
                         self: { uid: self.uid, camp: self.camp, pos: self.pos },
                         target: { uid: victim.uid, camp: victim.camp, pos: victim.pos }
                     }
                 });
         }
-        // 蓄力循环（V2.4.0，2026-11-25 老板最终口径）：
-        //   开局直接蓄力；蓄力状态下 ①被攻击 ②轮到自己行动 ③回合收尾 —— 任一发生就「开轰两下」，
-        //   轰完立刻续蓄（所以只要还在挨打，就会一直「挨一下→轰两下→再蓄」）。
-        //   两下各自独立掷目标：落到明教=18 真伤（可闪避），落到自家三渡=回 18 生命（圣光演出）。
+        // 蓄力循环（V2.5.0，2026-11-25 老板口径）：
+        //   开局轰一发 28 → 蓄力；蓄力状态下 ①被攻击 ②回合收尾 —— 任一发生就再轰一发，
+        //   轰完立刻续蓄（所以只要还在挨打，就会一直「挨一下→轰一发→再蓄」）。
+        //   落到明教=28 真伤（可闪避），落到自家三渡=回 28 生命（圣光演出）。
         function enterCharge(data) {
             self.state._demonCharged = true;
             pushSkillAnnounce(data && data.log, self, '蓄力',
@@ -435,16 +439,6 @@ export const demonXiexunHandler = {
             for (let i = 0; i < DEMON_SHOTS_PER_VOLLEY; i++) demonStrike(data);
             enterCharge(data);   // 轰完立刻重新蓄力
         }
-        // 轮到自己行动（本质是被 _stunned 跳过的 pass 回合）：蓄力中就开轰
-        registerSettlementHook({
-            when: SIGNAL_TYPES.ON_UNIT_ACTED,
-            priority: 23,
-            handler: (data) => {
-                if (!self.alive || !data || data.unit !== self) return;
-                if (self.state._demonCharged) fireVolley(data);
-                else enterCharge(data);
-            }
-        });
         // 被攻击：蓄力中就开轰（没蓄力就先蓄，正常流程下开局已蓄满，此分支只在极端时序出现）
         registerSettlementHook({
             when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
@@ -466,7 +460,7 @@ export const demonXiexunHandler = {
         // 枯禅轮回：任一三渡血量跌破 70%/40% 就转（不是一次性「首次」）——V2.3.3 老板口径：
         //   血量回到该档以上即重新武装标记，于是每次「从上往下穿过阈值」都会再触发一次。
         //   V2.4.1 老板口径：不再固定顺时针——70% 概率把血量比例最低的三渡送回 8 号位（1/3 对调），
-        //   30% 仍走顺时针 1→3→8→1；每次轮转三渡 + 谢逊各回 10% 最大生命。
+        //   30% 仍走顺时针 1→3→8→1。V2.5.0 起轮转不再附带 10% 回血。
         //   ！三渡免疫控制，swapUnitPositions 必须 friendlyPull:true 放行 core/214 的免控拦截（自家阵法轮转=友方拉）。
         registerSettlementHook({
             when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
@@ -487,7 +481,7 @@ export const demonXiexunHandler = {
                 // 轮转排布（V2.4.1 老板口径：不固定顺时针，更倾向于让血少的回 8 号位）：
                 //   70% → 血量比例最低的三渡挪到 8 号位（其余两人 1↔3 对调，保留「转」的观感）；
                 //   30% → 维持原顺时针 1→3→8→1。
-                //   两种排布都 ≤2 段互换，演出仍走 swapChain（render/419 翻 POS_SWAP 滑行）。
+                //   两种排布都 ≤2 段互换，演出走 swapChain（render/419 翻 PUSH → fx/605 击退式推挤换位）。
                 const at = (p) => monks.find(u => u.pos === p) || null;
                 if (!at(1) || !at(3) || !at(8)) return;
                 const ratioOf = (u) => u.hp / Math.max(1, getStat(u, 'maxHp'));
@@ -516,20 +510,6 @@ export const demonXiexunHandler = {
                         floatText: '☸️', floatUid: holder8.uid, needsSeparator: true,
                         swapChain: chain
                     });
-
-                // 每次轮转：三渡 + 魔化谢逊 各回复 10% 最大生命（V2.4.1 老板口径）
-                const healTargets = [...monks, self].filter(u => u && u.alive);
-                healTargets.forEach((u, i) => {
-                    const maxHp = getStat(u, 'maxHp');
-                    const hpBefore = u.hp;
-                    applyStatChange(u, 'hp', Math.floor(maxHp * SAN_DU_KUCHAN_HEAL_ON_CYCLE), u, '枯禅·轮回回血');
-                    const healed = Math.max(0, Math.round(u.hp - hpBefore));
-                    if (healed > 0) {
-                        pushSkillAnnounce(data && data.log, u, '枯禅轮回',
-                            `🌿 ${u.name} 枯禅入定，回复 ${healed} 点生命`,
-                            { floatText: '🌿', floatUid: u.uid, tone: 'heal', needsSeparator: i === 0 });
-                    }
-                });
             }
         });
 
