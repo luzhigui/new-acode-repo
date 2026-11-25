@@ -37,10 +37,11 @@ jobs:
 
       # 2026-11-06 push 门禁加挂两个秒级守门（清单新鲜度+规则语法扫）——11-05 三个新模块漏登清单
       #   就是「最后一笔没跑 run-all」漏的，这两个挂上后漏登/语法雷在 push 当场拦截。
-      - name: 秒级守门（清单新鲜度 + 规则语法扫）
+      - name: 秒级守门（清单新鲜度 + 规则语法扫 + UI 处理器白名单）
         run: |
           node tests/manifest-fresh-selftest.mjs
           node tests/health-rules-syntax-sweep.mjs
+          node tests/ui-handler-keys-check.mjs
 
       - name: 跑 ESLint（代码本身写没写错，与体检互补）
         run: |
