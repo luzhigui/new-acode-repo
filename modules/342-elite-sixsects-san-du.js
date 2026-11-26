@@ -56,7 +56,9 @@
 //   改为挂队伍 _activeBuffs（谁先阵亡谁复活一次），不再给三渡每人各发一份。
 // V2.6.0 | 2026-11-26 老板口径：枯禅轮回演出改「三格同时滑行」——带阵营色描边、无击退挤压、无闪烁红锁，
 //   时长 900ms（比原换位慢）；载荷 swapChain → posCycle（render/419 → POS_CYCLE → fx/604 animatePosCycle）。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.6.0';
+// V2.6.1 | 2026-11-26 老板纠错：取消 30% 随机顺时针——血最少已站 8 号位时，原逻辑会把满血者转进 8 号位；
+//   现在永远优先把血最少的放 8 号位（已在 8 则跳过），其余两人 1/3 对调。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.6.1';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -84,7 +86,7 @@ const SAN_DU_NAME_SET = new Set(['渡厄', '渡劫', '渡难']); // 三渡名单
 const SAN_DU_KUCHAN_HEAL_RATE = 0.4;   // 8 号位枯禅回血：40% 最大生命（V2.3.2 老板上调）
 const DEMON_BURST_DMG = 28;            // 魔化谢逊每发：28 点（打敌方=真伤 / 落自家=回血），V2.5.0 老板改回 28
 const DEMON_SHOTS_PER_VOLLEY = 1;      // 每次「开轰」一发（V2.5.0 老板：轰两下太夸张，改回一发）
-const SAN_DU_KUCHAN_LOWHP_RATE = 0.7;  // 枯禅轮回：血最少者回 8 号位的概率（不再固定顺时针，V2.4.1 老板口径）
+// （枯禅轮回：跌破 70%/40% 两档触发；血最少者优先回 8 号位，无随机分支）
 
 // ── 三大高僧的固定被动 ──
 export const monkFixedBuffHandler = {
@@ -499,7 +501,8 @@ export const demonXiexunHandler = {
                 if (!at(1) || !at(3) || !at(8)) return;
                 const ratioOf = (u) => u.hp / Math.max(1, getStat(u, 'maxHp'));
                 const lowest = monks.reduce((a, b) => (ratioOf(b) < ratioOf(a) ? b : a));
-                const preferLowHp = getBattleRng().nextInt(1, 100) <= Math.round(SAN_DU_KUCHAN_LOWHP_RATE * 100);
+                // 老板 2026-11-26：只认「血最少的去 8 号位」——取消 30% 随机顺时针，
+                //   否则会出现「血最少已站 8 号位，反而把满血的人转进 8 号位」。
                 const chain = [];
                 const before = new Map(monks.map(u => [u.uid, u.pos]));   // 轮转前位置：演出按「旧→新」三格同时滑
                 const move = (a, b) => {
@@ -508,14 +511,8 @@ export const demonXiexunHandler = {
                     if (!swapUnitPositions(a, b, data && data.log, { friendlyPull: true })) return;
                     chain.push({ aUid: a.uid, bUid: b.uid, posA: pa, posB: pb });
                 };
-                if (preferLowHp) {
-                    move(lowest, at(8));     // 血最少的去 8 号位（本来就在 8 号位则这一段自然跳过）
-                    move(at(1), at(3));      // 1/3 对调
-                } else {
-                    const u3 = at(3);
-                    move(at(1), u3);         // 顺时针：1→3→8→1
-                    move(u3, at(8));
-                }
+                move(lowest, at(8));     // 血最少的去 8（本来就在 8 号位则天然跳过，不会把满血者换进去）
+                move(at(1), at(3));      // 其余两人 1/3 对调，保留「轮转」观感
                 if (chain.length === 0) return;
                 const posCycle = monks
                     .map(u => ({ uid: u.uid, fromPos: before.get(u.uid), toPos: u.pos }))
