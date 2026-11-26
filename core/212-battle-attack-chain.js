@@ -1,6 +1,7 @@
 // core/212-battle-attack-chain.js — 攻击流程主干（选敌 → 命中/闪避 → 伤害 → 应用 → 构建攻击组 + 闪避效果）
 // 边裁与纯工具（computeDodgeChance / snapshotUnitForFact / resolveDeaths / resolveAfterDamageEffects /
 //   resolveDamageImmune / isUnitStunned）在 213-battle-attack-edge.js。
+// V1.0.21 | 2026-11-25 伤害条目带 hpLossApplied/shieldAbsorb/cappedLoss（T-D303-1，供伤害行与规则对账）
 // V1.0.20 | 2026-11-22 伤害行右值改取本击落血当刻 hpAfterHit（applyStatChange 前），同帧回血不再把伤害行变成「53 → 56」
 // V1.0.19 | 2026-11-21 补版本日志行（VER 常量已抬，漏写本行致 ver-drift 判领先）。
 // V1.0.18 | 2026-11-17 FIX-2026-1117-11：近战打前排=硬规则。selectAttackTarget 的手动/候选池两路

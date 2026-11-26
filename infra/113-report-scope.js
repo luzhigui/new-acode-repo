@@ -9,6 +9,7 @@
 // 用法：由 101 event-bus 的 emit 进出自动置位；播报出口（305 pushSkillAnnounce 等）
 //      未显式指定 needsSeparator 时调用 consumeBreakFlag() 自动判定，调用方零改动。
 // ============================================================
+export const VER = 'infra/113-report-scope.js V1.0.1';
 import { SIGNAL_TYPES } from './106-battle-enums.js';
 
 // 这些信号属于"非单位出手"段：段内第一条播报独立成段，其余粘住即可

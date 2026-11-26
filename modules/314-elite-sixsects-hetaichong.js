@@ -1,4 +1,5 @@
 // modules/314-elite-sixsects-hetaichong.js — 六大派精英「何太冲」：两仪连接 / 箭靶标记 / 红血
+// V6.27.3 | 2026-11-25 两仪血量均摊逐人入账（230 组外均摊/互换/红血清基线）
 // V6.27.2 | 2026-11-20 两仪连接修复：双方 `_dualSchools` 全给「战士+远程」两系（原只写对方单个职业，
 //   何太冲 role 非精确『远程』时连自身远程成长一起丢）；搭档候选改按「系」配对（战士系 ↔ 远程系）。
 export const VER = 'modules/314-elite-sixsects-hetaichong.js V6.27.3';

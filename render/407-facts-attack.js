@@ -6,6 +6,7 @@ import { makeFXSnapshot, fmtHp, fmtHpText, fmt1, fmtNum, fmtAtk } from '../infra
 import { getStat } from '../core/214-battle-shared.js';
 import { FACT_TYPES, CAMP_TYPES, DROP_TYPES } from '../infra/106-battle-enums.js';
 import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } from './406-fact-registry.js';
+// V1.5.18 | 2026-11-25 伤害条目渲染新增 hpLossApplied/shieldAbsorb/cappedLoss 字段（T-D303-1）
 // V1.5.16 | 2026-11-22 SKILL_ANNOUNCE 支持 tone:'heal' → 绿色（武痴回复生命等回复类播报）
 export const VER = 'render/407-facts-attack.js V1.5.18';
 
