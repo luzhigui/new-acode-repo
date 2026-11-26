@@ -62,7 +62,9 @@
 //   蓄力期间被攻击 → 立刻轰并续蓄；回合收尾若仍在蓄力 → 把这一发打出去。
 // V2.7.0 | 2026-11-26 老板口径：枯禅轮回改「三渡每次被攻击都判定」——把血量比例最低者换到 8 号位
 //   （已在 8 号位则不动）；删除 70%/40% 阈值与 1/3 对调；回血仍为 8 号位行动前每回合一次。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.1';
+// V2.7.2 | 2026-11-26 老板口径：魔化谢逊血量 2888 → 288（每发 28 对应 288 血），
+//   每次开轰给自己叠 1% 最大生命护盾；content.m/poolTier 由 115 校正为 143（288/2.5+0+28）。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.2';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -91,6 +93,7 @@ const SAN_DU_NAME_SET = new Set(['渡厄', '渡劫', '渡难']); // 三渡名单
 const SAN_DU_KUCHAN_HEAL_RATE = 0.4;   // 8 号位枯禅回血：40% 最大生命（V2.3.2 老板上调）
 const DEMON_BURST_DMG = 28;            // 魔化谢逊每发：28 点（打敌方=真伤 / 落自家=回血），V2.5.0 老板改回 28
 const DEMON_SHOTS_PER_VOLLEY = 1;      // 每次「开轰」一发（V2.5.0 老板：轰两下太夸张，改回一发）
+const DEMON_SHIELD_PCT = 0.01;         // 每轰一炮给自己加 1% 最大生命护盾（V2.5.3 老板口径，配 288 血）
 // （枯禅轮回：跌破 70%/40% 两档触发；血最少者优先回 8 号位，无随机分支）
 
 // ── 三大高僧的固定被动 ──
@@ -463,7 +466,12 @@ export const demonXiexunHandler = {
         function fireVolley(data) {
             if (!self.state._demonCharged) return;
             self.state._demonCharged = false;
-            for (let i = 0; i < DEMON_SHOTS_PER_VOLLEY; i++) demonStrike(data);
+            for (let i = 0; i < DEMON_SHOTS_PER_VOLLEY; i++) {
+                demonStrike(data);
+                // 每轰一炮给自己加 1% 最大生命护盾（V2.5.3 老板口径：以炮养盾，挨打越多盾越厚）
+                const shield = Math.floor(getStat(self, 'maxHp') * DEMON_SHIELD_PCT);
+                if (shield > 0) self.state._shield = (self.state._shield || 0) + shield;
+            }
             enterCharge(data);   // 轰完立刻重新蓄力
         }
         // 被攻击：蓄力中就开轰（没蓄力就先蓄，正常流程下开局已蓄满，此分支只在极端时序出现）
