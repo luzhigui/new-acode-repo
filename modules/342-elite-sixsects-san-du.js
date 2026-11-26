@@ -54,7 +54,9 @@
 // V2.5.1 | 2026-11-25 老板口径：三渡所在队伍开局携带「圣火不熄」（正/倒三角通用）。
 // V2.5.2 | 2026-11-25 老板纠正：圣火不熄是全局海克斯（每队每局只有 1 个复活名额），
 //   改为挂队伍 _activeBuffs（谁先阵亡谁复活一次），不再给三渡每人各发一份。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.5.2';
+// V2.6.0 | 2026-11-26 老板口径：枯禅轮回演出改「三格同时滑行」——带阵营色描边、无击退挤压、无闪烁红锁，
+//   时长 900ms（比原换位慢）；载荷 swapChain → posCycle（render/419 → POS_CYCLE → fx/604 animatePosCycle）。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.6.0';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -499,6 +501,7 @@ export const demonXiexunHandler = {
                 const lowest = monks.reduce((a, b) => (ratioOf(b) < ratioOf(a) ? b : a));
                 const preferLowHp = getBattleRng().nextInt(1, 100) <= Math.round(SAN_DU_KUCHAN_LOWHP_RATE * 100);
                 const chain = [];
+                const before = new Map(monks.map(u => [u.uid, u.pos]));   // 轮转前位置：演出按「旧→新」三格同时滑
                 const move = (a, b) => {
                     if (!a || !b || a === b) return;
                     const pa = a.pos, pb = b.pos;
@@ -514,12 +517,16 @@ export const demonXiexunHandler = {
                     move(u3, at(8));
                 }
                 if (chain.length === 0) return;
+                const posCycle = monks
+                    .map(u => ({ uid: u.uid, fromPos: before.get(u.uid), toPos: u.pos }))
+                    .filter(x => x.fromPos != null && x.fromPos !== x.toPos);
+                if (posCycle.length === 0) return;
                 const holder8 = at(8) || lowest;
                 pushSkillAnnounce(data && data.log, holder8, '枯禅轮回',
                     `☸️ 枯禅轮回：${monks.map(u => `${u.name}→${u.pos}号位`).join('，')}`,
                     {
                         floatText: '☸️', floatUid: holder8.uid, needsSeparator: true,
-                        swapChain: chain
+                        posCycle, camp: holder8.camp
                     });
             }
         });

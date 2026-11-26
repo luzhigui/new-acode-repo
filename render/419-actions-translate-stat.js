@@ -1,6 +1,6 @@
 // render/419-actions-translate-stat.js — fact → stageAction 翻译器·属性召唤族（38 拆分）
 import { STAGE_ACTION_TYPES, FACT_TYPES, BUFF_EFFECT_TYPES } from '../infra/106-battle-enums.js';
-export const VER = 'render/419-actions-translate-stat.js V1.1.2';
+export const VER = 'render/419-actions-translate-stat.js V1.1.3';
 
 // 属性召唤族翻译器表（键=factType）
 export const STAT_TRANSLATORS = {
@@ -162,24 +162,20 @@ export const STAT_TRANSLATORS = {
 //   带 floatText+floatUid 才产 SKILL_FLOAT；无浮字的报幕返回 null，只落战报行。
 function translateSkillAnnounce(data, index) {
     if (!data) return null;
-    // 三渡·枯禅轮回（2026-11-25）：三角轮转翻成击退式换位（PUSH → fx/605 animatePushSwap，
-    //   推挤拱动 + 闪两下），与乘风突袭的击退换位同一套演出；旧的 POS_SWAP 滑行连闪太花哨（老板点名）。
-    if (Array.isArray(data.swapChain) && data.swapChain.length) {
-        const acts = data.swapChain
-            .filter(s => s && s.aUid != null && s.bUid != null)
-            .map(s => ({
-                kind: STAGE_ACTION_TYPES.PUSH,
-                actorUid: s.aUid,
-                targetUid: s.bUid,
-                label: '☸️ 枯禅轮回',
-                skipBanner: true,
-                factIndex: index,
-                timing: 'beforeText'
-            }));
+    // 三渡·枯禅轮回（2026-11-26 老板口径）：三格同时滑到新位置，带阵营色描边；
+    //   不闪 3 下、不红锁、不来回、不做击退挤压，节奏放慢（fx/604 animatePosCycle）。
+    if (Array.isArray(data.posCycle) && data.posCycle.length) {
+        const acts = [{
+            kind: STAGE_ACTION_TYPES.POS_CYCLE,
+            cycle: data.posCycle,
+            camp: data.camp,
+            factIndex: index,
+            timing: 'beforeText'
+        }];
         if (data.floatText && data.floatUid != null) {
             acts.push({ kind: STAGE_ACTION_TYPES.SKILL_FLOAT, targetUid: data.floatUid, text: data.floatText, factIndex: index, timing: 'afterText' });
         }
-        return acts.length ? acts : null;
+        return acts;
     }
     // 两仪互换（红血）：带 swap 载荷的报幕先翻出一条「连线换位」POS_SWAP（beforeText——触发挂 ON_UNIT_ACTED，
     //   事实序在整段攻击组之后，先挨打成红血、演出完再播换位）；☯ 飘字照旧 afterText。

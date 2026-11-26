@@ -1,5 +1,5 @@
 // fx/604-fx-position-swap.js
-export const VER = 'fx/604-fx-position-swap.js V6.2.1';
+export const VER = 'fx/604-fx-position-swap.js V6.3.0';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
@@ -255,6 +255,53 @@ async function animateLiangyiSwap(unit1, unit2, c, options = {}) {
     c.updateUI();
     popInCell(getCellByPos(unit1.camp, pos2));
     popInCell(getCellByPos(unit2.camp, pos1));
+}
+
+// ========== 三格同时轮转·滑行版（三渡·枯禅轮回） ==========
+// 老板 2026-11-26：只做「三个格子同时滑到新位置」+ 各自阵营色描边；
+//   不闪 3 下、不红锁、不来回位移、不做击退挤压，节奏比原换位更慢。
+//   载荷 swaps: [{uid, fromPos, toPos}]；滑完 dispatch POS_CHANGE 落定。
+export async function animatePosCycle(swaps, camp, c, options = {}) {
+    if (!Array.isArray(swaps)) return;
+    const list = swaps.filter(s => s && s.fromPos != null && s.toPos != null && s.fromPos !== s.toPos);
+    if (!list.length) return;
+    const dur = options.duration || 900;
+    const cells = list.map(s => ({ s, cell: getCellByPos(camp, s.fromPos), target: getCellByPos(camp, s.toPos) }))
+        .filter(x => x.cell && x.target);
+    if (!cells.length) return;
+
+    const color = camp === CAMP_TYPES.ENEMY ? '224,86,61' : '63,127,214';
+    const layers = [];
+    for (const { s, cell, target } of cells) {
+        const r1 = cell.getBoundingClientRect();
+        const r2 = target.getBoundingClientRect();
+        const layer = document.createElement('div');
+        layer.style.cssText = [
+            'position:fixed', `left:${r1.left}px`, `top:${r1.top}px`,
+            `width:${r1.width}px`, `height:${r1.height}px`, 'pointer-events:none', 'z-index:9999',
+            `border:2px solid rgba(${color},0.95)`, 'border-radius:10px',
+            `box-shadow:0 0 14px rgba(${color},0.65)`, 'overflow:hidden',
+            `background:rgba(${color},0.12)`, 'will-change:transform'
+        ].join(';');
+        layer.innerHTML = cell.innerHTML;
+        document.body.appendChild(layer);
+        cell.style.visibility = 'hidden';
+        layers.push({ s, cell, layer, dx: r2.left - r1.left, dy: r2.top - r1.top });
+    }
+    void document.body.offsetHeight;   // 强制 reflow，保证 transition 生效
+    for (const it of layers) {
+        it.layer.style.transition = `transform ${dur}ms cubic-bezier(0.35, 0, 0.2, 1)`;
+        it.layer.style.transform = `translate(${it.dx}px, ${it.dy}px)`;
+    }
+    await clock.wait(dur + 100);
+
+    if (c && c.store) {
+        c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: layers.map(it => ({
+            eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: it.s.uid, pos: it.s.toPos
+        })) });
+    }
+    for (const it of layers) { it.cell.style.visibility = ''; it.layer.remove(); }
+    if (c && c.updateUI) c.updateUI();
 }
 
 // ========== 惑心换位·三格原地闪换 ==========

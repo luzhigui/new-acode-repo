@@ -12,7 +12,7 @@ import { isFxSkipped } from '../infra/111-fx-gate.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
-export const VER = 'render/420-actions-defs.js V1.7.8';
+export const VER = 'render/420-actions-defs.js V1.7.9';
 
 // 被动出手徽章文案（ATTACK/MISS/DODGE 三处出手帧共用）。reason 由 core/10 runExtraAttackRequests
 //   写进 state._linkReason → core/12 attack fact → render/38 透传 → 此处按 reason 出头顶飘字。
@@ -255,6 +255,15 @@ export const STAGE_ACTION_DEFS = {
             if (isFxSkipped()) return;
             const { animateMindSwap } = await import('../fx/608-fx-manager.js');
             await animateMindSwap(action.swaps || [], action.camp, c, action.allPositions || []);
+        }
+    },
+    // 三渡·枯禅轮回：三格同时滑行轮转（fx/604 animatePosCycle）——带阵营色描边、不闪不锁不挤压，节奏放慢。
+    [STAGE_ACTION_TYPES.POS_CYCLE]: {
+        grid: 'sync', log: 'sync', timing: 'beforeText',
+        fx: async (c, action) => {
+            if (isFxSkipped()) return;
+            const { animatePosCycle } = await import('../fx/608-fx-manager.js');
+            await animatePosCycle(action.cycle || [], action.camp, c, { duration: 900 });
         }
     },
     [STAGE_ACTION_TYPES.PUSH]: {

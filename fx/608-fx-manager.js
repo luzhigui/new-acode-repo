@@ -1,4 +1,4 @@
-export const VER = 'fx/608-fx-manager.js V6.1.3';
+export const VER = 'fx/608-fx-manager.js V6.1.4';
 
 import {
     showDanmaku,
@@ -32,7 +32,7 @@ import {
     showMeleeMiss
 } from './603-fx-crash-5v5-test.js';
 
-import { animatePositionSwap, animateMindSwap, animateUnitAdvance } from './604-fx-position-swap.js';
+import { animatePositionSwap, animateMindSwap, animateUnitAdvance, animatePosCycle } from './604-fx-position-swap.js';
 import { animatePushBack, animatePushSwap } from './605-fx-push-back.js';
 import { showDodgeBulletTime } from './606-fx-dodge-bullet.js';
 
@@ -72,6 +72,7 @@ export {
     showMeleeDodge,
     showMeleeMiss,
     animatePositionSwap,
+    animatePosCycle,
     animateMindSwap,
     animateUnitAdvance,
     animatePushBack,

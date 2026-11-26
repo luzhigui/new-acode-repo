@@ -1,5 +1,5 @@
 // infra/106-battle-enums.js — 全局枚举、类型常量与白名单唯一真源
-export const VER = 'infra/106-battle-enums.js V1.11.5';
+export const VER = 'infra/106-battle-enums.js V1.11.6';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -142,6 +142,8 @@ export const STAGE_ACTION_TYPES = Object.freeze({
     // 惑心换位·三格原地闪换：不滑行、不两两互换，三格内容原地反复闪换后一次落到终态。
     //   原先走「冒泡拆成两两 POS_SWAP」降维路径，视觉上是连做两次两格互换，每次都是闪 3 下 + 瞬移来回 + 红锁。
     MIND_SWAP: 'mindSwap',
+    // 三渡·枯禅轮回：三格同时滑行轮转（带阵营色描边，不闪不锁不挤压，慢速；fx/604 animatePosCycle）
+    POS_CYCLE: 'posCycle',
     // 轻量技能演出（吸星 / 现形 / 断锤 / 双面观音 / 蹦蹦挪位）：一条 cue 一个演出者，只表现不改数值
     SKILL_CUE: 'skillCue'
 });
