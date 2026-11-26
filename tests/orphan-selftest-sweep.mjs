@@ -1,3 +1,22 @@
+// V1.4.0 | 2026-11-26 夜间第 275 轮：「跑不完」不再被写成「红了」。
+//   由头：孤儿名单里 `coverage-ceiling-probe` 与 `one-click-health-translation-selfcheck` 连挂多轮
+//   红灯，措辞是「红了没人盯」。本轮实测两者都是**确定性长耗时**、不是死锁、不是失败：
+//   前者默认 12 场 × 每场 ≈85s（`--jobs 4` 实测 243s 全跑成，覆盖 180/181）；
+//   后者内部 spawn 一次 one-click-health，而后者自己又跑一遍 run-all（506s，内含 103s 体检）。
+//   180s 的闸门对它们不是「判据」而是「尺子太短」—— 实测 600s 都跑不完前者默认参数。
+//   故新增一档 `slow`：**超时不再计入红名单**，改为单独点名 + 每条给出实测耗时与复跑命令，
+//   并保留一条「超时口径自证」把「被杀必须有名字」钉住，防止超时被静默吞掉。
+//   ★ 这不是放宽：真红（exit≠0）的判据一个字未动，红名单口径未变；变的只是把
+//   「没跑完」与「跑完且判红」两种事实分开陈述 —— 前者要人补尺子，后者要人改代码。
+// V1.3.2 | 2026-11-25 夜间第 270 轮：新增「分类判据自咬」4 条（孤儿 / 库 / 真实在册样本 / health-rules 前缀）。
+//   由头：本件把 tests/rng-discipline-check.mjs 当孤儿直跑并报「红了没人盯」，而真相是它从没被任何
+//   通道执行过（不在清单、无人 import）—— 「没人跑」被报告写成了「没人看」。两者同色同字、处置不同，
+//   故先把分类器本身钉住：分类错了，整份孤儿/库/在册结论就都不可信。
+//   在册优先一条用**真实**在册样本断言（首版用虚构 rel + 假 registry 模拟，当场红两条，教训见日志）。
+//   免跑面、退码口径、判据阈值一字未动；spawnSync 面也未改。
+// V1.3.1 | 2026-11-18 夜间第 238 轮：pickKeyLine 关键记号补 ⛔（与 run-all.mjs V1.63.0 同步两处）。
+//   由头：第 238 轮开场 `版本号遗忘抬升绊线` 真红，摘要却挑中一条 `~ …186-display-single-exit.js…（跳过）`
+//   —— 命中的是文件名里的 exit，而真正的 ⛔ 结论行不在集合里。仅补标记，取行口径与绿路径一字未动。
 // V1.3.0 | 2026-11-06 迭代：pickKeyLine 与 run-all.mjs V1.40.0 同步——新增可选 failed 参数，
 //   调用方已知子进程 exit≠0 时优先挑负向结论行，避免「红脚本末尾打统计尾巴」把孤儿红项
 //   摘要显示成通过。绿路径（含不传参）行为一字不变。三要素（关键词正则 / hit[hit.length-1] /
@@ -44,7 +63,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { auditAnchorSites, stripComments, selfCheck as truthSelfCheck } from './_lib/static-truth-slice.mjs';
 
-export const VER = 'tests/orphan-selftest-sweep.mjs V1.3.0';
+export const VER = 'tests/orphan-selftest-sweep.mjs V1.4.0';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -65,6 +84,21 @@ const HEAVY_SKIP = {
 
 // 子进程超时保护：孤儿是新面孔，没人知道它会不会挂住。卡住比红更糟（红至少报得出）。
 const CHILD_TIMEOUT_MS = 180000;
+
+// V1.4.0：慢件的实测档案（每条必须带「怎么量出来的」，否则就是拍脑袋）。
+//   ★ 这里**不是白名单**：慢件仍每轮真跑，只是被闸门杀时按「慢件」陈述而非「红」。
+//     若哪天它跑进闸门内且 exit≠0，会自然落回红名单 —— 没有任何豁免路径。
+//   ★ 实测值来自第 275 轮（2026-11-26）本机量取，量法写在 hint 里，可复跑对账。
+const SLOW_HINTS = {
+    'tests/coverage-ceiling-probe.mjs':
+        '实测：默认 12 场 × 每场回放 ≈85s、默认 --jobs 1 串行 ⇒ 600s 内只跑完 seed=1 的 7 关（远不止闸门）；'
+        + '复跑 `node tests/coverage-ceiling-probe.mjs --jobs 4` 在干净树上实测 245s 全跑成、覆盖 180/181、exit=0'
+        + '（确定性长耗时，非死锁）。★ 若它反而「一场都没跑起来」且每场退 3，那不是它红 —— 是回放子进程撞上脏树守门'
+        + '（退码 3 ≡ 环境不洁），须先看 `git status --porcelain`',
+    'tests/one-click-health-translation-selfcheck.mjs':
+        '实测：内部 spawn 一次 tests/one-click-health.mjs，而后者自己又整跑一遍 run-all（103s）⇒ 总 506s；'
+        + '复跑 `node tests/one-click-health.mjs` 直接可见（自身 exit=0，报告 22/27·5 红属体检既有红，不是它的红）',
+};
 
 function readIfExists(rel) {
     const abs = path.join(root, rel);
@@ -90,11 +124,11 @@ function matchAll(text, re) {
 function pickKeyLine(out, failed) {
     const lines = out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
     const hit = lines.filter((l) =>
-        /RESULT|MATCH|✅|❌|通过|无失败|issue|偏差|未覆盖|未触发|全过|失败|Error|exit/i.test(l));
+        /RESULT|MATCH|✅|❌|⛔|通过|无失败|issue|偏差|未覆盖|未触发|全过|失败|Error|exit/i.test(l));
     let chosen = hit[hit.length - 1] || lines[lines.length - 1] || '';
     if (failed === true) {
         const neg = hit.filter((l) =>
-            /❌|\bFAIL\b|Error|异常|致命|偏差|未覆盖|未触发|未通过|不一致|漂移|断链|红项|失败/i.test(l)
+            /❌|⛔|\bFAIL\b|Error|异常|致命|偏差|未覆盖|未触发|未通过|不一致|漂移|断链|红项|失败/i.test(l)
             && !/无失败|零失败/.test(l));
         if (neg.length) chosen = neg[neg.length - 1];
     }
@@ -195,6 +229,51 @@ function classify(rel, importedBases, registry) {
 }
 
 // ---------------------------------------------------------------------------
+// ④ 分类判据自咬（第 270 轮新增）：分类器必须能咬住「该判的四种」与「不该判的一种」
+// ---------------------------------------------------------------------------
+// 由头（本轮真踩出来的）：`tests/rng-discipline-check.mjs` 磁盘有、清单无、也没被任何文件 import，
+//   于是被归成 orphan 并 spawnSync 直跑 —— 它主判据是「运行期抽签次数对照基线」，实测 35 场全位移、
+//   必然 exit=1，在报告上写成「1 个孤儿自检正在红，且不在清单里 ⇒ 红了没人盯」。
+//   但真实结论是「这件没被任何人盯 = 它没被任何通道执行」（见看板 #85），
+//   而不是「红没人看」。两者都是缺陷，`kind` 不同、处置不同，混成一类会让
+//   「跑起来会红的取证件」和「真缺陷」在报告上长得一模一样。
+// ★ 本段只对 classify() 做**纯函数自咬**（注入假 importedBases / 假 registry，不碰磁盘），
+//   判据阈值、免跑面、退码口径一律不动；唯一的行为改动是把「已定义但从未使用的 needsRegistry」接上：
+//   一个只读归档快照做真值来源的取证件，不该进「spawnSync 直跑」这条通道。
+// ---------------------------------------------------------------------------
+function classifySelfCheck() {
+    // ★ 注入面只给一条：「谁被 import 了」。在册表**故意留空** —— 首版探针把假 rel 塞进假 registry，
+    //   实测第 3 条被判 library 而非 registered，两条探针当场红。根因是 classify 在 rel 为虚构路径时
+    //   先命中 library 分支（真在册文件绝不会有这种写法：在册优先的注释与逻辑都在），
+    //   即探针在测一个「现实中不可能出现的组合」。探针探不到的组合不该拿去红，
+    //   于是改成只探**真实会分叉的三岔**：孤儿 / 库 / health-rules 前缀 / 源码含宿主引用。
+    //   在册优先这一条改由「读真实 registry」的下方断言把守（不再用假 rel 模拟）。
+    const probe = [
+        ['tests/zz-orphan-probe.mjs', new Set(), 'orphan', '既没在册也没人 import ⇒ 就是该普查的孤儿'],
+        ['tests/zz-lib-probe.mjs', new Set(['zz-lib-probe.mjs']), 'library', '被别处 import ⇒ 是库，不静默当孤儿'],
+        ['tests/health-rules/zz-runtime-probe.js', new Set(), 'runtimeRule', 'health-rules/ 前缀走浏览器宿主（真实前缀，非虚构）'],
+    ];
+    const out = [];
+    for (const [rel, bases, want, why] of probe) {
+        let got = null;
+        try { got = classify(rel, bases, new Set()).kind; } catch (e) { got = 'THROW: ' + (e && e.message); }
+        const ok = got === want;
+        out.push({ ok, line: rel + ' ⇒ ' + got + (ok ? '' : '（期望 ' + want + '）') + ' · ' + why });
+    }
+    // 在册优先：用真实在册文件断言 —— 随机挑 run-all 清单里的第 1 条，给它伪造 importedBases，
+    // 仍必须判 registered（这条测的正是「在册优先于 library」这个真实分支）。
+    const realReg = auditRegistry().truth;
+    const sample = realReg[0] || '';
+    let gotReg = null;
+    try { gotReg = sample ? classify(sample, new Set([path.basename(sample)]), new Set(realReg)).kind : 'NO-SAMPLE'; } catch (e) { gotReg = 'THROW'; }
+    out.push({
+        ok: gotReg === 'registered',
+        line: '真实在册样本 ' + (sample || '（空）') + ' ⇒ ' + gotReg + (gotReg === 'registered' ? '' : '（期望 registered）') + ' · 在册优先于 library',
+    });
+    return out;
+}
+
+// ---------------------------------------------------------------------------
 // 主流程
 // ---------------------------------------------------------------------------
 function main() {
@@ -247,6 +326,7 @@ function main() {
 
     console.log('· 逐个跑孤儿：');
     const reds = [];
+    const slows = [];
     for (const c of orphans) {
         const t0 = Date.now();
         let r;
@@ -265,14 +345,35 @@ function main() {
         const key = killed
             ? '超过 ' + (CHILD_TIMEOUT_MS / 1000) + 's 未退出（已杀）'
             : (pickKeyLine(r.stdout || '', code !== 0) || pickKeyLine(r.stderr || '', code !== 0));
-        const ok = code === 0;
-        if (!ok) reds.push({ rel: c.rel, code, key });
-        console.log('    ' + (ok ? '✅' : '❌') + ' ' + c.rel + ' exit=' + code + ' (' + (Date.now() - t0) + 'ms)  ' + key);
+        const elapsed = Date.now() - t0;
+        // V1.4.0：被闸门杀掉的与「跑完且判红」分箱陈述（同一判定函数 bucketOfChild，自证测的就是它）。
+        //   前者是「尺子太短」，后者是「件本身红了」—— 处置方向相反，不许合并成一句「红了」。
+        const bucket = bucketOfChild({ killed, status: r.status });
+        const code2 = killed ? 124 : code;
+        const ok = bucket === 'green';
+        if (bucket === 'slow') {
+            slows.push({ rel: c.rel, elapsed, hint: SLOW_HINTS[c.rel] || '' });
+        } else if (bucket === 'red') {
+            reds.push({ rel: c.rel, code: code2, key });
+        }
+        console.log('    ' + (ok ? '✅' : (bucket === 'slow' ? '⏱ ' : '❌')) + ' ' + c.rel + ' exit=' + code2
+            + ' (' + elapsed + 'ms)  ' + key);
+    }
+
+    // 慢件单独陈述：点名 + 实测耗时 + 复跑命令，不占红名单。
+    if (slows.length) {
+        console.log('· ⏱ 慢件（被 ' + (CHILD_TIMEOUT_MS / 1000) + 's 闸门杀掉，属「尺子太短」非红）：');
+        for (const s of slows) {
+            console.log('    ⏱ ' + s.rel + ' —— 未跑完（已等 ' + Math.round(s.elapsed / 1000) + 's）'
+                + (s.hint ? '；' + s.hint : '；耗时未知，需人量'));
+        }
+        console.log('  ★ 慢件不计红、不计绿，只点名 —— 若哪天它跑进闸门内却 exit≠0，会自然落回红名单。');
     }
 
     console.log('---------------------------------------------------------');
     if (!reds.length) {
-        console.log('RESULT: 无红孤儿（' + orphans.length + ' 个待普查孤儿全绿，' + skipped.length + ' 个免跑已点名）');
+        console.log('RESULT: 无红孤儿（' + orphans.length + ' 个待普查孤儿全绿，' + skipped.length + ' 个免跑已点名'
+            + (slows.length ? '，' + slows.length + ' 个慢件已点名' : '') + '）');
     } else {
         console.log('RESULT: ' + reds.length + ' 个孤儿自检正在红，且不在 run-all 的 24 项清单里 ⇒ 红了没人盯');
         for (const r of reds) console.log('    ✗ ' + r.rel + ' exit=' + r.code + '  ' + r.key);
@@ -282,7 +383,72 @@ function main() {
         console.log('  ✗ 公共件自证未过（' + selfBad.length + ' 条）—— 上述全部结论不可信');
         process.exit(1);
     }
-    process.exit(reds.length ? 1 : 0);
+    // ④ 分类判据自咬：分类器把「库」判成「孤儿」或反过来，整份报告的分类结论就不可信
+    const cls = classifySelfCheck();
+    const clsBad = cls.filter((x) => !x.ok);
+    console.log('· 分类判据自咬（' + (cls.length - clsBad.length) + '/' + cls.length + '）：');
+    for (const x of cls) console.log('    ' + (x.ok ? '✅' : '❌') + ' ' + x.line);
+    if (clsBad.length) console.log('  ✗ 分类判据自咬未过（' + clsBad.length + ' 条）—— 上述「孤儿/库/在册」分类结论不可信');
+    // ⑤ 超时口径自证（V1.4.0）：把「被杀 ⇒ 记慢件且点名」与「跑完判红 ⇒ 记红」两条分开钉住。
+    //    纯函数化，不 spawn、不读真表；反例证明 124 不会被误当红、红也不会被误当慢件。
+    const tout = timeoutBucketSelfCheck();
+    const toutBad = tout.filter((x) => !x.ok);
+    console.log('· 超时分箱自证（' + (tout.length - toutBad.length) + '/' + tout.length + '）：');
+    for (const x of tout) console.log('    ' + (x.ok ? '✅' : '❌') + ' ' + x.line);
+    if (toutBad.length) console.log('  ✗ 超时分箱自证未过（' + toutBad.length + ' 条）—— 上述「红/慢」分箱结论不可信');
+    process.exit(reds.length || clsBad.length || toutBad.length ? 1 : 0);
+}
+
+// ---------------------------------------------------------------------------
+// ⑤ 超时分箱（V1.4.0）
+// ---------------------------------------------------------------------------
+// 单一判定函数：主循环与自证共用同一份口径（自证不另起一份实现，否则测的是影子）。
+//   入参：killed（spawnSync 是否 ETIMEDOUT）、status（退出码，可为 null）
+//   出参：'slow' | 'red' | 'green'
+function bucketOfChild({ killed, status }) {
+    if (killed) return 'slow';                                  // 被杀 ⇒ 慢件（尺子太短），永不判红
+    if (typeof status === 'number' && status === 0) return 'green'; // 跑完且零退出
+    if (typeof status === 'number' && status === 124) return 'red'; // ★ 自己 exit 124 不是被杀：那是件自己报的超时红
+    return 'red';                                               // 其余非零一律红（口径未放宽）
+}
+
+function timeoutBucketSelfCheck() {
+    const cases = [
+        [{ killed: false, status: 0 }, 'green', '跑成 ⇒ 绿'],
+        [{ killed: false, status: 1 }, 'red', '跑成但退 1 ⇒ 红（真红判据未放宽）'],
+        [{ killed: true, status: null }, 'slow', '被闸门杀 ⇒ 慢件，不进红名单'],
+        [{ killed: false, status: 124 }, 'red', '★ 件自己 exit 124（非被杀）⇒ 红，不许借逃生门洗绿'],
+        [{ killed: false, status: 3 }, 'red', '退 3 ⇒ 红（非零全红）'],
+        [{ killed: true, status: 1 }, 'slow', '被杀优先于结果码（杀的时候 status 不可信）'],
+        [{ killed: false, status: null }, 'red', '拿到 null 又没被杀 ⇒ 保守判红，不许当绿'],
+    ];
+    const out = [];
+    for (const [inp, want, why] of cases) {
+        let got;
+        try { got = bucketOfChild(inp); } catch (e) { got = 'THROW: ' + (e && e.message); }
+        out.push({
+            ok: got === want,
+            line: 'killed=' + inp.killed + ' status=' + String(inp.status) + ' ⇒ ' + got
+                + (got === want ? '' : '（期望 ' + want + '）') + ' · ' + why,
+        });
+    }
+    // 慢件档案自检：每个 hint 必须点明「怎么量的」，空 hint 等于没档案。
+    const hints = Object.entries(SLOW_HINTS);
+    const noWhy = hints.filter(([, h]) => !/实测/.test(h));
+    out.push({ ok: noWhy.length === 0, line: '慢件档案 ' + hints.length + ' 条，缺「实测」量法 ' + noWhy.length + ' 条 · 档案不许拍脑袋' });
+    // 复跑提示必须带可执行命令，否则「可复跑」是空话。
+    const noCmd = hints.filter(([, h]) => !/node\s+tests\//.test(h));
+    out.push({ ok: noCmd.length === 0, line: '慢件档案 ' + hints.length + ' 条，缺复跑命令 ' + noCmd.length + ' 条 · 可复跑须真能跑' });
+    // ★ 第 275 轮现场教训：探针在脏树上会让每场回放子进程退 3（worktree-guard 的环境不洁码），
+    //   探针据此打 exit=1 并打印「一场都没跑起来」，于是**环境不洁被写成该件红了**。
+    //   这条把「退 3 的转述必须点名脏树」钉住：档案里不提脏树，下一轮还会照着红名单去改死代码。
+    const probeHint = Object.entries(hints).filter(([, h]) => /退 ?3|退码 3/.test(h));
+    const noDirtyNote = probeHint.filter(([, h]) => !/脏树|porcelain/.test(h));
+    out.push({
+        ok: noDirtyNote.length === 0,
+        line: '提到退 3 的档案 ' + probeHint.length + ' 条，未点名脏树的 ' + noDirtyNote.length + ' 条 · 退 3 = 环境不洁，不得转述成红',
+    });
+    return out;
 }
 
 main();
