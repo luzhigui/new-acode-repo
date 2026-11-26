@@ -60,7 +60,9 @@
 //   现在永远优先把血最少的放 8 号位（已在 8 则跳过），其余两人 1/3 对调。
 // V2.6.2 | 2026-11-26 老板口径：魔化谢逊每回合开始直接轰一发（不先蓄力），轰完续蓄；
 //   蓄力期间被攻击 → 立刻轰并续蓄；回合收尾若仍在蓄力 → 把这一发打出去。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.6.2';
+// V2.7.0 | 2026-11-26 老板口径：枯禅轮回改「三渡每次被攻击都判定」——把血量比例最低者换到 8 号位
+//   （已在 8 号位则不动）；删除 70%/40% 阈值与 1/3 对调；回血仍为 8 号位行动前每回合一次。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.0';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -472,58 +474,35 @@ export const demonXiexunHandler = {
             handler: (data) => { if (self.alive) fireVolley(data); }
         });
 
-        // 枯禅轮回：任一三渡血量跌破 70%/40% 就转（不是一次性「首次」）——V2.3.3 老板口径：
-        //   血量回到该档以上即重新武装标记，于是每次「从上往下穿过阈值」都会再触发一次。
-        //   V2.4.1 老板口径：不再固定顺时针——70% 概率把血量比例最低的三渡送回 8 号位（1/3 对调），
-        //   30% 仍走顺时针 1→3→8→1。V2.5.0 起轮转不再附带 10% 回血。
+        // 枯禅轮回（老板 2026-11-26 口径）：三渡**每被攻击一次**就判定一次——
+        //   把当前血量比例最低的那位换到 8 号位（本身已在 8 号位则不动、不播报）。
+        //   不再用 70%/40% 血量阈值，也不再额外 1/3 对调；回血仍走「8 号位轮到行动前，每回合一次」。
         //   ！三渡免疫控制，swapUnitPositions 必须 friendlyPull:true 放行 core/214 的免控拦截（自家阵法轮转=友方拉）。
         registerSettlementHook({
             when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
             priority: 26,
             handler: (data) => {
+                if (!data || !(data.dmg > 0) || !data.target) return;
                 const monks = trio();
                 if (monks.length < 3) return;
-                let trigger = false;
-                for (const u of monks) {
-                    const ratio = u.hp / Math.max(1, getStat(u, 'maxHp'));
-                    // 回到该档以上就解除标记 → 下次再跌破又能触发（不再是「只此一次」）
-                    if (ratio > 0.7) { u.state._sanDu70 = false; u.state._sanDu40 = false; continue; }
-                    if (ratio > 0.4) u.state._sanDu40 = false;
-                    if (!u.state._sanDu70) { u.state._sanDu70 = true; trigger = true; }
-                    if (!u.state._sanDu40 && ratio <= 0.4) { u.state._sanDu40 = true; trigger = true; }
-                }
-                if (!trigger) return;
-                // 轮转排布（V2.4.1 老板口径：不固定顺时针，更倾向于让血少的回 8 号位）：
-                //   70% → 血量比例最低的三渡挪到 8 号位（其余两人 1↔3 对调，保留「转」的观感）；
-                //   30% → 维持原顺时针 1→3→8→1。
-                //   两种排布都 ≤2 段互换，演出走 swapChain（render/419 翻 PUSH → fx/605 击退式推挤换位）。
+                if (!monks.includes(data.target)) return;   // 只认三渡自己挨打
                 const at = (p) => monks.find(u => u.pos === p) || null;
-                if (!at(1) || !at(3) || !at(8)) return;
+                const at8 = at(8);
+                if (!at8) return;
                 const ratioOf = (u) => u.hp / Math.max(1, getStat(u, 'maxHp'));
                 const lowest = monks.reduce((a, b) => (ratioOf(b) < ratioOf(a) ? b : a));
-                // 老板 2026-11-26：只认「血最少的去 8 号位」——取消 30% 随机顺时针，
-                //   否则会出现「血最少已站 8 号位，反而把满血的人转进 8 号位」。
-                const chain = [];
-                const before = new Map(monks.map(u => [u.uid, u.pos]));   // 轮转前位置：演出按「旧→新」三格同时滑
-                const move = (a, b) => {
-                    if (!a || !b || a === b) return;
-                    const pa = a.pos, pb = b.pos;
-                    if (!swapUnitPositions(a, b, data && data.log, { friendlyPull: true })) return;
-                    chain.push({ aUid: a.uid, bUid: b.uid, posA: pa, posB: pb });
-                };
-                move(lowest, at(8));     // 血最少的去 8（本来就在 8 号位则天然跳过，不会把满血者换进去）
-                move(at(1), at(3));      // 其余两人 1/3 对调，保留「轮转」观感
-                if (chain.length === 0) return;
-                const posCycle = monks
-                    .map(u => ({ uid: u.uid, fromPos: before.get(u.uid), toPos: u.pos }))
-                    .filter(x => x.fromPos != null && x.fromPos !== x.toPos);
-                if (posCycle.length === 0) return;
-                const holder8 = at(8) || lowest;
-                pushSkillAnnounce(data && data.log, holder8, '枯禅轮回',
-                    `☸️ 枯禅轮回：${monks.map(u => `${u.name}→${u.pos}号位`).join('，')}`,
+                if (lowest === at8) return;                 // 血最少的已在 8 号位，不动
+                const fromPos = lowest.pos;
+                if (!swapUnitPositions(lowest, at8, data.log, { friendlyPull: true })) return;
+                const posCycle = [
+                    { uid: lowest.uid, fromPos, toPos: 8 },
+                    { uid: at8.uid, fromPos: 8, toPos: fromPos }
+                ];
+                pushSkillAnnounce(data.log, lowest, '枯禅轮回',
+                    `☸️ 枯禅轮回：${lowest.name} 退到 8 号位，${at8.name} 顶上 ${fromPos} 号位`,
                     {
-                        floatText: '☸️', floatUid: holder8.uid, needsSeparator: true,
-                        posCycle, camp: holder8.camp
+                        floatText: '☸️', floatUid: lowest.uid, needsSeparator: true,
+                        posCycle, camp: lowest.camp
                     });
             }
         });
