@@ -9,19 +9,22 @@
 //   ① 开局每个 uid 在终局同一阵营里恰好出现一次（不丢、不重、不换阵营；召唤物额外出现不算）
 //      例外（V1.0.2）：3 秒清尸会把阵亡单位从 battleStore 摘除（player/42 设计行为）——
 //      只要 fact 流里有该 uid/名字的 UNIT_DEATH，就算正常离场，不算名单丢人。
+//      例外（V1.0.3）：终局名单里已有同名同阵营单位（uid 换代）也不算丢人。
 //   ② alive=true ⇒ hp>0；alive=false ⇒ hp<=0.001（复活/尸变若真出反例，先按红看）；
 //   ③ 0 <= hp <= maxHp、maxHp>0、hp/maxHp 为有限数、camp 只能是 ally/enemy；
 //   ④ alive=true 且 state._pendingDeath=true → 硬判（V1.0.1 起：UNIT_DEATH 统一出口上线后复查 156 场 0 例，观察项升硬判）
-export const VER = 'tests/health-rules/235-final-unit-consistency.js V1.0.2';
+export const VER = 'tests/health-rules/235-final-unit-consistency.js V1.0.3';
 import { FACT_TYPES } from '../../infra/106-battle-enums.js';
 
 const EPS = 0.001;
 
 function checkSide(startUnits, endUnits, camp, errs, deadKeys) {
     const endMap = new Map();
+    const endNames = new Set();
     for (const u of endUnits || []) {
         if (!u || u.uid == null) continue;
         endMap.set(u.uid, (endMap.get(u.uid) || 0) + 1);
+        if (u.name) endNames.add(u.name);
     }
     for (const u of startUnits || []) {
         if (!u || u.uid == null) continue;
@@ -29,7 +32,9 @@ function checkSide(startUnits, endUnits, camp, errs, deadKeys) {
         if (n === 0) {
             // 阵亡被 3 秒清尸摘走：有死亡事实就不算名单丢人
             if (deadKeys && (deadKeys.has('uid:' + u.uid) || deadKeys.has('name:' + (u.name || '')))) continue;
-            errs.push((u.name || u.uid) + ' 开局在 ' + camp + '，终局名单里消失了（无死亡事实）');
+            // 存活单位 uid 换代（store 侧 clone 重建）不是丢人：终局名单里有同名同阵营单位即视为同一人
+            if (u.name && endNames.has(u.name)) continue;
+            errs.push((u.name || u.uid) + ' 开局在 ' + camp + '，终局名单里消失了（无死亡事实、无同名单位）');
         }
         else if (n > 1) errs.push((u.name || u.uid) + ' 在终局 ' + camp + ' 名单里出现 ' + n + ' 次');
     }

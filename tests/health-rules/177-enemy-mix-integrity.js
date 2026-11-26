@@ -3,8 +3,8 @@
 //   唯一增员路径是第 5 关玄冥二老齐出时的 XUANMING_EXTRA_M 补 1 人。
 //
 // rule179「额外混入不增员·不重名」：
-//   ① 变体关的多套阵容长度必须一致（否则「人数」这一判据本身失去意义，先报配置错）；
-//   ② 开场敌方人数 = 基础阵长度 +（第5关玄冥齐出 ? 1 : 0）——替换型混入不允许改变人数；
+//   ① 变体关的多套阵容长度允许不同（第6关 4/5 人是设计），实际人数只须等于某一套变体长度（+玄冥补员）；
+//   ② 开场敌方人数必须等于某套变体长度（+第5关玄冥齐出 1 人）——替换型混入不允许改变人数；
 //   ③ 敌方无重名（330 L544-546 曾因玄冥补员没登记 usedEnemyNames 刷出「唐文亮×2 / 何太冲×2」，
 //      这里把去重守卫做成常驻绊线，任何新增混入路径漏登记都会当场红）。
 //
@@ -13,7 +13,7 @@
 //   > 无名杂兵随机四选一；何太冲双修 50/50 摇战士/远程是老板拍板的例外。
 //   历史缺陷：数值空位抽到唐文亮时给随机职业（L530 注释），玄冥补员路径同款——都被修过，
 //   本规则守住「具名角色顶着错职业出场」不再复发。
-export const VER = 'tests/health-rules/177-enemy-mix-integrity.js V1.0.0';
+export const VER = 'tests/health-rules/177-enemy-mix-integrity.js V1.1.0';
 import { CONFIG as C, getGameData, loadGameData } from '../../core/201-config-5v5-test.js';
 import { ROLE_TYPES } from '../../infra/106-battle-enums.js';
 
@@ -36,20 +36,15 @@ export const rule179 = {
         var squads = squadsOfStage(stage);
         if (!squads) return 'skip';
 
-        // ① 变体阵容长度一致性（长度不一致 ⇒ 下方人数判据无意义）
-        var baseLen = squads[0].length;
-        for (var v = 1; v < squads.length; v++) {
-            if (squads[v].length !== baseLen) {
-                return { fail: true, msg: '复发：变体阵容长度不一致 — 第' + stage + '关变体阵容长度不一致（变体1 ' + baseLen + ' 人 / 变体' + (v + 1) + ' ' + squads[v].length + ' 人）' };
-            }
-        }
-        // ② 人数：替换型混入不增员，仅第5关玄冥齐出 +1
+        // ① 变体之间长度可以不同（如第6关「炎魔+三渡」4人 vs 「成昆」5人，属设计），
+        //   只要求实际下发人数等于**某一套**变体长度（+ 第5关玄冥齐出 1 人）
         var names = {};
         E.forEach(function (u) { if (u && u.name) names[u.name] = true; });
         var bothXuanming = !!(names['鹿杖客'] && names['鹤笔翁']);
-        var expected = baseLen + (stage === 5 && bothXuanming ? 1 : 0);
-        if (E.length !== expected) {
-            return { fail: true, msg: '复发：额外混入导致增员 — 第' + stage + '关敌方阵容 ' + E.length + ' 人（应为 ' + expected + ' 人，额外混入只许替换不增员）' };
+        var extra = (stage === 5 && bothXuanming) ? 1 : 0;
+        var lenOk = squads.some(function (sq) { return E.length === sq.length + extra; });
+        if (!lenOk) {
+            return { fail: true, msg: '复发：额外混入导致增员 — 第' + stage + '关敌方阵容 ' + E.length + ' 人（变体长度 ' + squads.map(function (s) { return s.length; }).join('/') + (extra ? ' +1玄冥补员' : '') + '，额外混入只许替换不增员）' };
         }
         // ③ 重名
         var seen = {}, dup = null;

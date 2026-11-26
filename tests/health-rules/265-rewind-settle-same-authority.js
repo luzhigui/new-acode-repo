@@ -8,7 +8,10 @@
 //   ② 权威落账必须早于 settle 停点，settle 早于死亡 SET_FLASH，死亡停点早于红墨 BRUSH_EFFECT；
 //   ③ 727 进场定格必须 paintAt 到「末步末段」（回看初始状态与真播到末步一致）；
 //   ④ 727 退出还原时优先用 c._rewindLastStep（上次真播/定位的末步），没有才退回录制末步。
-export const VER = 'tests/health-rules/265-rewind-settle-same-authority.js V1.0.0';
+// 2026-11-26 V1.1.0：504 的倒针挂点（_rewindCue/isRewinding 等）已随功能删除
+//   （tools/839-rewind/727-rewind-core.js 头注明示），①② 只在 504 仍有 _rewindCue 时校验；
+//   否则只验 727 内核 ③④，不再报「缺 settle/death 停点」假红。
+export const VER = 'tests/health-rules/265-rewind-settle-same-authority.js V1.1.0';
 
 import { enterReview, exitReview } from '../../tools/839-rewind/727-rewind-core.js';
 import { playStepInterleaved } from '../../player/504-player-play-step.js';
@@ -23,22 +26,26 @@ export const rule265 = {
         var enter = srcOf(enterReview);
         var exitS = srcOf(exitReview);
 
-        // ① 落账点数量：复活重同步 + 权威落账 = 2
-        var syncCount = (step.match(/syncStoreFromStep\(c,\s*step\)/g) || []).length;
-        if (syncCount !== 2) {
-            return { fail: true, msg: '504 整步落账点数量为 ' + syncCount + '（应为 2：复活重同步 + 权威落账）——多一处=二次落账，少一处=复活后状态脱节' };
-        }
-        // ② 顺序链
-        var iSync = step.lastIndexOf('syncStoreFromStep(c, step)');
-        var iSettle = step.indexOf("_rewindCue('settle'");
-        var iFlash = step.indexOf('SET_FLASH');
-        var iDeath = step.indexOf("_rewindCue('death'");
-        var iBrush = step.indexOf('BRUSH_EFFECT');
-        if (iSettle < 0 || iDeath < 0) {
-            return { fail: true, msg: '504 缺倒针停点：settle/death 停点必须存在（定格与真播共用停点）' };
-        }
-        if (!(iSync > 0 && iSync < iSettle && iSettle < iFlash && iFlash < iDeath && iDeath < iBrush)) {
-            return { fail: true, msg: '落账顺序错乱：要求「落账→settle停点→死亡闪→death停点→红墨」，实际下标 ' + [iSync, iSettle, iFlash, iDeath, iBrush].join('/') + ' —— 定格会停在半结算态' };
+        // ①/② 只在 504 仍有倒针挂点时校验（挂点已随功能删除后，504 不再承担回看落账）
+        var hasRewindHooks = /_rewindCue\(/.test(step);
+        if (hasRewindHooks) {
+            // ① 落账点数量：复活重同步 + 权威落账 = 2
+            var syncCount = (step.match(/syncStoreFromStep\(c,\s*step\)/g) || []).length;
+            if (syncCount !== 2) {
+                return { fail: true, msg: '504 整步落账点数量为 ' + syncCount + '（应为 2：复活重同步 + 权威落账）——多一处=二次落账，少一处=复活后状态脱节' };
+            }
+            // ② 顺序链
+            var iSync = step.lastIndexOf('syncStoreFromStep(c, step)');
+            var iSettle = step.indexOf("_rewindCue('settle'");
+            var iFlash = step.indexOf('SET_FLASH');
+            var iDeath = step.indexOf("_rewindCue('death'");
+            var iBrush = step.indexOf('BRUSH_EFFECT');
+            if (iSettle < 0 || iDeath < 0) {
+                return { fail: true, msg: '504 缺倒针停点：settle/death 停点必须存在（定格与真播共用停点）' };
+            }
+            if (!(iSync > 0 && iSync < iSettle && iSettle < iFlash && iFlash < iDeath && iDeath < iBrush)) {
+                return { fail: true, msg: '落账顺序错乱：要求「落账→settle停点→死亡闪→death停点→红墨」，实际下标 ' + [iSync, iSettle, iFlash, iDeath, iBrush].join('/') + ' —— 定格会停在半结算态' };
+            }
         }
         // ③ 进场定格到末步末段
         if (!/paintAt\(S\.stepIdx,\s*S\.cueIdx\)/.test(enter)) {
@@ -48,6 +55,8 @@ export const rule265 = {
         if (!/c\._rewindLastStep/.test(exitS)) {
             return { fail: true, msg: '退出还原未优先 c._rewindLastStep：退出后状态可能跳回录制末步而非上次定位步' };
         }
-        return { fail: false, msg: '落账顺序链 5 环完整（落账→settle→死亡闪→death→红墨），落账点 2 处（复活+权威）' };
+        return { fail: false, msg: hasRewindHooks
+            ? '落账顺序链 5 环完整（落账→settle→死亡闪→death→红墨），落账点 2 处（复活+权威）'
+            : '727 进场/退出还原 2 判据通过；504 倒针挂点已随功能删除（tools/839 头注），跳过落账链检查' };
     }
 };

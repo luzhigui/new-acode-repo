@@ -12,17 +12,22 @@
 //   结论：想精确统计变体，必须由 330 在建队时把抽中的变体 id 落成事实/日志（见需求清单），
 //        不许再从阵容名字反推。本规则守住「反推至少还有一套可用依据」这条底线。
 // 判据：
-//   ① 静态：每套变体必须至少带 1 个 characters.named===true 的具名精英（否则该变体永远无法被识别）；
+//   ① 静态：每套变体必须至少带 1 个具名不可替换单位（characters.named===true 或带 fixedStats）；
 //   ② 静态：同一关的多套变体，其具名精英集合不能完全相同（完全相同 ⇒ 按名反推必然打架）；
 //   ③ 运行时（本关有变体配置时）：开场敌方阵容必须命中某一套变体的具名集合（变体没成套下发就报）。
-export const VER = 'tests/health-rules/178-stage3-variant.js V1.1.0';
+export const VER = 'tests/health-rules/178-stage3-variant.js V1.1.1';
 import { CONFIG as C, getGameData, loadGameData } from '../../core/201-config-5v5-test.js';
 
 loadGameData().catch(() => { });
 
 function namedElitesOf(squad, chars) {
     return (squad || []).filter(function (it) {
-        return it && typeof it === 'object' && it.name && chars[it.name] && chars[it.name].named === true;
+        if (!it || typeof it !== 'object' || !it.name) return false;
+        var c = chars[it.name];
+        if (!c) return false;
+        // 「具名不可替换」= characters.named===true，或有 fixedStats 的唯一身份
+        //   （第6关变体2 的炎魔狮王 named=false 但有 fixedStats，普通兵池抽不到）
+        return c.named === true || !!c.fixedStats;
     }).map(function (it) { return it.name; });
 }
 
