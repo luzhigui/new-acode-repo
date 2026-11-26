@@ -913,7 +913,7 @@
 
     "拼命弟子": {
       "named": true,
-      "tags": ["明教", "战士", "普通"],
+      "tags": ["明教", "远程", "普通"],
       "m": 97, "poolTier": 97, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 23, "mingAll": true, "unitFlags": ["isDesperateDisciple"], "tool": {"m100Skill":3},
       "skills": {
         "basicStrike": {
@@ -936,7 +936,7 @@
 
     "防化弟子": {
       "named": true,
-      "tags": ["明教", "战士", "普通"],
+      "tags": ["明教", "飞行", "普通"],
       "m": 97, "poolTier": 97, "flag": null, "tier": "normal", "camp": "明教", "sect": "明教", "summon": false, "everyday": true, "encounter": false, "mingOrder": 24, "mingAll": true, "unitFlags": ["isAntiPoisonDisciple"], "tool": {"m100Skill":3},
       "skills": {
         "basicStrike": {

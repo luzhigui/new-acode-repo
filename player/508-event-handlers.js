@@ -1,4 +1,4 @@
-export const VER = 'player/508-event-handlers.js V6.1.1';
+export const VER = 'player/508-event-handlers.js V6.1.2';
 
 import { isBlocked } from '../core/203-battle-utils.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
@@ -63,7 +63,8 @@ export async function handleRoundEnd(c, entry, log, i) {
     appendLogHTML(entry.text + '<br>');
     updateRoundDisplay(`📜 日志（第${readRound(c)}回合）`);
     if (c.updateBuffSlots) { c.updateBuffSlots(); }
-    await clock.wait(200);
+    // 老板 2026-11-26：回合结束与下回合开始之间留一段停留，别让上一发的炎爆/圣光刚播完就切回合。
+    await clock.wait(700);
 }
 
 export function shouldStartNewGroup(entry, lastType) {
