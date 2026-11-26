@@ -150,7 +150,7 @@
 
 | 92 | ver-drift tests侧3条VER债修复（enum-contract无VER / 121日志领先 / 230规则VER领先） | 第56轮：ver-drift 9条红中6条主代码(已发块/待发)、3条tests侧可自修。① tests/enum-contract-check.mjs 无VER(断言⑩)——补VER常量+日志行；② tests/121health-monitor.js VER=6.14.5 但日志6.14.6(日志领先)——抬VER到6.14.6；③ tests/health-rules/230-cross-group-hp-trajectory.js VER=1.0.2 但日志1.0.1——补V1.0.2日志行。验收：`node tests/ver-drift-selftest.mjs` 这3条不再点名(剩6条主代码)，判据/阈值/基线未动。  ★ 第56轮闭环：ver-drift 9条红→6条，tests侧3条全清——① enum-contract-check.mjs 补VER V1.0.0+日志(断言⑩清)；② 121health-monitor VER 6.14.5→6.14.6(匹配已有日志)；③ 230-cross-group-hp-trajectory 补V1.0.2日志行。证据：node --check×3 OK，ver-drift 断言从9→6，剩6条全主代码(零触碰)。判据/阈值/基线未动。主代码6条(infra/113无VER+core210/212/fx619/modules314/render407 VER领先)发转交块T-VER-56。 | done | 钟老师/第56轮 | 2026-11-25 |
 
-| 93 | 移植夜间275「孤儿普查超时分箱」到 main（orphan-sweep V1.3.0→V1.4.0） | 夜间275把孤儿普查的「被杀超时」与「跑完判红」分开：新增 bucketOfChild 单一判定函数、SLOW_HINTS 档案(2条慢件附实测耗时+复跑命令)、超时分箱自证9条；红项4→2，且「件自己退124=红、退3=红」不许借逃生门洗绿(加严方向)。main复核：orphan-sweep 停在 V1.3.0，无 bucketOfChild/SLOW_HINTS。diff审查：174+/8- 全在 orphan-sweep 单文件，未动被体检对象判定、未改阈值/退码，属体检工具自身尺子精细化，可移植。验收：脚本落地+自证9/9过+分类判据4/4过；确认慢件从红箱移出、真红(124/退3)仍判红。 | open | - | - |
+| 93 | 移植夜间275「孤儿普查超时分箱」到 main（orphan-sweep V1.3.0→V1.4.0） | 夜间275把孤儿普查的「被杀超时」与「跑完判红」分开：新增 bucketOfChild 单一判定函数、SLOW_HINTS 档案(2条慢件附实测耗时+复跑命令)、超时分箱自证9条；红项4→2，且「件自己退124=红、退3=红」不许借逃生门洗绿(加严方向)。main复核：orphan-sweep 停在 V1.3.0，无 bucketOfChild/SLOW_HINTS。diff审查：174+/8- 全在 orphan-sweep 单文件，未动被体检对象判定、未改阈值/退码，属体检工具自身尺子精细化，可移植。验收：脚本落地+自证9/9过+分类判据4/4过；确认慢件从红箱移出、真红(124/退3)仍判红。 | doing | 钟老师/第57轮 | 2026-11-26 · 领格 |
 
 ## 状态约定
 - `open`：待领；`doing`：进行中（同一时刻建议仅 1 人占）；`blocked`：等外部（主代码落地 / 拍板）；`done`：已闭环（含验证结论）。
