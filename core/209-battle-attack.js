@@ -1,7 +1,8 @@
 // core/209-battle-attack.js — 攻击主流程（选敌 → 命中/闪避 → 伤害 → 裁定 → 额外攻击/连锁 → 死亡结算）
+// V6.4.20 | 2026-11-26 免疫破防组补 uidA/uidD（此前只有嵌套 attacker/target，体检判「未知攻方」）
 // V6.4.19 | 2026-11-22 静默回血基线预置为 hpAfterHit（本击扣血当刻），回血行与伤害行数字同源
 // V6.4.18 | 2026-11-19 | fact 出口收口（T-EP-1）：IMMUNE 事实裸 log.push → pushFact
-export const VER = 'core/209-battle-attack.js V6.4.19';
+export const VER = 'core/209-battle-attack.js V6.4.20';
 
 import { CONFIG } from './201-config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked, canBeTargeted } from './203-battle-utils.js';
@@ -516,6 +517,8 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         if (dmgCalc.pendingDefReduceFact) {
             const immuneBreakGroup = {
                 type: 'attack-group',
+                uidA: unit.uid,
+                uidD: target.uid,
                 attacker: { uid: unit.uid, name: unit.name, camp: unit.camp, pos: unit.pos, atk: Math.floor(unit.atk), hp: fmtHp(unit.hp) },
                 target: { uid: target.uid, name: target.name, camp: target.camp, pos: target.pos, def: Math.floor(target.def), hp: fmtHp(target.hp) },
                 // 破防行必须在攻击组内（规则 135），但本 group 自身不带 factType、不经 renderAttackFact，
