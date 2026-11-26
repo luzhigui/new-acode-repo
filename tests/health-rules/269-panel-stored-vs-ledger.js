@@ -12,7 +12,7 @@
 // 是拿 atk/def 当生效值比，属口径错误，已按本文件口径修正，未再作为判据）。
 import { getStat } from '../../core/214-battle-shared.js';
 
-export const VER = 'tests/health-rules/269-panel-stored-vs-ledger.js V1.0.1';
+export const VER = 'tests/health-rules/269-panel-stored-vs-ledger.js V1.0.2';
 
 const EPS = 1e-6;
 // 测试假人：属性由 content 直配、不走 addMod（木桩弟子就是沙包），面板存值天然不等于基准，豁免对账
@@ -30,6 +30,10 @@ export const rule269 = {
             if (!u || !u._mods) continue;
             if (DUMMY_UNITS.has(u.name)) continue;
             const st = u.state || {};
+            // 快照口径（2026-11-26）：HP_CHANGE 事件多处携带的是 getStat 生效值（core/209/210/214），
+            //   store 覆盖后 u.atk/def 是生效值、_base* 仍是基准值 ⇒ 有 _mods 的单位天然不等。
+            //   基准没随快照带上（0/未初始化）时无法对账，直接跳过，避免把口径差判成「绕过账本直写」。
+            if (!(st._baseAtk > 0) || !(st._baseDef > 0)) continue;
             checked++;
             if (typeof st._baseAtk === 'number' && typeof u.atk === 'number' && Math.abs(u.atk - st._baseAtk) > EPS) {
                 bad.push((u.name || u.uid) + ' atk 存值' + u.atk + ' != 基准' + st._baseAtk + '（疑似绕过账本直写）');
