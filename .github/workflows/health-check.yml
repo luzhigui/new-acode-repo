@@ -43,6 +43,25 @@ jobs:
           node tests/health-rules-syntax-sweep.mjs
           node tests/enum-contract-check.mjs
 
+      # 2026-11-26 第193轮：把"结构守门"提前到 push 当场拦（本条新增）。
+      #   选的都是当前全绿的秒级项；任一红 = 仓库真有结构问题，不该等夜检才发现。
+      - name: 秒级结构守门（入口路径 + 旧编号引用 + 转交块空头话 + 看板计数）
+        run: |
+          node tests/entry-path-guard.mjs
+          node tests/comment-ref-scan.mjs
+          node tests/transfer-block-guard.mjs
+          node tests/board-state-count-guard.mjs
+
+      # 2026-11-26 第193轮：全套 node 红线搬上 push，但先"只报不拦"。
+      #   现状 12/28 通过·16 红（既有红 + 无 node_modules 环境红），直接拦会每笔必红变噪声，
+      #   跟 ESLint 一样又变成"红了没人看"。红项清到 0 后：删掉 continue-on-error 即变硬门禁；
+      #   main-number-guard 现在报 modules/341 撞号（改名落地后移进上面的硬门禁步）。
+      - name: 全套体检 --quick（只报不拦；红项清零后转硬门禁）
+        continue-on-error: true
+        run: |
+          node tests/main-number-guard.mjs
+          node tests/run-all.mjs --quick --jobs 4
+
       - name: 跑 ESLint（代码本身写没写错，与体检互补）
         run: |
           npm install --no-save eslint globals

@@ -70,5 +70,45 @@ export default [
                 varsIgnorePattern: '^_'
             }]
         }
+    },
+    // ── 分层单向（2026-11-26 立）：`ui/fx → player → render/modules → core → infra` ──
+    // 现状实测七层越界 import = 0（infra/core/modules/player/render/fx 反向上层全为 0），
+    //   但在加这条规则之前，0 违规全靠人自觉：一次误 import 就破防且不报错（架构铁律第 6 条）。
+    // 口径：每条用相对路径 '../<层>/...' 越过本层即报 error。core 额外禁 modules（铁律第 5 条：
+    //   核心不得直接 import 精英模块，必须走 core/208 registerElite）。
+    {
+        files: ['infra/**/*.js'],
+        rules: { 'no-restricted-imports': ['error', { patterns: [{
+            group: ['../core/*', '../modules/*', '../player/*', '../render/*', '../ui/*', '../fx/*'],
+            message: '分层单向：infra 是最底层，不许反向 import 任何上层。'
+        }] }] }
+    },
+    {
+        files: ['core/**/*.js'],
+        rules: { 'no-restricted-imports': ['error', { patterns: [{
+            group: ['../modules/*', '../player/*', '../render/*', '../ui/*', '../fx/*'],
+            message: '分层单向：core 只能向下依赖 infra；精英模块必须经 core/208 registerElite 注册，不得直接 import。'
+        }] }] }
+    },
+    {
+        files: ['modules/**/*.js'],
+        rules: { 'no-restricted-imports': ['error', { patterns: [{
+            group: ['../player/*', '../render/*', '../ui/*', '../fx/*'],
+            message: '分层单向：modules 只可依赖 core/infra，不许反向 import 视图与演出层。'
+        }] }] }
+    },
+    {
+        files: ['player/**/*.js', 'render/**/*.js'],
+        rules: { 'no-restricted-imports': ['error', { patterns: [{
+            group: ['../ui/*', '../fx/*'],
+            message: '分层单向：player/render 不许反向 import ui/fx（跨层通信走 GlobalStore + UIHandler）。'
+        }] }] }
+    },
+    {
+        files: ['fx/**/*.js'],
+        rules: { 'no-restricted-imports': ['error', { patterns: [{
+            group: ['../ui/*'],
+            message: '分层单向：fx 不许反向 import ui。'
+        }] }] }
     }
 ];
