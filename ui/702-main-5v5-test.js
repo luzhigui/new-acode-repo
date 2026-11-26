@@ -21,6 +21,8 @@ import { VER as VER_RENDER } from '../render/403-grid-render.js';
 //       showMeleeCrash / showMeleeDodge / showMeleeMiss / FA_VER / FC_VER）：本来就是死 import，
 //       本文件零调用点，一并删。
 //     · FX_VER：ALL_VERS.fx_common 随之删除（见下方 ALL_VERS 段）。
+import { eventBus } from '../infra/101-event-bus.js';
+import { FX_SIGNALS } from '../infra/105-fx-signals.js';
 import { playBattle, playLineText, clearAllEffects, VER as BP_VER } from '../player/507-battle-player-5v5-test.js';   // 清死import：handleBuff 两名在本文函数体零使用（真身在 41，42 内部调用）
 import { showModal, showAlert, updateCoverVersion, copyLogToClipboard, initDevFlags } from './701-main-utils.js';
 import { BUFF_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
@@ -148,7 +150,7 @@ function swapAllyPositions(posA, posB) {
         if (unitA && !unitB) delete tempMap[posA]; if (!unitA && unitB) delete tempMap[posB];
         if (!tempMap[2] || !tempMap[2].alive) {
             let zhangUnit = currentUI.allyTeam.find(u => u.isZhang && u.pos === 5);
-            if (zhangUnit) { let zhangCell = document.querySelector(`#allyGrid .cell[data-pos="5"]`); if (zhangCell) { zhangCell.classList.add('cell-protected'); setTimeout(() => zhangCell.classList.remove('cell-protected'), 600); } showDanmaku(zhangUnit, '前方不可无人！'); }
+            if (zhangUnit) { let zhangCell = document.querySelector(`#allyGrid .cell[data-pos="5"]`); if (zhangCell) { zhangCell.classList.add('cell-protected'); setTimeout(() => zhangCell.classList.remove('cell-protected'), 600); } eventBus.emit(FX_SIGNALS.DANMAKU, { unit: zhangUnit, text: '前方不可无人！' }); }
             return;
         }
     }

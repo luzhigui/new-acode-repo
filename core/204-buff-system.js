@@ -1,4 +1,4 @@
-﻿﻿﻿﻿// core/204-buff-system.js — 海克斯机制集中营（圣火令/严阵/摄魂/carry/背水/众志/嗜血/热血/乘风/流星/惑心/圣火不熄）
+﻿// core/204-buff-system.js — 海克斯机制集中营（圣火令/严阵/摄魂/carry/背水/众志/嗜血/热血/乘风/流星/惑心/圣火不熄）
 // V6.9.5 | 2026-11-17 张无忌专属「快来护驾」召唤迁入本文件（原 modules/302-summonZhangRescue）：专属改走普通池后
 //   任何回合都可能选中，召唤必须由引擎回合开头执行；core 不许反向 import modules（层方向铁律），故归 buff 机制地。
 //   新增 export spawnZhangRescueIfNeeded（幂等：buff._rescueSpawned 一局只召一次；张无忌阵亡则不召）。

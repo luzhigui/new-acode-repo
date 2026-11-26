@@ -532,7 +532,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         }
     }
 
-    return { dmg, dead, cappedLoss, hpLossApplied, shieldAbsorbed, hpAfterHit: hpAfter, horseReboundDeclarations, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, atkAct, defAct, hpBonus, fortifyDeclarations, _shield: target.state._shield || 0, _shieldExtra: target.state._shieldExtra || 0, _permShield: target.state._permShield || 0, shieldAbsorbed };
+    return { dmg, dead, cappedLoss, hpLossApplied, shieldAbsorbed, hpAfterHit: hpAfter, horseReboundDeclarations, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, atkAct, defAct, hpBonus, fortifyDeclarations, _shield: target.state._shield || 0, _shieldExtra: target.state._shieldExtra || 0, _permShield: target.state._permShield || 0 };
 }
 
 // 步骤5：构建攻击事实
