@@ -255,7 +255,7 @@ function runJobsParallel(jobs, rounds, positions, hexEnabled, enemyHex, masterSe
 
         const spawn = (workerIdx) => {
             // ?v= 手抬防手机缓存旧 816 → 201 双实例 gameData 未加载（同 817 V1.3.0，816 改版同步三处）
-            const w = new Worker(new URL('./816-role-balance-worker.js?v=V1_24_2', import.meta.url), { type: 'module' });
+            const w = new Worker(new URL('./816-role-balance-worker.js?v=V1_24_3', import.meta.url), { type: 'module' });
             console.log(`[109-parallel] spawn worker#${workerIdx}, poolSize=${poolSize}`);
             w.onmessage = (e) => {
                 const msg = e.data;

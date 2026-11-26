@@ -1,4 +1,6 @@
 // V1.24.3 | 2026-11-24 三渡分桶拆成「三渡·正三角 / 三渡·倒三角」（含魔化谢逊=倒三角）；新增 kind:'variant'（明教自然满编 vs 各变体整场胜率，818 variant 模式）
+// V1.24.3 | 2026-11-26 修 851 姊妹同数据：templateAB 分支漏解构/漏透传 forceXiaoZhao，
+//   姊妹都按默认小昭建队 → 形态技全废、两行强度分完全一致且垫底（老板发现）。
 // V1.24.2 | 2026-11-22 第6关常规阵分桶改名「成昆」（原「标准」）：812 表里两行写清「第6关 成昆 / 第6关 三渡」；
 //   variantBucket 增加 stage 参数，仅 stage===6 且无三渡时归「成昆」，其余关仍落「标准」。
 // V1.24.1 | 2026-11-21 变体分桶扩到第6关：新增「三渡」桶（渡厄/渡劫/渡难），第6关可拆「三渡 / 标准」两行；
@@ -1316,8 +1318,10 @@ self.onmessage = (e) => {
             const { stage, seed, runs, elite, side, arm, probes, startIndex, enemyHex } = e.data;
             result = runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startIndex || 0, !!enemyHex);
         } else if (kind === 'templateAB') {
-            const { aUnits, bUnits, cand, runs, startIndex } = e.data;
-            result = runTemplateABJob({ aUnits, bUnits, cand, runs, startIndex: startIndex || 0 });
+            // V1.24.3 修：851 传的 forceXiaoZhao 在这里被丢掉 → 姊妹都退化成默认「小昭」，
+            //   形态技（蛛变/飞天/永久海克斯/乾坤）全不生效，两行数据一模一样且双双垫底。
+            const { aUnits, bUnits, cand, runs, startIndex, forceXiaoZhao } = e.data;
+            result = runTemplateABJob({ aUnits, bUnits, cand, runs, startIndex: startIndex || 0, forceXiaoZhao: forceXiaoZhao || null });
         } else if (kind === 'stageAB') {
             const { stage, mode, allyUnits, cand, runs, startIndex, enemyHex } = e.data;
             result = runStageABJob({
