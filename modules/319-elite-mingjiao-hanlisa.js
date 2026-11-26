@@ -15,7 +15,7 @@
 // V2.4.4 | 2026-11-18 攻击力笔改记进桶(蓄力行动时,全额)+撤基数加笔
 // V2.4.5 | 2026-11-18 白骨爪伤入桶(CLAW_DAMAGE_APPLIED窄通道)+全轰每格半攻
 // V2.4.6 | 2026-11-18 蓄力报幕带 needsSeparator，自成一组（不再粘在上一家攻击组尾部）
-// V2.4.7 | 2026-11-19 独立池接偷盾(341对称)
+// V2.4.7 | 2026-11-19 独立池接偷盾(343对称)
 // V2.4.8 | 2026-11-19 死亡即时剔除：寒冰不再给本击打死的目标（hp 归零·待死）上寒毒/飘字
 // V2.4.9 | 2026-11-19 蓄意轰拳基数窗口 3→2 回合（slice 改读 recentRounds）、承伤转化 0.7→0.8、
 //   基础蓄力护盾 25%→40%（content xuLi.params 真源）
@@ -36,7 +36,7 @@ import { emitStateChange } from '../infra/108-state-change.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { resolveRoundStatGrants } from '../core/217-effect-handlers.js';
 import { resolveDeaths } from '../core/211-battle-attack-steps.js';
-import { stealShieldHalf } from './341-common-shield-steal.js';
+import { stealShieldHalf } from './343-common-shield-steal.js';
 import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_TYPES, STATE_CHANGE_TYPES, UNIT_EVENT_TYPES } from '../infra/106-battle-enums.js';
 import { pushInfo, pushSkillAnnounce, findAlive, requireSkillParams } from './305-elite-helpers.js';
 import { fmtNum } from '../infra/102-core-utils.js';
@@ -104,7 +104,7 @@ export function createHanLiSaComponent() {
                 hls.state._hlsTrueAbsorb = true;
                 // 2026-11-18 老板拍板：起蓄盾与普通蓄力同口径（30% 重置语义）+ 20% 独立护盾池（先扣普通盾，爆发清零）
                 hls.state._shield = stealShieldHalf(hls, hls.maxHp * (powerCfg.shieldPct || 0), A, B, { log: data.log });
-                hls.state._shieldExtra = stealShieldHalf(hls, hls.maxHp * (powerCfg.extraShieldPct || 0), A, B, { log: data.log });   // 独立池同样过偷盾（341 规则对称，2026-11-19 补）
+                hls.state._shieldExtra = stealShieldHalf(hls, hls.maxHp * (powerCfg.extraShieldPct || 0), A, B, { log: data.log });   // 独立池同样过偷盾（343 规则对称，2026-11-19 补）
                 pushSkillAnnounce(data.log, hls, '寒离飒强化',
                     `🌀 寒离飒强化：立刻起蓄，获得 ${fmtNum(powerCfg.armorBonus || 0)} 点护盾；嘲讽全场敌人本回合只攻击他（承伤按实际伤害全额计入轰拳）`,
                     { floatText: '🌀强化', floatUid: hls.uid });

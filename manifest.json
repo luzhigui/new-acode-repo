@@ -1,5 +1,5 @@
 {
- "ver": "a447f3be97ac039a3d4c45056b91948b35b8830ed8e55522f4a0fb469938da38",
+ "ver": "731b9bfadad301443dd47489ecd5dff34225e8c4e124f9263af26924ac7ae3a5",
  "gen": "tools/830-manifest-gen.mjs",
  "count": 157,
  "files": [
@@ -404,12 +404,12 @@
    "03918d7c7ccf120661f45be70d3b79f109aab4f9c2226cb3a7143a45c577b613"
   ],
   [
-   "modules/341-common-shield-steal.js",
-   "624bb18f3645d03523839813c372eea76ff52b59bf0814830f6d2b9208913552"
-  ],
-  [
    "modules/342-elite-sixsects-san-du.js",
    "86d5816938f8d5aee3e9c7aaf1b90a52feba83381f5d9b80114979a9e6800955"
+  ],
+  [
+   "modules/343-common-shield-steal.js",
+   "58e42c962a3e9e9847d4414ea09dd9b16247ce51006e488f2e62edad495e5002"
   ],
   [
    "player/501-player-text.js",

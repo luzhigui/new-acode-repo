@@ -1,4 +1,5 @@
-﻿// V1.2.9 | 2026-11-22 智取抢盾改钩子出口：core/216 不再反向 import 本模块（T-LAYER-260），本模块 setShieldStealHook 自注册
+﻿// V1.2.10 | 2026-11-26 文件改号 341→343（与 341-common-mech-kongzhi 撞号，main-number-guard 红），逻辑未动
+// V1.2.9 | 2026-11-22 智取抢盾改钩子出口：core/216 不再反向 import 本模块（T-LAYER-260），本模块 setShieldStealHook 自注册
 // V1.2.8 | 2026-11-21 智取抢量下调：护盾/回血由「总量 60%（各 0.3）」降到「总量 40%（各 0.2）」，目标实得 60%。
 // V1.2.6 | 2026-11-20 智取抢来的回血补飘字：张松溪/受益队友吃血后推 HEAL fact（💡 智取），血条不再无声上涨。
 // V1.2.7 | 2026-11-21 补版本日志行（VER 常量已抬，漏写本行致 ver-drift 判领先）。
@@ -24,7 +25,7 @@ import { pushSkillAnnounce } from './305-elite-helpers.js';
 import { FACT_TYPES } from '../infra/106-battle-enums.js';
 import { fmtNum } from '../infra/102-core-utils.js';
 
-export const VER = 'modules/341-common-shield-steal.js V1.2.9';
+export const VER = 'modules/343-common-shield-steal.js V1.2.10';
 
 const STEALER_NAME = '张松溪';
 
