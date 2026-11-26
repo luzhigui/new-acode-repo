@@ -69,7 +69,9 @@
 //   本回合第一个单位行动前（BEFORE_ACTION_SELECT），让 ROUND_START 的召唤物先按初始血量渲染一帧。
 // V2.7.5 | 2026-11-26 老板报「轰了 28 但对面血条像没变、日志没有前后血量」：真伤/回血补 emitHpChange
 //   广播（真伤不走攻击链，原本不刷格子血条），日志补「造成 N 点真实伤害（A → B）」。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.5';
+// V2.7.6 | 2026-11-26 老板报「六大派下面仍没有圣火不熄徽章」：开局 buff 抽取会整体覆盖 activeBuffs，
+//   install 时写一次被冲掉 → 抽 syncHolyFireBadge()，install + 每回合开始各补一次（幂等）。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.6';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -101,6 +103,17 @@ const DEMON_SHOTS_PER_VOLLEY = 1;      // 每次「开轰」一发（V2.5.0 老�
 const DEMON_SHIELD_PCT = 0.02;         // 每轰一炮给自己加 2% 最大生命护盾（V2.7.3 老板口径：1% 太薄，上调到 2%）
 // （枯禅轮回：跌破 70%/40% 两档触发；血最少者优先回 8 号位，无随机分支）
 
+// 圣火不熄：UI 永久徽章同步（GlobalStore.activeBuffs；按 target/camp 分阵营、permanent 走阵营名下徽章）。
+//   开局 buff 抽取会整体覆盖 activeBuffs，install 时写一次会被冲掉 → 每回合开始再补一次（幂等）。
+export function syncHolyFireBadge(camp) {
+    const uiBuffs = GlobalStore.get('activeBuffs') || [];
+    if (uiBuffs.some(b => b && b.key === BUFF_TYPES.HOLY_FIRE && (b.target === camp || b.camp === camp))) return;
+    GlobalStore.set('activeBuffs', [...uiBuffs, {
+        key: BUFF_TYPES.HOLY_FIRE, name: '圣火不熄', icon: '🕯️',
+        target: camp, camp, remaining: Infinity, permanent: true
+    }]);
+}
+
 // ── 三大高僧的固定被动 ──
 export const monkFixedBuffHandler = {
     fields: { buffType: 'string' },
@@ -117,15 +130,14 @@ export const monkFixedBuffHandler = {
         if (!myTeam._activeBuffs.some(b => b && b.key === BUFF_TYPES.HOLY_FIRE)) {
             myTeam._activeBuffs.push({ key: BUFF_TYPES.HOLY_FIRE, name: '圣火不熄', icon: '🕯️', permanent: true });
         }
-        // UI 永久海克斯徽章（老板 2026-11-26：圣火不熄要出现在六大派名字下面的永久海克斯区）：
-        //   ui/719 读 GlobalStore.activeBuffs，按 target 分阵营、按 permanent 走阵营名下徽章。
-        const uiBuffs = GlobalStore.get('activeBuffs') || [];
-        if (!uiBuffs.some(b => b && b.key === BUFF_TYPES.HOLY_FIRE && b.target === decl.camp)) {
-            GlobalStore.set('activeBuffs', [...uiBuffs, {
-                key: BUFF_TYPES.HOLY_FIRE, name: '圣火不熄', icon: '🕯️',
-                target: decl.camp, remaining: Infinity, permanent: true
-            }]);
-        }
+        // UI 永久海克斯徽章（老板 2026-11-26：圣火不熄要出现在六大派名字下面的永久海克斯区）
+        syncHolyFireBadge(decl.camp);
+        // 开局抽取的 buff 会覆盖 activeBuffs，每回合开始再补一次，保证徽章整局都在
+        registerSettlementHook({
+            when: SIGNAL_TYPES.ON_ROUND_START,
+            priority: 60,
+            handler: () => syncHolyFireBadge(decl.camp)
+        });
         // 枯禅轮回阵（第6关倒三角变体）在场判定：本队含魔化谢逊 → 金刚伏魔阵 30 点平回血停用（V2.2.0）
         const kuchanActive = ((decl.camp === CAMP_TYPES.ALLY ? (A || []) : (B || [])))
             .some(u => u && u.name === '魔化谢逊');
