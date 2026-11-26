@@ -10,7 +10,7 @@ import { getSkillDesc, getGameData, isNamedCharacter, hasSkills } from '../core/
 import { baseHeroName } from '../core/202-unit.js';
 import { ROLE_TYPES } from '../infra/106-battle-enums.js';
 
-export const VER = 'render/414-role-cards.js V2.1.2';
+export const VER = 'render/414-role-cards.js V2.1.3';
 
 // 显示名唯一出口（#16，老板 2026-11 定调）：数据名 / 机制键 / 归属判据一律不动，
 //   只把展示用的全名换算成短名 —— 金毛狮王谢逊 →「金毛狮王」（格子、幻影、战报/日志同源）。
@@ -91,6 +91,8 @@ function firstCard(u, ctx) {
 
 // 格子图标：命中卡的 icon 优先，否则按职业回落
 export function getRoleIcon(u, ctx) {
+    // 魔化谢逊专属（老板 2026-11-26）：0 攻蓄力炮台显示防战 🛡️ 不对，给个魔性专属图标
+    if (u && u.name === '魔化谢逊') return '👹';
     for (const id of ICON_ORDER) {
         const c = CARD_BY_ID.get(id);
         if (!c) continue;

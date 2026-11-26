@@ -1,5 +1,5 @@
 // modules/326-elite-mingjiao-xiexun.js — 明教精英「金毛狮王谢逊」：组件工厂（狮吼/狂暴）
-export const VER = 'modules/326-elite-mingjiao-xiexun.js V1.2.2';
+export const VER = 'modules/326-elite-mingjiao-xiexun.js V1.2.3';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { getBenefitTargets } from '../core/203-battle-utils.js';
 import { spawnUnit, pickFreePos } from '../core/205-battle-horse.js';
@@ -91,6 +91,10 @@ export function createXieXunComponent() {
                 //   且幼狮吃振奋会让"成长前白赚全队攻"变成最优解——成长链的代价感就没了
                 const targets = getBenefitTargets(myTeam).filter(u => !u.isLionCub);
                 if (targets.length === 0) return;
+                // 头顶弹幕先发（老板 2026-11-26：不能等加攻数字刷新后才飘「雄狮振奋」，否则马后炮）：
+                //   fact 序排在后，飘字就会跟在本步属性变化后面；挪到 addMod 之前，字先出、效果紧随。
+                //   line:false —— 战报行仍由下方 pushInfo 承担。
+                pushSkillAnnounce(data.log, lion, '雄狮振奋', `🦁 雄狮振奋！己方全体攻 +${fmtNum(gain)}`, { line: false, floatText: '🦁雄狮振奋！', floatUid: lion.uid });
                 const inspireTargets = [];
                 for (const t of targets) {
                     addMod(t, 'atk', { source: '振奋', value: gain, ttl: 'permanent', group: 'lionInspire', op: 'add' });
@@ -109,9 +113,6 @@ export function createXieXunComponent() {
                 //   （随动出手的演出被 isLinkAttack 延后 1400ms、苦练延后 1200ms），看起来像「母狮出手反而吼」。
                 //   现由 render/39 的 ATTACK 演出在雄狮真正出手的那一帧发 LION_ROAR + ATK_BUFF_FLOAT。
                 pushInfo(data, `<span class="gold">🦁 雄狮振奋！己方全体攻击力 +${fmtNum(gain)}</span>`);
-                // 头顶弹幕：雄狮振奋此前只有战报行、无飘字（母狮随动那侧靠 lionFollow 徽章，
-                //   振奋本身没有任何飘字）。补 🦁 挂雄狮头顶；line:false —— 战报行已由上方 pushInfo 承担
-                pushSkillAnnounce(data.log, lion, '雄狮振奋', `🦁 雄狮振奋！己方全体攻 +${fmtNum(gain)}`, { line: false, floatText: '🦁雄狮振奋！', floatUid: lion.uid });
             });
 
             // ④ 母狮·随动：母狮命中后，其他雄狮/母狮与谢逊各随动攻击一次，打母狮同一个目标。
