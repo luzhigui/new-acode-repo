@@ -31,7 +31,7 @@
 //   病由：V1.1.2 的 msg 把 `pOver.join(' | ')` 整条拼进去，模板里唯一插值是一整句带单位名的报文，
 //   抽取器据此切出「连击越界：本回合宣告[」这类主代码永不存在的整句键 ⇒ 规则绑定键漂移判真·假绿 2 项。
 //   判据（三层比对、别名独立生效、上限 2、四条复发信号的条件与顺序）**一字未动**，只改「怎么报」与「怎么分流」。
-export const VER = 'tests/health-rules/146-double-strike.js V6.1.19';
+export const VER = 'tests/health-rules/146-double-strike.js V6.1.20';
 import { plain } from '../122health-utils.js';
 
 // content buffs.doubleStrike.prob = 0.8；小昭·姊在场时 render/411 读 002 sister.doubleStrike.chance = 1.0。
@@ -233,8 +233,9 @@ export const rule93 = {
                     seen.push(named[k]);
                 }
             }
-            if (rd.fires.length > 2) {
-                problems.push('同回合连击触发' + rd.fires.length + '次（明教/六大派各登记一人，上限应为2）');
+            // 每侧可登记 2 人（core/210 prepareRoundStart 双签抽人，明教+六大派最多 4 人/回合）
+            if (rd.fires.length > 4) {
+                problems.push('同回合连击触发' + rd.fires.length + '次（每侧上限 2 人，合计上限 4）');
             }
 
             if (rd.declared.length === 0) continue; // 无宣告可比对（Buff 过期残留），跳过信号2/3
