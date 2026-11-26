@@ -73,7 +73,10 @@
 //   install 时写一次被冲掉 → 抽 syncHolyFireBadge()，install + 每回合开始各补一次（幂等）。
 // V2.7.7 | 2026-11-26 老板拍板：8 号位回血改为「换位落地即回」——原「轮到自己行动前」会漏掉
 //   本回合已行动过、被换进 8 号位的人；现换入当场回 40%（每回合每人一次闸，满血不刷行）。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.7';
+// V2.7.8 | 2026-11-26 老板口径：①取消魔化谢逊「每轰一炮叠护盾」；②渡难流云身法之外再 +20% 闪避（合计 45%）；
+//   ③渡厄在首当其冲之外再挂个人「严阵以待」（防御再 +40% + 受击反弹 40%，不认站位）；
+//   ④渡劫在概率连击之外再加战士加成 +9 攻 / +9 防 / +90 血。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.8';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -100,9 +103,11 @@ const SAN_DU_DOUBLE_STRIKE_RATE = 0.8; // 概率连击：80%
 // ── 枯禅轮回阵（第6关倒三角变体）数值唯一来源 ──
 const SAN_DU_NAME_SET = new Set(['渡厄', '渡劫', '渡难']); // 三渡名单（枯禅轮回/8号位回血识别用）
 const SAN_DU_KUCHAN_HEAL_RATE = 0.4;   // 8 号位枯禅回血：40% 最大生命（V2.3.2 老板上调）
+const SAN_DU_LIUYUN_EXTRA = 0.20;      // 渡难追加闪避：流云 25% 之外再 +20%（V2.7.8 老板口径 → 合计 45%）
+const SAN_DU_WARRIOR_BONUS = { atk: 9, def: 9, maxHp: 90 }; // 渡劫追加战士加成（V2.7.8 老板口径）
 const DEMON_BURST_DMG = 28;            // 魔化谢逊每发：28 点（打敌方=真伤 / 落自家=回血），V2.5.0 老板改回 28
 const DEMON_SHOTS_PER_VOLLEY = 1;      // 每次「开轰」一发（V2.5.0 老板：轰两下太夸张，改回一发）
-const DEMON_SHIELD_PCT = 0.02;         // 每轰一炮给自己加 2% 最大生命护盾（V2.7.3 老板口径：1% 太薄，上调到 2%）
+// V2.7.8 老板口径：取消「每轰一炮叠护盾」——倒三角不再有护盾。
 // （枯禅轮回：跌破 70%/40% 两档触发；血最少者优先回 8 号位，无随机分支）
 
 // 圣火不熄：UI 永久徽章同步（GlobalStore.activeBuffs；按 target/camp 分阵营、permanent 走阵营名下徽章）。
@@ -154,6 +159,19 @@ export const monkFixedBuffHandler = {
                     addMod(self, 'def', { source: '首当其冲', value: SAN_DU_DEF_BONUS, ttl: 'round', op: 'mul', group: 'monkDef' });
                 }
             });
+            // V2.7.8 老板口径：渡厄在「首当其冲」之外再挂一份「严阵以待」（个人技，不认站位）：
+            //   防御再 +40% + 受击反弹 40%。priority 22 必须晚于上面 19 的阵位清旗，否则 _sanDuFortify 被覆盖成 false。
+            registerSettlementHook({
+                when: SIGNAL_TYPES.ON_ROUND_START,
+                priority: 22,
+                handler: (data) => {
+                    if (!self.alive) return;
+                    addMod(self, 'def', { source: '严阵以待', value: SAN_DU_DEF_BONUS, ttl: 'round', op: 'mul', group: 'monkFortify' });
+                    self.state._sanDuFortify = true;
+                    pushSkillAnnounce(data && data.log, self, '严阵以待',
+                        `🛡️ 严阵以待：${self.name} 防御 +${Math.round(SAN_DU_DEF_BONUS * 100)}%，受击反弹 ${Math.round(SAN_DU_FORTIFY_REBOUND * 100)}%`);
+                }
+            });
             // 阵位授予（认位不认人）：2 号位=严阵以待（防御 +40% + 受击反弹 40%）；7/9 号位只保留金刚伏魔阵回血
             registerSettlementHook({
                 when: SIGNAL_TYPES.ON_ROUND_START,
@@ -182,7 +200,8 @@ export const monkFixedBuffHandler = {
                 handler: (data) => {
                     const { unit, target, dmg } = data || {};
                     if (!unit || !target || !target.alive || !target.state || !target.state._sanDuFortify) return;
-                    if (target.pos !== 2 || !dmg || dmg <= 0) return;
+                    // V2.7.8：不再按 pos===2 限定——渡厄的个人「严阵以待」也置同一个旗，反弹口径一致
+                    if (!dmg || dmg <= 0) return;
                     const value = Math.floor(dmg * SAN_DU_FORTIFY_REBOUND);
                     if (value <= 0) return;
                     if (!data.declarations) data.declarations = [];
@@ -197,6 +216,14 @@ export const monkFixedBuffHandler = {
                 }
             });
         } else if (decl.buffType === 'doubleAttack') {
+            // V2.7.8 老板口径：渡劫在概率连击之外，额外吃一份战士加成（+9攻 / +9防 / +90血）
+            addMod(self, 'atk', { source: '三渡·战士加成', value: SAN_DU_WARRIOR_BONUS.atk, ttl: 'permanent', group: 'sanDuWarrior', op: 'add' });
+            addMod(self, 'def', { source: '三渡·战士加成', value: SAN_DU_WARRIOR_BONUS.def, ttl: 'permanent', group: 'sanDuWarrior', op: 'add' });
+            addMod(self, 'maxHp', { source: '三渡·战士加成', value: SAN_DU_WARRIOR_BONUS.maxHp, ttl: 'permanent', group: 'sanDuWarrior', op: 'add' });
+            self.atk = getStat(self, 'atk');
+            self.def = getStat(self, 'def');
+            self.maxHp = getStat(self, 'maxHp');
+            self.hp += SAN_DU_WARRIOR_BONUS.maxHp;
             // 渡劫·概率连击：命中/闪避后 80% 概率追加一次（每回合只掷一次骰，不 100% 必发）
             // 格子 ⚡：连击不是轮盘抽的，step.doubleStrikeUid 里没有他 → 用常驻旗给格子补 logo
             self.state._sanDuDoubleStrike = true;
@@ -233,23 +260,24 @@ export const monkFixedBuffHandler = {
                 handler: () => { self.state._doubleStrikeRolled = false; self.state._doubleStriked = false; }
             });
         } else if (decl.buffType === 'dodge') {
-            // 渡难·流云身法：闪避 +25%（格子挂 💨 logo，回合开始播报一条，避免只有属性面板能看见）
+            // 渡难·流云身法：闪避 +25%，V2.7.8 老板口径再追加 20%（合计 45%）
             self.state._sanDuLiuYun = true;
-            registerDodgeRule((target) => (target && target.uid === self.uid && target.alive ? SAN_DU_LIUYUN_RATE : 0));
+            const dodgeTotal = SAN_DU_LIUYUN_RATE + SAN_DU_LIUYUN_EXTRA;
+            registerDodgeRule((target) => (target && target.uid === self.uid && target.alive ? dodgeTotal : 0));
             registerSettlementHook({
                 when: SIGNAL_TYPES.ON_ROUND_START,
                 priority: 22,
                 handler: (data) => {
                     if (!self.alive) return;
                     pushSkillAnnounce(data && data.log, self, '流云身法',
-                        `💨 流云身法：${self.name} 闪避 +${Math.round(SAN_DU_LIUYUN_RATE * 100)}%`);
+                        `💨 流云身法：${self.name} 闪避 +${Math.round(dodgeTotal * 100)}%`);
                 }
             });
         }
 
         // 共有：7~9 号位每回合开始回复 30 点生命
         //   2026-11-22 老板报：回血没日志没飘字——补 SKILL_ANNOUNCE 播报 + 飘字（满血回复 0 不刷行）。
-        //   注意：本回复暂未接 341 智取抢血前置钩子（休息回血/飞行再生走的是 stealHealByHook），要接说一声。
+        //   注意：本回复暂未接 343 智取抢血前置钩子（休息回血/飞行再生走的是 stealHealByHook），要接说一声。
         registerSettlementHook({
             when: SIGNAL_TYPES.ON_ROUND_START,
             priority: 21,
@@ -502,12 +530,7 @@ export const demonXiexunHandler = {
         function fireVolley(data, force) {
             if (!force && !self.state._demonCharged) return;
             self.state._demonCharged = false;
-            for (let i = 0; i < DEMON_SHOTS_PER_VOLLEY; i++) {
-                demonStrike(data);
-                // 每轰一炮给自己加 1% 最大生命护盾（V2.5.3 老板口径：以炮养盾，挨打越多盾越厚）
-                const shield = Math.floor(getStat(self, 'maxHp') * DEMON_SHIELD_PCT);
-                if (shield > 0) self.state._shield = (self.state._shield || 0) + shield;
-            }
+            for (let i = 0; i < DEMON_SHOTS_PER_VOLLEY; i++) demonStrike(data);
             enterCharge(data);   // 轰完立刻重新蓄力
         }
         // 被攻击：蓄力中就开轰（没蓄力就先蓄，正常流程下开局已蓄满，此分支只在极端时序出现）
