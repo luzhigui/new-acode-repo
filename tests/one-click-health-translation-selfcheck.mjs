@@ -5,7 +5,11 @@
 //      一致的子串匹配），列出会翻成“其他”的条目，供补表。
 //   ② 动态段（受环境约束）：真跑一次 one-click-health，统计生成报告里“其他”标题数；>0 提示补表。
 //   挂 OBSERVES（不改 CHECKS 分母），pure tests/，不碰主代码、不改阈值/基线/判据。
-export const VER = 'tests/one-click-health-translation-selfcheck.mjs V1.0.0';
+// V1.1.0 | 2026-11-26 第193轮：递归防爆。一键体检会把 run-all 拉进干净 worktree 里跑，run-all 又挂本自检
+//   ⇒ 本自检再 spawn 一次 one-click ⇒ 每层再建一棵 worktree。2026-11-26 实测跑成 6 层嵌套、约 4.0 GB
+//   垃圾目录、进程越滚越多（与第40轮"5 层嵌套"同源复发，那次只挪了目录没断链）。修法：one-click 调 run-all
+//   时下发 HEALTH_ONECLICK_DEPTH=1，本自检见到该变量就只做静态预检、跳过动态段。
+export const VER = 'tests/one-click-health-translation-selfcheck.mjs V1.1.0';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -40,7 +44,12 @@ for (const u of uncovered) console.log('  其他 ←', u);
 
 // 动态段：真跑一次一键体检，统计报告里“其他”卡片数
 let dynamicOk = false, otherCardCount = null, dynamicNote = '';
-try {
+// 递归防爆（第193轮）：在"父级一键体检拉起的 run-all"里，动态段再次 spawn one-click 会无限建树。
+//   见到 HEALTH_ONECLICK_DEPTH 即判定为嵌套运行，跳过动态段（父级已跑过全量，此处无可增信息）。
+if (process.env.HEALTH_ONECLICK_DEPTH) {
+    dynamicNote = '嵌套运行（父级一键体检已跑全量），跳过动态段以避免递归建 worktree';
+    console.log('[动态段]' + dynamicNote);
+} else try {
     const r = spawnSync(process.execPath, [OCH], { cwd: ROOT, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
     dynamicOk = true;
     if (fs.existsSync(OUT)) {

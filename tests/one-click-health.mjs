@@ -3,10 +3,19 @@
 // 为什么需要它：浏览器"全能体检"只查战中当场出错；账本对账/判据空转/基线回归这类问题
 //   打一百局也看不出来，只能靠 node 全套守门。浏览器按钮跑不了 node，故做本地双击入口。
 // 红线：只读跑现有测试，不改任何判据/阈值/基线/主代码；本报告纯呈现，不参与任何判定。
+// V1.1.2 | 2026-11-26 第193轮：递归断链——调 run-all 时下发 HEALTH_ONECLICK_DEPTH=1（让嵌套的翻译自检
+//   跳过动态段，不再二次 spawn 本脚本）；同时本脚本见到该变量直接早退，防任何路径上被套娃拉起建树。
 // V1.1.1 | 2026-11-25 第55轮：加 --selfcheck 早退分支（S6 四证），防参数被忽略导致递归建树（当晚实踩4棵残留）。
 // V1.1.0 | 2026-11-22 第44轮：陈旧 worktree 注册从只打印 console 升级为写进 HTML 报告显著提示（只报告不自动删，防误伤别的会话）。
 // V1.0.0 | 2026-11-21 第36轮：补 VER 常量与版本日志行（原文件无 VER，ver-drift 断言⑩判为无版本孤儿）。
-export const VER = 'tests/one-click-health.mjs V1.1.1';
+export const VER = 'tests/one-click-health.mjs V1.1.2';
+
+// 递归断链（第193轮）：本脚本一旦被"自己拉起的 run-all"再调起来，就会在上一棵树旁边再建一棵，无限套娃
+//   （2026-11-26 实测 6 层嵌套 / ≈4.0 GB）。带该变量进来 = 处在这个套娃链路里，直接早退、不建树。
+if (process.env.HEALTH_ONECLICK_DEPTH) {
+    console.log('[早退] 检测到 HEALTH_ONECLICK_DEPTH：当前是嵌套调用，不再建工作树（递归断链），退出。');
+    process.exit(3);
+}
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -116,6 +125,8 @@ let r, out, exit;
 try {
     r = spawnSync(process.execPath, [path.join(WORKTREE, 'tests', 'run-all.mjs'), '--quick', '--jobs', '4'], {
         cwd: WORKTREE, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
+        // 递归断链：把"我在一键体检里"这个事实下发给子进程，嵌套的翻译自检据此跳过二次 spawn
+        env: { ...process.env, HEALTH_ONECLICK_DEPTH: '1' },
     });
     out = (r.stdout || '') + (r.stderr || '');
     exit = r.status;
