@@ -3,7 +3,8 @@ import { runParallel } from './817-shared-worker-runner.js';
 import { NATURAL_ELITES, SOLO_ELITES as SOLO_ELITE_NAMES, BOSS_ELITES as BOSS_ELITE_NAMES, STATS_TH } from './827-tool-registry.js';
 import { VER as ENGINE_VER } from '../core/201-config-5v5-test.js';
 
-export const VER = 'tools/812-elite-eval.js V3.15.1';
+// V3.15.2 | 2026-11-26 默认场次下调：每关总场次 1800 → 1200，控制变量场数 300 → 200（无精英基线同步 600 → 400，恒 2× 不变）。
+export const VER = 'tools/812-elite-eval.js V3.15.2';
 // V3.15.1 | 2026-11-22 第6关两行写清变体名：原来「第6关 / 三渡」和一行光秃秃「第6关」（其实是成昆常规阵），
 //   改成「第6关 成昆」在上、「第6关 三渡」在下。以后凡拆变体的关都必须带变体名，不许只写「第N关」。
 // V3.15.0 | 2026-11-21 第3/6关拆变体且样本不减半：第3关拆「胖远桥 / 宋青书」、第6关拆「三渡 / 标准」，
@@ -109,7 +110,7 @@ const soloResultEl = document.getElementById('eliteSoloResult');
 const noEliteBtn = document.getElementById('eliteNoEliteBtn'); // 2026-10-09 无精英基线
 const noEliteProgressEl = document.getElementById('eliteNoEliteProgress');
 const noEliteResultEl = document.getElementById('eliteNoEliteResult');
-const soloRunsInput = document.getElementById('eliteSoloRunsInput'); // 2026-10-09 单核表（强精英/无精英）专用场数（默认 300）：与普通表分开，免得忘改 1800 一跑就是 5 倍时长
+const soloRunsInput = document.getElementById('eliteSoloRunsInput'); // 2026-10-09 单核表（强精英/无精英）专用场数（默认 200）：与普通表分开，免得忘改 1200 一跑就是 6 倍时长
 
 const CHUNK = 50; // 每片局数：细粒度分片（2026-10-16 从 300 收窄）——填满线程池无尾部空转；种子用 startIndex 口径，分片粗细不改采样
 
@@ -243,7 +244,7 @@ snapDropBtn.addEventListener('click', () => {
 
 startBtn.addEventListener('click', async () => {
     const stages = Array.from(document.querySelectorAll('.elite-stage-check:checked')).map(cb => parseInt(cb.value));
-    const RUNS = parseInt(runsInput.value) || 1800;
+    const RUNS = parseInt(runsInput.value) || 1200;
     if (stages.length === 0) { alert('请至少选择一个关卡'); return; }
 
     startBtn.disabled = true;
@@ -315,7 +316,7 @@ startBtn.addEventListener('click', async () => {
 
 async function runSoloGroup(list, ui) {
     const stages = Array.from(document.querySelectorAll('.elite-stage-check:checked')).map(cb => parseInt(cb.value));
-    const RUNS = parseInt(soloRunsInput.value) || 300;   // 单英雄表专用场数（默认 300，与普通表分开）
+    const RUNS = parseInt(soloRunsInput.value) || 200;   // 单英雄表专用场数（默认 200，与普通表分开）
     if (stages.length === 0) { alert('请至少选择一个关卡'); return; }
 
     ui.btn.disabled = true;
@@ -453,7 +454,7 @@ function soloTotalsOf(cfg, byStage, stages) {
 //       海克斯开、胜 = 明教。作「精英价值」对照组——与上方两张表同关比，差额即精英的胜率增益。
 noEliteBtn.addEventListener('click', async () => {
     const stages = Array.from(document.querySelectorAll('.elite-stage-check:checked')).map(cb => parseInt(cb.value));
-    const RUNS = parseInt(soloRunsInput.value) || 600;   // 与单英雄表共用「单英雄/无精英场数」（对照组样本量一致）
+    const RUNS = parseInt(soloRunsInput.value) || 400;   // 与单英雄表共用「单英雄/无精英场数」（对照组样本量一致，恒为 2×）
     if (stages.length === 0) { alert('请至少选择一个关卡'); return; }
 
     noEliteBtn.disabled = true;
