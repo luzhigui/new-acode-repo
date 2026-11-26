@@ -89,7 +89,7 @@
 </main>
 <div class="mask" id="newMask">
   <div class="modal">
-    <h2>新建一条 Bug 记录</h2>
+    <h2 id="newTitle">新建一条 Bug 记录</h2>
     <label class="fl">① 本来应该怎样</label>
     <textarea id="newNote1" placeholder="例：这个技能应该打敌方，不该打自己人"></textarea>
     <label class="fl">② 怎么复现</label>
@@ -334,6 +334,11 @@
             };
             var copyOne = smallBtn('复制这一条');
             copyOne.onclick = function () { copyText(buildSingleRecordText(rec), '已复制这一条'); };
+            if (manual) {
+                var editBtn = smallBtn('✎ 编辑');
+                editBtn.onclick = function () { openForm(rec); };
+                ops.appendChild(editBtn);
+            }
             var del = smallBtn('删除', 'danger');
             del.onclick = function () {
                 if (!confirm('确认删除这一条记录？')) return;
@@ -368,13 +373,30 @@
             .join('\n');
     }
     var newUnits = document.getElementById('newUnits');
-    function openNew() {
-        newNotes.forEach(function (x) { x.el.value = ''; });
-        newUnits.value = '';
+    // 二次编辑（老板 2026-11-26）：在列表里点「✎ 编辑」回填弹窗，保存时按 id 覆盖 note/units，不新增条目
+    var editingId = null;
+    function splitNote(note) {
+        var out = { '应该': '', '步骤': '', '实际': '' };
+        var cur = null;
+        String(note || '').split('\n').forEach(function (line) {
+            var m = /^【(应该|步骤|实际)】(.*)$/.exec(line.trim());
+            if (m) { cur = m[1]; out[cur] = m[2]; }
+            else if (cur) out[cur] += (out[cur] ? '\n' : '') + line;
+        });
+        return out;
+    }
+    function openForm(rec) {
+        editingId = rec ? rec.id : null;
+        var parts = rec ? splitNote(rec.note) : { '应该': '', '步骤': '', '实际': '' };
+        newNotes.forEach(function (x) { x.el.value = parts[x.key] || ''; });
+        newUnits.value = rec ? (rec.units || []).join('、') : '';
+        var t = document.getElementById('newTitle');
+        if (t) t.textContent = rec ? '编辑 Bug 记录' : '新建一条 Bug 记录';
         newMask.classList.add('on');
         setTimeout(function () { try { newNotes[0].el.focus(); } catch (e) {} }, 30);
     }
-    function closeNew() { newMask.classList.remove('on'); }
+    function openNew() { openForm(null); }
+    function closeNew() { editingId = null; newMask.classList.remove('on'); }
     document.getElementById('btnNew').onclick = openNew;
     document.getElementById('btnNewCancel').onclick = closeNew;
     newMask.onclick = function (e) { if (e.target === newMask) closeNew(); };
@@ -393,6 +415,18 @@
             hasDetail: false
         };
         var arr = loadSaved();
+        if (editingId) {
+            var idx = arr.findIndex(function (x) { return x.id === editingId; });
+            if (idx < 0) { toast('这条记录已不存在'); closeNew(); render(); return; }
+            arr[idx] = Object.assign({}, arr[idx], {
+                note: noteVal, units: units, updatedAt: new Date().toISOString()
+            });
+            if (!writeSaved(arr)) return;
+            closeNew();
+            toast('已保存修改');
+            render();
+            return;
+        }
         arr.push(rec);
         while (arr.length > MAX_SAVED) arr.shift();   // 与 modules/303 同口径：超 60 条丢最老
         if (!writeSaved(arr)) return;
