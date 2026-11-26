@@ -58,7 +58,9 @@
 //   时长 900ms（比原换位慢）；载荷 swapChain → posCycle（render/419 → POS_CYCLE → fx/604 animatePosCycle）。
 // V2.6.1 | 2026-11-26 老板纠错：取消 30% 随机顺时针——血最少已站 8 号位时，原逻辑会把满血者转进 8 号位；
 //   现在永远优先把血最少的放 8 号位（已在 8 则跳过），其余两人 1/3 对调。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.6.1';
+// V2.6.2 | 2026-11-26 老板口径：魔化谢逊每回合开始直接轰一发（不先蓄力），轰完续蓄；
+//   蓄力期间被攻击 → 立刻轰并续蓄；回合收尾若仍在蓄力 → 把这一发打出去。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.6.2';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -376,12 +378,10 @@ export const demonXiexunHandler = {
             handler: (data) => {
                 if (!self.alive) return;
                 self.state._stunned = true;
-                if (!self.state._demonOpened) {
-                    self.state._demonOpened = true;
-                    // V2.5.0 老板口径：开局轰一次 28 → 立刻蓄力
-                    self.state._demonCharged = true;
-                    fireVolley(data);
-                }
+                // 老板 2026-11-26：每回合开始直接轰一发（不先蓄力），轰完立刻续蓄；
+                //   蓄力期间被攻击 → 立刻开轰并续蓄；回合收尾若仍在蓄力，就把这一发打出去。
+                self.state._demonCharged = true;
+                fireVolley(data);
             }
         });
 
