@@ -67,12 +67,14 @@
 // V2.7.3 | 2026-11-26 老板口径：魔化谢逊每炮护盾 1% → 2% 最大生命（288 血每炮 +5 点，可叠）。
 // V2.7.4 | 2026-11-26 老板报「拒马开局被轰直接显示 2 血、看不到 30」：开局轰从 ON_ROUND_START 推迟到
 //   本回合第一个单位行动前（BEFORE_ACTION_SELECT），让 ROUND_START 的召唤物先按初始血量渲染一帧。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.4';
+// V2.7.5 | 2026-11-26 老板报「轰了 28 但对面血条像没变、日志没有前后血量」：真伤/回血补 emitHpChange
+//   广播（真伤不走攻击链，原本不刷格子血条），日志补「造成 N 点真实伤害（A → B）」。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.5';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES, SKILL_CUE_KINDS, BUFF_TYPES } from '../infra/106-battle-enums.js';
-import { addMod, applyStatChange, getBattleRng, getStat, swapUnitPositions } from '../core/214-battle-shared.js';
+import { addMod, applyStatChange, emitHpChange, getBattleRng, getStat, swapUnitPositions } from '../core/214-battle-shared.js';
 import { computeBuffStats } from '../core/204-buff-system.js';
 import { computeDodgeChance } from '../core/213-battle-attack-edge.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
@@ -432,6 +434,7 @@ export const demonXiexunHandler = {
             if (victim.camp === self.camp) {
                 const hpBefore = victim.hp;
                 applyStatChange(victim, 'hp', DEMON_BURST_DMG, self, '魔化·枯禅回血');
+                emitHpChange(victim);
                 const healed = Math.max(0, Math.round(victim.hp - hpBefore));
                 pushSkillAnnounce(data && data.log, self, '魔化',
                     `💚 魔化谢逊反手一掌拍醒 ${victim.name}，回复 ${healed} 点生命`,
@@ -454,9 +457,13 @@ export const demonXiexunHandler = {
                     { floatText: '闪避！', floatUid: victim.uid, needsSeparator: true });
                 return;
             }
+            const hpBefore = victim.hp;
             applyStatChange(victim, 'hp', -DEMON_BURST_DMG, self, '魔化·枯禅真伤', true, false);
+            // 真伤不走攻击链，没有扣血广播 → 格子血条不刷新（老板 2026-11-26 报「轰了但血条像没变」）
+            emitHpChange(victim);
+            const lost = Math.max(0, Math.round(hpBefore - victim.hp));
             pushSkillAnnounce(data && data.log, self, '魔化',
-                `💀 魔化谢逊发狂，对 ${victim.name} 造成 ${DEMON_BURST_DMG} 点真实伤害！`,
+                `💀 魔化谢逊发狂，对 ${victim.name} 造成 ${lost} 点真实伤害（${Math.round(hpBefore)} → ${Math.max(0, Math.round(victim.hp))}）！`,
                 {
                     floatText: '💀', floatUid: victim.uid, needsSeparator: true,
                     // 老板 2026-11-24 报「谢逊打伤害没有炎爆那种演出」：复用炎爆三段（凝球→飞行→爆开）
