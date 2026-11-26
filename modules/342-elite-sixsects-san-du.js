@@ -71,7 +71,9 @@
 //   广播（真伤不走攻击链，原本不刷格子血条），日志补「造成 N 点真实伤害（A → B）」。
 // V2.7.6 | 2026-11-26 老板报「六大派下面仍没有圣火不熄徽章」：开局 buff 抽取会整体覆盖 activeBuffs，
 //   install 时写一次被冲掉 → 抽 syncHolyFireBadge()，install + 每回合开始各补一次（幂等）。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.6';
+// V2.7.7 | 2026-11-26 老板拍板：8 号位回血改为「换位落地即回」——原「轮到自己行动前」会漏掉
+//   本回合已行动过、被换进 8 号位的人；现换入当场回 40%（每回合每人一次闸，满血不刷行）。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.7';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -543,7 +545,7 @@ export const demonXiexunHandler = {
                 if (!at8) return;
                 const ratioOf = (u) => u.hp / Math.max(1, getStat(u, 'maxHp'));
                 const lowest = monks.reduce((a, b) => (ratioOf(b) < ratioOf(a) ? b : a));
-                if (lowest === at8) return;                 // 血最少的已在 8 号位，不动
+                if (lowest === at8) { healKuchan8(at8, data.log); return; }   // 血最少的已在 8 号位：不换位，照样回血
                 const fromPos = lowest.pos;
                 if (!swapUnitPositions(lowest, at8, data.log, { friendlyPull: true })) return;
                 const posCycle = [
@@ -556,33 +558,33 @@ export const demonXiexunHandler = {
                         floatText: '☸️', floatUid: lowest.uid, needsSeparator: true,
                         posCycle, camp: lowest.camp
                     });
+                // 换位落地即回血（老板 2026-11-26 拍板）：不等他行动——本回合已行动过的人被换进 8 号位
+                //   原本会永远错过回血；改为换入当场回 40%，仍受「每回合每人一次」闸约束。
+                healKuchan8(lowest, data.log);
             }
         });
 
-        // 8 号位枯禅回血：轮到三渡行动前回 40% 最大生命（每回合一次 _kuchanHealed 闸，防渡劫连击双回；满血不刷行）
+        // 8 号位回血唯一出口：换入 8 号位当场回 40% 最大生命（每回合每人一次，满血不刷行）
+        function healKuchan8(u, log) {
+            if (!u || !u.alive || u.state._kuchanHealed) return;
+            const maxHp = getStat(u, 'maxHp');
+            if (!(u.hp < maxHp)) return;
+            u.state._kuchanHealed = true;
+            const hpBefore = u.hp;
+            applyStatChange(u, 'hp', Math.floor(maxHp * SAN_DU_KUCHAN_HEAL_RATE), self, '枯禅轮回回复');
+            emitHpChange(u);
+            const healed = u.hp - hpBefore;
+            if (healed > 0) {
+                pushSkillAnnounce(log, u, '枯禅轮回',
+                    `🌿 ${u.name} 在谢逊身后入定，回复 ${Math.round(healed)} 点生命（${Math.round(hpBefore)} → ${Math.round(u.hp)}）`,
+                    { floatText: '🌿', floatUid: u.uid, tone: 'heal' });
+            }
+        }
+        // 8 号位枯禅回血闸：每回合开头重置（每回合每人最多回一次，防渡劫连击/多次换位刷血）
         registerSettlementHook({
             when: SIGNAL_TYPES.ON_ROUND_START,
             priority: 17,
             handler: () => { trio().forEach(u => { u.state._kuchanHealed = false; }); }
-        });
-        registerSettlementHook({
-            when: SIGNAL_TYPES.BEFORE_ACTION_SELECT,
-            priority: 10,
-            handler: (data) => {
-                if (!data || !data.unit || !data.unit.alive || !SAN_DU_NAME_SET.has(data.unit.name)) return;
-                if (data.unit.pos !== 8 || data.unit.state._kuchanHealed) return;
-                const maxHp = getStat(data.unit, 'maxHp');
-                if (!(data.unit.hp < maxHp)) return;
-                data.unit.state._kuchanHealed = true;
-                const hpBefore = data.unit.hp;
-                applyStatChange(data.unit, 'hp', Math.floor(maxHp * SAN_DU_KUCHAN_HEAL_RATE), self, '枯禅轮回回复');
-                const healed = data.unit.hp - hpBefore;
-                if (healed > 0) {
-                    pushSkillAnnounce(data.log, data.unit, '枯禅轮回',
-                        `🌿 ${data.unit.name} 在谢逊身后入定，回复 ${Math.round(healed)} 点生命（${Math.round(hpBefore)} → ${Math.round(data.unit.hp)}）`,
-                        { floatText: '🌿', floatUid: data.unit.uid, tone: 'heal' });
-                }
-            }
         });
     }
 };
