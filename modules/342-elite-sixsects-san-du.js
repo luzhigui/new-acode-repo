@@ -65,7 +65,9 @@
 // V2.7.2 | 2026-11-26 老板口径：魔化谢逊血量 2888 → 288（每发 28 对应 288 血），
 //   每次开轰给自己叠 1% 最大生命护盾；content.m/poolTier 由 115 校正为 143（288/2.5+0+28）。
 // V2.7.3 | 2026-11-26 老板口径：魔化谢逊每炮护盾 1% → 2% 最大生命（288 血每炮 +5 点，可叠）。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.3';
+// V2.7.4 | 2026-11-26 老板报「拒马开局被轰直接显示 2 血、看不到 30」：开局轰从 ON_ROUND_START 推迟到
+//   本回合第一个单位行动前（BEFORE_ACTION_SELECT），让 ROUND_START 的召唤物先按初始血量渲染一帧。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.4';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -391,13 +393,25 @@ export const demonXiexunHandler = {
         registerSettlementHook({
             when: SIGNAL_TYPES.ON_ROUND_START,
             priority: 24,
-            handler: (data) => {
+            handler: () => {
                 if (!self.alive) return;
                 self.state._stunned = true;
-                // 老板 2026-11-26：每回合开始直接轰一发（不先蓄力），轰完立刻续蓄；
-                //   蓄力期间被攻击 → 立刻开轰并续蓄；回合收尾若仍在蓄力，就把这一发打出去。
-                self.state._demonCharged = true;
-                fireVolley(data);
+                self.state._demonOpened = false;
+                // 老板 2026-11-26：开局这一发不再挂在 ROUND_START——拒马/幼狮等召唤也发生在 ROUND_START，
+                //   同一步里渲染会直接显示扣完血的结果（拒马 30 → 2，中间的 30 看不到）。
+                //   改为本回合「第一个单位行动前」开轰（下方 BEFORE_ACTION_SELECT），此时召唤物已按初始血量渲染过。
+            }
+        });
+
+        // 开局轰（比 ROUND_START 晚一步）：本回合第一个单位行动前轰一发 28，轰完续蓄；每回合只一次。
+        registerSettlementHook({
+            when: SIGNAL_TYPES.BEFORE_ACTION_SELECT,
+            priority: 24,
+            handler: (data) => {
+                if (!self.alive) return;
+                if (self.state._demonOpened) return;
+                self.state._demonOpened = true;
+                fireVolley(data, true);
             }
         });
 
@@ -464,8 +478,8 @@ export const demonXiexunHandler = {
                 '🔥 魔化谢逊魔气凝聚，蓄力待发…',
                 { floatText: '🔥', floatUid: self.uid, needsSeparator: true });
         }
-        function fireVolley(data) {
-            if (!self.state._demonCharged) return;
+        function fireVolley(data, force) {
+            if (!force && !self.state._demonCharged) return;
             self.state._demonCharged = false;
             for (let i = 0; i < DEMON_SHOTS_PER_VOLLEY; i++) {
                 demonStrike(data);
