@@ -11,8 +11,8 @@ import { markGridShake } from './405-grid-cells.js';
 import { isFxSkipped } from '../infra/111-fx-gate.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
-import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
-export const VER = 'render/420-actions-defs.js V1.7.9';
+import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES, CAMP_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
+export const VER = 'render/420-actions-defs.js V1.7.10';
 
 // 被动出手徽章文案（ATTACK/MISS/DODGE 三处出手帧共用）。reason 由 core/10 runExtraAttackRequests
 //   写进 state._linkReason → core/12 attack fact → render/38 透传 → 此处按 reason 出头顶飘字。
@@ -814,11 +814,18 @@ export const STAGE_ACTION_DEFS = {
         // 轻量技能演出（吸星连线 / 现形换脸 / 断锤数字 / 双面观音变装 / 蹦蹦挪位）：
         //   一条 cue 只投一条信号 → 一个演出者；fx 同步发出、不阻塞日志。
         //   快进由 fx/610 订阅侧统一拦（fastForwardActive），这里不再重复判。
+        // 2026-11-26 老板口径：炎爆类（炎魔 BLAZE_BURST / 魔化谢逊 DEMON_BURST、DEMON_HEAL）改为
+        //   await 播完再放行——否则火球还在飞，下一条攻击/下一回合已经开始，观感「急促」。
         grid: 'none', log: 'sync',
         timing: (action) => (action && action.timing) || 'beforeText',
-        fx: (c, action) => {
+        fx: async (c, action) => {
             if (isFxSkipped()) return;
-            if (action && action.cue) eventBus.emit(FX_SIGNALS.SKILL_CUE, action.cue);
+            if (!action || !action.cue) return;
+            const k = action.cue.kind;
+            const heavy = k === SKILL_CUE_KINDS.BLAZE_BURST || k === SKILL_CUE_KINDS.DEMON_BURST || k === SKILL_CUE_KINDS.DEMON_HEAL;
+            if (!heavy) { eventBus.emit(FX_SIGNALS.SKILL_CUE, action.cue); return; }
+            const { showSkillCue } = await import('../fx/619-skill-cues.js');
+            await showSkillCue(action.cue);
         }
     }
 };
