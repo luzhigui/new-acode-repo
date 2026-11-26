@@ -64,7 +64,8 @@
 //   （已在 8 号位则不动）；删除 70%/40% 阈值与 1/3 对调；回血仍为 8 号位行动前每回合一次。
 // V2.7.2 | 2026-11-26 老板口径：魔化谢逊血量 2888 → 288（每发 28 对应 288 血），
 //   每次开轰给自己叠 1% 最大生命护盾；content.m/poolTier 由 115 校正为 143（288/2.5+0+28）。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.2';
+// V2.7.3 | 2026-11-26 老板口径：魔化谢逊每炮护盾 1% → 2% 最大生命（288 血每炮 +5 点，可叠）。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.3';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -93,7 +94,7 @@ const SAN_DU_NAME_SET = new Set(['渡厄', '渡劫', '渡难']); // 三渡名单
 const SAN_DU_KUCHAN_HEAL_RATE = 0.4;   // 8 号位枯禅回血：40% 最大生命（V2.3.2 老板上调）
 const DEMON_BURST_DMG = 28;            // 魔化谢逊每发：28 点（打敌方=真伤 / 落自家=回血），V2.5.0 老板改回 28
 const DEMON_SHOTS_PER_VOLLEY = 1;      // 每次「开轰」一发（V2.5.0 老板：轰两下太夸张，改回一发）
-const DEMON_SHIELD_PCT = 0.01;         // 每轰一炮给自己加 1% 最大生命护盾（V2.5.3 老板口径，配 288 血）
+const DEMON_SHIELD_PCT = 0.02;         // 每轰一炮给自己加 2% 最大生命护盾（V2.7.3 老板口径：1% 太薄，上调到 2%）
 // （枯禅轮回：跌破 70%/40% 两档触发；血最少者优先回 8 号位，无随机分支）
 
 // ── 三大高僧的固定被动 ──
