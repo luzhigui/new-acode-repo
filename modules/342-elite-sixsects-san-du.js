@@ -62,7 +62,7 @@
 //   蓄力期间被攻击 → 立刻轰并续蓄；回合收尾若仍在蓄力 → 把这一发打出去。
 // V2.7.0 | 2026-11-26 老板口径：枯禅轮回改「三渡每次被攻击都判定」——把血量比例最低者换到 8 号位
 //   （已在 8 号位则不动）；删除 70%/40% 阈值与 1/3 对调；回血仍为 8 号位行动前每回合一次。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.0';
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.1';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -72,6 +72,7 @@ import { computeBuffStats } from '../core/204-buff-system.js';
 import { computeDodgeChance } from '../core/213-battle-attack-edge.js';
 import { pushSkillAnnounce } from './305-elite-helpers.js';
 import { registerDodgeRule } from '../core/221-registry-dodge.js';
+import { GlobalStore } from '../infra/104-global-store.js';
 
 // 本回合在场的自己（decl.camp 指明站在哪一方；三渡/谢逊只会出现在敌方 B 队）
 function findSelf(A, B, decl) {
@@ -107,6 +108,15 @@ export const monkFixedBuffHandler = {
         if (!Array.isArray(myTeam._activeBuffs)) myTeam._activeBuffs = [];
         if (!myTeam._activeBuffs.some(b => b && b.key === BUFF_TYPES.HOLY_FIRE)) {
             myTeam._activeBuffs.push({ key: BUFF_TYPES.HOLY_FIRE, name: '圣火不熄', icon: '🕯️', permanent: true });
+        }
+        // UI 永久海克斯徽章（老板 2026-11-26：圣火不熄要出现在六大派名字下面的永久海克斯区）：
+        //   ui/719 读 GlobalStore.activeBuffs，按 target 分阵营、按 permanent 走阵营名下徽章。
+        const uiBuffs = GlobalStore.get('activeBuffs') || [];
+        if (!uiBuffs.some(b => b && b.key === BUFF_TYPES.HOLY_FIRE && b.target === decl.camp)) {
+            GlobalStore.set('activeBuffs', [...uiBuffs, {
+                key: BUFF_TYPES.HOLY_FIRE, name: '圣火不熄', icon: '🕯️',
+                target: decl.camp, remaining: Infinity, permanent: true
+            }]);
         }
         // 枯禅轮回阵（第6关倒三角变体）在场判定：本队含魔化谢逊 → 金刚伏魔阵 30 点平回血停用（V2.2.0）
         const kuchanActive = ((decl.camp === CAMP_TYPES.ALLY ? (A || []) : (B || [])))
