@@ -2,7 +2,7 @@
 // `export {...} from` 只转出、不产生本模块局部绑定：本文件要用的符号必须显式 import（否则 ReferenceError）。
 //   顶部 re-export 保住 61/63/75/76 的 import 点不变。
 // V7.10.1 | 2026-11-20 阵容存档含对面：保存/列表/还原都带六大派（弹窗分行显示「明教：… / 敌方：…」）
-export const VER = 'ui/709-ui-controls.js V7.11.1';
+export const VER = 'ui/709-ui-controls.js V7.11.2';
 
 // 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
@@ -630,6 +630,10 @@ function bindGrid(getState, setState, updateUI, gridId, camp) {
             if (typeof fnSync === 'function') fnSync(camp);
         }
         updateUI();
+        // 摆位换位后必须再对齐「机制弟子四选一」浮钮（它按弟子格子右上角定位，只认 updateButtons 的重定位）
+        //   原来只 updateUI()，按钮钉在换位前的坐标上（老板 2026-11-27 报「换位后那个圆 logo 停在原格子」）
+        const fnBtnAfterSwap = GlobalStore.getUIHandler('updateButtons');
+        if (typeof fnBtnAfterSwap === 'function') fnBtnAfterSwap();
     });
 }
 
