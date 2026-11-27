@@ -6,7 +6,7 @@
 // V7.1.17 | 2026-11-22 渡劫概率连击补 ⚡（不走轮盘，step.doubleStrikeUid 里没有他）
 // V7.1.18 | 2026-11-24 锁死单位（魔化谢逊 _noRestMark）不再被 😴 休息标记顶掉职业图标
 // V7.1.14 | 2026-11-19 寒毒图标去重：玄冥毒/寒离飒/蹦蹦三源同时挂时格子上只出一个 ❄️
-export const VER = 'render/403-grid-render.js V7.1.19';
+export const VER = 'render/403-grid-render.js V7.1.20';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHpText, fmtAtk } from '../infra/102-core-utils.js';
 import { eventBus } from '../infra/101-event-bus.js';
@@ -405,12 +405,10 @@ export function renderGrid(id, camp) {
             logoList.push(crazyCount > 1 ? `🤪×${crazyCount}` : '🤪');
         }
         
-        // 技能图标先合并成「一个元素」再入队：eliteSkillIcon 可能由多个 emoji 叠加（小昭·姊 🦋、
-        //   成昆 🎭、玄冥 ❄️、唐文亮 🌿xN…），按空格拆成多格会自己吃掉 logoBudget 的 2 格，
-        //   后面的 🩸 / 海克斯全被 slice 截掉。合并后仍只占 1 个名额，显示时紧挨着排。
+        // 技能图标按 emoji 逐个入队（老板 2026-11-27 钉死）：🦋🎭 就是 2 个图标、必须吃满 2 个名额，
+        //   不允许"合并成 1 格再额外挂 1 个海克斯"——名字后面最多就是 2 个图标。
         if (eliteSkillIcon) {
-            const skillTokens = eliteSkillIcon.trim().split(/\s+/).filter(Boolean);
-            if (skillTokens.length > 0) logoList.push(skillTokens.join(''));
+            eliteSkillIcon.trim().split(/\s+/).filter(Boolean).forEach(ic => logoList.push(ic));
         }
         // 背水一战已触发（整局仅一次，含妹永久版）：紧跟在技能图标之后、海克斯图标之前。
         //   ⚠️ 不能追加到末尾：logoBudget 只留前 2 个（带计数胶囊只留 1 个），实战角色普遍有
