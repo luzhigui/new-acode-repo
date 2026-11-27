@@ -12,7 +12,7 @@ import { isFxSkipped } from '../infra/111-fx-gate.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
 import { AudioManager } from '../modules/304-audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES, CAMP_TYPES, SKILL_CUE_KINDS } from '../infra/106-battle-enums.js';
-export const VER = 'render/420-actions-defs.js V1.7.11';
+export const VER = 'render/420-actions-defs.js V1.7.12';
 
 // 被动出手徽章文案（ATTACK/MISS/DODGE 三处出手帧共用）。reason 由 core/10 runExtraAttackRequests
 //   写进 state._linkReason → core/12 attack fact → render/38 透传 → 此处按 reason 出头顶飘字。
@@ -263,7 +263,8 @@ export const STAGE_ACTION_DEFS = {
         fx: async (c, action) => {
             if (isFxSkipped()) return;
             const { animatePosCycle } = await import('../fx/608-fx-manager.js');
-            await animatePosCycle(action.cycle || [], action.camp, c, { duration: 900 });
+            // 时长由调用点定（原写死 900ms，覆盖了 fx/604 的 1700ms 默认值 → 一直显得偏快，2026-11-27 修）
+            await animatePosCycle(action.cycle || [], action.camp, c, { duration: 1700 });
         }
     },
     [STAGE_ACTION_TYPES.PUSH]: {
