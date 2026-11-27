@@ -444,8 +444,10 @@ export function renderGrid(id, camp) {
         // 计数胶囊（灭绝 2/3、唐文亮 1/7、张无忌 1/3）也算一个 logo 名额：
         //   原先它白占宽度不进上限，3 字名 + 胶囊 + 2 个 logo 会把格子撑爆。
         //   注意 slice(-0) 会返回整个数组，必须单独处理 budget<=0。
+        // V7.x | 2026-11-27 老板报「反伤弟子格子 3 个 logo 只显示 2 个」：上限 2→3（带计数胶囊时 2），
+        //   技能图标仍是合并后的单个元素，不额外吃名额。
         const countBadgeHtml = buildCountBadge(unit);
-        const logoBudget = 2 - (countBadgeHtml ? 1 : 0);
+        const logoBudget = 3 - (countBadgeHtml ? 1 : 0);
         if (logoBudget <= 0) displayLogos = [];
         else if (displayLogos.length > logoBudget) {
             // 因为前面已经按优先级（精英 M 值大小 → 海克斯 → 杂项）排好了序，直接保留最前面的 N 个即可。
