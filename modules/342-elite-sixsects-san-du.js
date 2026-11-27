@@ -90,7 +90,9 @@
 //   buff 抽写 → 每回合写完就被覆盖（实测 activeBuffs 只剩 unity/cloudBody）；改为 999 最后补。
 // V2.7.17 | 2026-11-27 老板口径：炎魔狮王不挨打引爆——只保留「回合开始一发 28 → 轮到自己蓄力 → 收尾一发 28」；
 //   「被攻击立刻引爆/续蓄」专属魔化谢逊。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.17';
+// V2.7.18 | 2026-11-27 枯禅轮回改三人整体旋转（顺/逆时针，方向自动选让血最少者落 8 号位），
+//   不再两两互换；动画改白底带格子内容、时长 1700ms（原来半透明红框看不出是谁）。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.18';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -578,14 +580,25 @@ export const demonXiexunHandler = {
                 const ratioOf = (u) => u.hp / Math.max(1, getStat(u, 'maxHp'));
                 const lowest = monks.reduce((a, b) => (ratioOf(b) < ratioOf(a) ? b : a));
                 if (lowest === at8) { healKuchan8(at8, data.log); return; }   // 血最少的已在 8 号位：不换位，照样回血
-                const fromPos = lowest.pos;
-                if (!swapUnitPositions(lowest, at8, data.log, { friendlyPull: true })) return;
+                // 三人整体旋转（老板 2026-11-27 口径）：不是两两互换，是顺时针/逆时针三个格子一起转；
+                //   方向自动选「能让血最少者落到 8 号位」的那一边。血最少者本来就在 8 号位 → 不转，只回血。
+                const ring = monks.slice().sort((a, b) => a.pos - b.pos);
+                const iLow = ring.indexOf(lowest);
+                const i8 = ring.indexOf(at8);
+                const clockwise = ((iLow + 1) % 3) === i8;
+                const order = clockwise ? ring : [ring[0], ring[2], ring[1]];
+                const fromPosOf = new Map(ring.map(u => [u.uid, u.pos]));
+                const [A, B, C] = order;
+                // 环序 A→B→C→A：两次对换 (A C) 再 (A B) 完成 3-循环
+                if (!swapUnitPositions(A, C, data.log, { friendlyPull: true })) return;
+                if (!swapUnitPositions(A, B, data.log, { friendlyPull: true })) return;
                 const posCycle = [
-                    { uid: lowest.uid, fromPos, toPos: 8 },
-                    { uid: at8.uid, fromPos: 8, toPos: fromPos }
+                    { uid: A.uid, fromPos: fromPosOf.get(A.uid), toPos: fromPosOf.get(B.uid) },
+                    { uid: B.uid, fromPos: fromPosOf.get(B.uid), toPos: fromPosOf.get(C.uid) },
+                    { uid: C.uid, fromPos: fromPosOf.get(C.uid), toPos: fromPosOf.get(A.uid) }
                 ];
                 pushSkillAnnounce(data.log, lowest, '枯禅轮回',
-                    `☸️ 枯禅轮回：${lowest.name} 退到 8 号位，${at8.name} 顶上 ${fromPos} 号位`,
+                    `☸️ 枯禅轮回（${clockwise ? '顺时针' : '逆时针'}）：${A.name}→${posCycle[0].toPos}号位，${B.name}→${posCycle[1].toPos}号位，${C.name}→${posCycle[2].toPos}号位`,
                     {
                         floatText: '☸️', floatUid: lowest.uid, needsSeparator: true,
                         posCycle, camp: lowest.camp

@@ -1,5 +1,5 @@
 // fx/604-fx-position-swap.js
-export const VER = 'fx/604-fx-position-swap.js V6.3.0';
+export const VER = 'fx/604-fx-position-swap.js V6.3.1';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
@@ -265,7 +265,7 @@ export async function animatePosCycle(swaps, camp, c, options = {}) {
     if (!Array.isArray(swaps)) return;
     const list = swaps.filter(s => s && s.fromPos != null && s.toPos != null && s.fromPos !== s.toPos);
     if (!list.length) return;
-    const dur = options.duration || 900;
+    const dur = options.duration || 1700;
     const cells = list.map(s => ({ s, cell: getCellByPos(camp, s.fromPos), target: getCellByPos(camp, s.toPos) }))
         .filter(x => x.cell && x.target);
     if (!cells.length) return;
@@ -281,7 +281,8 @@ export async function animatePosCycle(swaps, camp, c, options = {}) {
             `width:${r1.width}px`, `height:${r1.height}px`, 'pointer-events:none', 'z-index:9999',
             `border:2px solid rgba(${color},0.95)`, 'border-radius:10px',
             `box-shadow:0 0 14px rgba(${color},0.65)`, 'overflow:hidden',
-            `background:rgba(${color},0.12)`, 'will-change:transform'
+            // 老板 2026-11-27：原来是半透明红框、看不出是谁 → 改白底保留彩色描边，格子内容（名字/血量）清晰可见
+            'background:rgba(255,255,255,0.96)', 'will-change:transform'
         ].join(';');
         layer.innerHTML = cell.innerHTML;
         document.body.appendChild(layer);
