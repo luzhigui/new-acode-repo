@@ -1,11 +1,13 @@
 ﻿// player/503-player-core.js — 战斗播放入口（单机/从机/回放）+ clock 桥接 + 收尾结算
 // V7.0.6 | 2026-11-20 尸体摘格改到步末：每步播完后 flushCorpseDue，死亡同一步的击退/换位动画不再被清格打断
 // V7.0.7 | 2026-11-27 引擎账→显示账打通：每步把队伍 _activeBuffs 的 permanent 条目并入 activeBuffs（去重），回合末 permanent 不递减；第6关圣火不熄徽章改由这条链路自然显示
-export const VER = 'player/503-player-core.js V7.0.7';
+// V7.0.8 | 2026-11-27 修「activeBuffs[0] 不是合法 BUFF」：合并进来的 permanent 条目补 remaining（数字），否则 infra/112 isBuff 校验抛错
+export const VER = 'player/503-player-core.js V7.0.8';
 
 import { SeededRNG } from '../infra/102-core-utils.js';
 import { recordXiaoZhaoPermanentBuff } from '../modules/329-buff-tools.js';
 import { setBattleRng, setPresentationRng } from '../core/214-battle-shared.js';
+import { CONFIG } from '../core/201-config-5v5-test.js';
 import { createRoundStepper } from '../core/210-battle-round.js';
 import { GlobalStore, getState, setState, getPlayerContext } from '../infra/104-global-store.js';
 import { createStore, battleReducer } from '../modules/306-battle-store.js';
@@ -44,7 +46,8 @@ function mergeEnginePermanentBuffs(list, step) {
         for (const b of teamBuffs) {
             if (!b || !b.permanent) continue;
             if (merged.some(x => x && x.permanent && x.key === b.key && (x.target || x.camp) === camp)) continue;
-            merged.push({ ...b, target: camp, camp, permanent: true });
+            // remaining 必须是数字（infra/112 isBuff 硬校验）；permanent 条目不会递减，给个有限值避免 JSON 序列化成 null
+            merged.push({ ...b, target: camp, camp, remaining: CONFIG.MAX_ROUND || 35, permanent: true });
         }
     }
     return merged;
