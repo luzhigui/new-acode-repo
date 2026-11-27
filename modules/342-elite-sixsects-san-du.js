@@ -100,7 +100,8 @@
 // V2.7.22 | 2026-11-27 老板口径：8 号位已是最低血时不旋转、也不回血（不转=不回）。
 //   同期确认：「血最少」判据由 hp/maxHp 比例改为绝对血量（三渡最大血不同，比例会让高血职业抢 8 号位）。
 // V2.7.23 | 2026-11-27 老板口径：首当其冲（正/倒三角通用）改为 防御 +20% 且最大生命 +20%（永久）。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.23';
+// V2.7.24 | 2026-11-27 老板口径：魔化谢逊 攻18/防18/血1188，每释放一次叠 2% 最大生命护盾。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.24';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -131,6 +132,7 @@ const SAN_DU_LIUYUN_EXTRA = 0.20;      // 渡难追加闪避：流云 25% 之外
 // 渡厄/渡劫 的追加加成统一走 content roles 的职业加成表（V2.7.12 老板口径），不再本地写死数值
 const DEMON_BURST_DMG = 28;            // 魔化谢逊每发：28 点（打敌方=真伤 / 落自家=回血），V2.5.0 老板改回 28
 const DEMON_SHOTS_PER_VOLLEY = 1;      // 每次「开轰」一发（V2.5.0 老板：轰两下太夸张，改回一发）
+const DEMON_SHIELD_PCT = 0.02;         // 每释放一次叠 2% 最大生命护盾（V2.7.24 老板口径，配 1188 血）
 // V2.7.8 老板口径：取消「每轰一炮叠护盾」——倒三角不再有护盾。
 // （枯禅轮回：跌破 70%/40% 两档触发；血最少者优先回 8 号位，无随机分支）
 
@@ -529,6 +531,14 @@ export const demonXiexunHandler = {
             if (!force && !self.state._demonCharged) return;
             self.state._demonCharged = false;
             for (let i = 0; i < DEMON_SHOTS_PER_VOLLEY; i++) demonStrike(data);
+            // V2.7.24 老板口径：每释放一次（轰人/给队友回血都算）叠 2% 最大生命护盾
+            const shield = Math.floor(getStat(self, 'maxHp') * DEMON_SHIELD_PCT);
+            if (shield > 0) {
+                self.state._shield = (self.state._shield || 0) + shield;
+                pushSkillAnnounce(data && data.log, self, '魔化',
+                    `🛡️ 魔化谢逊魔气护体，获得 ${shield} 点护盾（当前 ${Math.round(self.state._shield)}）`,
+                    { floatText: '🛡️', floatUid: self.uid });
+            }
             enterCharge(data);   // 轰完立刻重新蓄力
         }
         // 被攻击：蓄力中就开轰（没蓄力就先蓄，正常流程下开局已蓄满，此分支只在极端时序出现）
