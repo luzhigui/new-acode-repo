@@ -98,6 +98,7 @@
 // V2.7.21 | 2026-11-27 圣火不熄徽章收口到 ui/719（按 UI.enemyTeam 阵容自愈）；本文件删掉 syncHolyFireBadge
 //   与 priority 999 补挂钩子，只保留队伍 _activeBuffs 的复活名额，杜绝两处各写一份 activeBuffs。
 // V2.7.22 | 2026-11-27 老板口径：8 号位已是最低血时不旋转、也不回血（不转=不回）。
+//   同期确认：「血最少」判据由 hp/maxHp 比例改为绝对血量（三渡最大血不同，比例会让高血职业抢 8 号位）。
 export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.22';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
