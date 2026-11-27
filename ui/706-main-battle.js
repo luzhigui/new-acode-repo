@@ -1,5 +1,6 @@
 // ui/706-main-battle.js — UI 层战斗管理（阵容生成、Buff 选择弹窗、小昭形态切换、中止战斗）
-export const VER = 'ui/706-main-battle.js V6.2.3';
+// V6.2.4 | 2026-11-27 switchDisciple 支持第二参 uid：多机制弟子时只替换被点的那一个
+export const VER = 'ui/706-main-battle.js V6.2.4';
 
 import { CONFIG, getGameData } from '../core/201-config-5v5-test.js';
 import { SeededRNG, fmtHpText, fmtAtk, fmtNum } from '../infra/102-core-utils.js';
@@ -285,13 +286,15 @@ function discipleSeedSalt(name) {
     return h >>> 0;
 }
 
-export function switchDisciple(name) {
+export function switchDisciple(name, uid) {
     if (!DISCIPLE_NAMES.includes(name)) return;
     GlobalStore.set('forceDisciple', name);   // 本局 + 后续局都记
     const UI = GlobalStore.get('UI');
     const team = (UI && Array.isArray(UI.allyTeam)) ? UI.allyTeam : null;
     if (!team) return;
-    const cur = team.find(u => DISCIPLE_NAMES.includes(u.name));
+    // 2026-11-27：测试局可能有多个机制弟子——按 uid 定位「点的是哪一个」；不传 uid 时退回第一个（兼容旧调用）
+    const cur = (uid && team.find(u => u && u.uid === uid && DISCIPLE_NAMES.includes(u.name)))
+        || team.find(u => DISCIPLE_NAMES.includes(u.name));
     if (!cur || cur.name === name) return;   // 本局没弟子 / 已经是它：无需重建
     const cfg = getGameData()?.characters?.[name];
     if (!cfg) return;

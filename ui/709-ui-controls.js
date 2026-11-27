@@ -2,7 +2,7 @@
 // `export {...} from` 只转出、不产生本模块局部绑定：本文件要用的符号必须显式 import（否则 ReferenceError）。
 //   顶部 re-export 保住 61/63/75/76 的 import 点不变。
 // V7.10.1 | 2026-11-20 阵容存档含对面：保存/列表/还原都带六大派（弹窗分行显示「明教：… / 敌方：…」）
-export const VER = 'ui/709-ui-controls.js V7.11.2';
+export const VER = 'ui/709-ui-controls.js V7.12.0';
 
 // 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/104-global-store.js';
@@ -440,14 +440,27 @@ export function bindXiaoZhaoSwitchButton() {
 // 每局固定只出 1 个机制弟子；摆位阶段点弟子格子右上角的 🎭，弹四宫格，一次点击直达目标。
 // V7.11.1 | 2026-11-24 老板口径：改成和小昭一样贴着弟子格子右上角外侧；选完自动收起面板，
 //   再点按钮 / 点空白处也能收起（原版固定钉右下角且打开后只能再点按钮关）。
+// V7.12.0 | 2026-11-27 老板口径：按钮改成**按弟子动态生成 N 个**——测试局塞几个弟子就几个按钮，
+//   点谁换谁（原来单例只认第一个弟子，其余换不了）。
 export const DISCIPLE_NAMES = ['反伤弟子', '木桩弟子', '拼命弟子', '防化弟子'];
 const DISCIPLE_ICONS = { 反伤弟子: '🪞', 木桩弟子: '🪵', 拼命弟子: '🩸', 防化弟子: '🧪' };
-let _discipleBtn = null;
+const _discipleBtns = new Map();   // uid -> 按钮
 let _disciplePanel = null;
+let _discipleTargetUid = null;     // 当前四宫格要替换的弟子 uid
 
-export function getDiscipleSwitchBtn() {
-    if (!_discipleBtn) _discipleBtn = document.getElementById('discipleSwitchBtn');
-    return _discipleBtn;
+function ensureDiscipleBtn(uid) {
+    let btn = _discipleBtns.get(uid);
+    if (btn) return btn;
+    btn = document.createElement('button');
+    btn.className = 'discipleSwitchBtn';
+    btn.style.cssText = 'position:fixed;left:0;top:0;width:32px;height:32px;border-radius:50%;'
+        + 'background:rgba(30,30,30,0.88);border:2px solid #ffd700;font-size:16px;line-height:1;'
+        + 'display:none;align-items:center;justify-content:center;z-index:9999;cursor:pointer;'
+        + 'box-shadow:0 2px 10px rgba(0,0,0,0.45);color:#fff;padding:0;touch-action:manipulation;';
+    btn.addEventListener('click', (e) => { e.stopPropagation(); toggleDisciplePanel(uid); });
+    document.body.appendChild(btn);
+    _discipleBtns.set(uid, btn);
+    return btn;
 }
 
 function ensureDisciplePanel() {
@@ -467,7 +480,7 @@ function hideDisciplePanel() {
 
 // 面板贴着按钮下方展开；按钮在屏幕下半部时翻到上方，避免出屏
 function positionDisciplePanel() {
-    const btn = getDiscipleSwitchBtn();
+    const btn = _discipleBtns.get(_discipleTargetUid);
     const panel = ensureDisciplePanel();
     if (!btn) return;
     const b = btn.getBoundingClientRect();
@@ -484,7 +497,7 @@ function positionDisciplePanel() {
 function renderDisciplePanel() {
     const panel = ensureDisciplePanel();
     const UI = GlobalStore.get('UI');
-    const cur = ((UI && UI.allyTeam) || []).find(u => DISCIPLE_NAMES.includes(u.name));
+    const cur = ((UI && UI.allyTeam) || []).find(u => u && u.uid === _discipleTargetUid);
     panel.innerHTML = '';
     DISCIPLE_NAMES.forEach(n => {
         const on = !!(cur && cur.name === n);
@@ -497,68 +510,65 @@ function renderDisciplePanel() {
         cell.addEventListener('click', (ev) => {
             ev.stopPropagation();
             const fn = GlobalStore.getUIHandler('switchDisciple');
-            if (typeof fn === 'function') fn(n);
+            if (typeof fn === 'function') fn(n, _discipleTargetUid);
             hideDisciplePanel();   // 选完即收
         });
         panel.appendChild(cell);
     });
 }
 
-export function toggleDisciplePanel() {
+export function toggleDisciplePanel(uid) {
     if (!GlobalStore.get('adjustMode')) return;   // 只在摆位阶段可用
     const panel = ensureDisciplePanel();
-    if (panel.style.display === 'grid') { hideDisciplePanel(); return; }
+    if (panel.style.display === 'grid' && _discipleTargetUid === uid) { hideDisciplePanel(); return; }
+    _discipleTargetUid = uid;
     renderDisciplePanel();
     panel.style.display = 'grid';
     positionDisciplePanel();
 }
 
 export function syncDiscipleSwitchBtn() {
-    const btn = getDiscipleSwitchBtn();
-    if (!btn) return;
     const isAdjust = !!GlobalStore.get('adjustMode');
     const UI = GlobalStore.get('UI');
-    const cur = ((UI && UI.allyTeam) || []).find(u => DISCIPLE_NAMES.includes(u.name));
-    if (!isAdjust || !cur) {
-        btn.style.display = 'none';
+    const team = (UI && Array.isArray(UI.allyTeam)) ? UI.allyTeam : [];
+    // 摆位阶段：每个机制弟子各一个按钮；不在摆位 / 没弟子 → 全部收起
+    const disciples = isAdjust ? team.filter(u => u && DISCIPLE_NAMES.includes(u.name)) : [];
+    const aliveUids = new Set(disciples.map(u => u.uid));
+    for (const [uid, btn] of [..._discipleBtns]) {
+        if (aliveUids.has(uid)) continue;
+        btn.remove();
+        _discipleBtns.delete(uid);
+    }
+    if (!disciples.length) {
         hideDisciplePanel();
+        _discipleTargetUid = null;
         return;
     }
-    // 定位：贴弟子格子右上角外侧（与小昭按钮同款）；格子没渲染出来就隐藏，等下次 updateButtons 对齐
-    const cell = document.querySelector(`#allyGrid [data-uid="${cur.uid}"]`);
-    if (!cell) {
-        btn.style.display = 'none';
-        hideDisciplePanel();
-        return;
+    disciples.forEach((cur) => {
+        const btn = ensureDiscipleBtn(cur.uid);
+        const cell = document.querySelector(`#allyGrid [data-uid="${cur.uid}"]`);
+        if (!cell) { btn.style.display = 'none'; return; }
+        const r = cell.getBoundingClientRect();
+        btn.style.left = Math.round(r.right - 38) + 'px';
+        btn.style.top = Math.round(r.top - 6) + 'px';
+        btn.style.display = 'flex';
+        btn.textContent = DISCIPLE_ICONS[cur.name] || '🎭';
+        btn.title = `切换机制弟子（当前 ${cur.name}）`;
+    });
+    if (_disciplePanel && _disciplePanel.style.display === 'grid') {
+        if (_discipleTargetUid && aliveUids.has(_discipleTargetUid)) positionDisciplePanel();
+        else hideDisciplePanel();
     }
-    const r = cell.getBoundingClientRect();
-    btn.style.left = Math.round(r.right - 38) + 'px';
-    btn.style.top = Math.round(r.top - 6) + 'px';
-    btn.style.display = 'flex';
-    btn.textContent = DISCIPLE_ICONS[cur.name] || '🎭';
-    btn.title = `切换机制弟子（当前 ${cur.name}）`;
-    if (_disciplePanel && _disciplePanel.style.display === 'grid') positionDisciplePanel();
 }
 
 export function bindDiscipleSwitchButton() {
-    if (document.getElementById('discipleSwitchBtn')) return;   // 幂等
-    const btn = document.createElement('button');
-    btn.id = 'discipleSwitchBtn';
-    _discipleBtn = btn;
-    btn.textContent = '🎭';
-    btn.title = '切换机制弟子（四选一）';
-    // position:fixed + JS 设 left/top；初始 left/top 写 0，syncDiscipleSwitchBtn 会立刻覆盖
-    btn.style.cssText = 'position:fixed;left:0;top:0;width:32px;height:32px;border-radius:50%;'
-        + 'background:rgba(30,30,30,0.88);border:2px solid #ffd700;font-size:16px;line-height:1;'
-        + 'display:none;align-items:center;justify-content:center;z-index:9999;cursor:pointer;'
-        + 'box-shadow:0 2px 10px rgba(0,0,0,0.45);color:#fff;padding:0;touch-action:manipulation;';
-    btn.addEventListener('click', (e) => { e.stopPropagation(); toggleDisciplePanel(); });
-    document.body.appendChild(btn);
+    if (window.__discipleSwitchBound) return;   // 幂等
+    window.__discipleSwitchBound = true;
     GlobalStore.setUIHandler('syncDiscipleSwitchBtn', syncDiscipleSwitchBtn);
-    // 点面板/按钮以外的空白处收起面板
+    // 点面板/任意弟子按钮以外的空白处收起面板
     document.addEventListener('click', (e) => {
         if (!_disciplePanel || _disciplePanel.style.display !== 'grid') return;
-        if (e.target.closest && (e.target.closest('#discipleSwitchPanel') || e.target.closest('#discipleSwitchBtn'))) return;
+        if (e.target.closest && (e.target.closest('#discipleSwitchPanel') || e.target.closest('.discipleSwitchBtn'))) return;
         hideDisciplePanel();
     }, true);
     // 窗口尺寸变（移动端地址栏收起/横竖屏）→ 重新贴格子
