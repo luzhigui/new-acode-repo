@@ -7,7 +7,7 @@ export const VER = 'ui/719-button-state.js V1.1.1';
 import { CONFIG } from '../core/201-config-5v5-test.js';
 
 import { getState, GlobalStore } from '../infra/104-global-store.js';
-import { CAMP_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
+import { CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { buffsOfCamp } from '../modules/329-buff-tools.js';
 import { updateSpeedButtons } from './718-speed-controls.js';
 
@@ -45,18 +45,9 @@ function updateBuffSlots(activeBuffs, camp) {
     for (const c of [CAMP_TYPES.ALLY, CAMP_TYPES.ENEMY]) {
         const box = document.getElementById(CAMP_BADGE_ID[c]);
         if (!box) continue;
-        // 第6关六大派：圣火不熄是关卡自带海克斯，直接在这里兜底显示——
-        //   它不依赖 activeBuffs 抽取流程（每回合重写会把队伍挂的 permanent 项冲掉）。
-        let pBadges = buffsOfCamp(activeBuffs, c).filter(b => b.permanent);
-        if (c === CAMP_TYPES.ENEMY) {
-            const _snap = GlobalStore.get('snapshot');
-            if (_snap && Number(_snap.stage) === 6 && !pBadges.some(b => b.key === BUFF_TYPES.HOLY_FIRE)) {
-                pBadges = [...pBadges, { key: BUFF_TYPES.HOLY_FIRE, name: '圣火不熄', permanent: true }];
-            }
-        }
-        box.innerHTML = pBadges.map(b => {
+        box.innerHTML = buffsOfCamp(activeBuffs, c).filter(b => b.permanent).map(b => {
             const cfg = CONFIG.BUFFS?.[b.key];
-            const icon = (cfg && cfg.icon) || (b.key === BUFF_TYPES.HOLY_FIRE ? '🕯️' : '🎴');
+            const icon = (cfg && cfg.icon) || '🎴';
             // 补 data-camp 和 data-buffkey 供点击弹窗组件识别
             return `<span class="camp-badge${c === CAMP_TYPES.ENEMY ? ' enemy' : ''}" data-camp="${c}" data-buffkey="${b.key}" style="cursor:pointer;" title="${b.name}（整局，点击查看详情）">${icon}</span>`;
         }).join('');

@@ -3,6 +3,7 @@ export const VER = 'ui/704-main-state.js V6.0.0';
 import { STATE } from '../core/201-config-5v5-test.js';
 import { GlobalStore, getPlayerContext, getState, setState } from '../infra/104-global-store.js';
 import { getStoreDefault } from '../infra/112-store-schema.js';
+import { BUFF_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
 
 import { updateUI, spawnVictoryEffects, setRenderStore } from './703-ui-render-5v5-test.js';
 import { tickBuffDurations as _tickBuffDurations } from './706-main-battle.js';
@@ -57,7 +58,15 @@ GlobalStore.setUIHandler('updateBuffSlots', (buffs, idx) => updateBuffSlots(buff
 GlobalStore.setUIHandler('tickBuffDurations', () => {
     const activeBuffs = GlobalStore.get('activeBuffs') || [];
     const result = _tickBuffDurations(activeBuffs, GlobalStore.get('selectedBuffIndex'), () => updateBuffSlots(GlobalStore.get('activeBuffs')));
-    GlobalStore.set('activeBuffs', result.activeBuffs);
+    // 第6关六大派自带海克斯「圣火不熄」：在 buff 重算之后作为**真实 buff 条目**补齐
+    //   （permanent + remaining Infinity，tick 不会衰减）。等价「额外给六大派一个海克斯」，
+    //   不再依赖任何回合开始补挂（那条路会被 buff 重写冲掉）。
+    let nextBuffs = result.activeBuffs;
+    const _snap = GlobalStore.get('snapshot');
+    if (_snap && Number(_snap.stage) === 6 && !nextBuffs.some(b => b && b.key === BUFF_TYPES.HOLY_FIRE)) {
+        nextBuffs = [...nextBuffs, { key: BUFF_TYPES.HOLY_FIRE, name: '圣火不熄', icon: '🕯️', target: CAMP_TYPES.ENEMY, camp: CAMP_TYPES.ENEMY, remaining: Infinity, permanent: true }];
+    }
+    GlobalStore.set('activeBuffs', nextBuffs);
     GlobalStore.set('selectedBuffIndex', result.selectedBuffIndex);
     if (typeof GlobalStore.getUIHandler('updateBuffSlots') === 'function') GlobalStore.getUIHandler('updateBuffSlots')();
 });
