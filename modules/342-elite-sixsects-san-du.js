@@ -166,12 +166,18 @@ export const monkFixedBuffHandler = {
             .some(u => u && u.name === '魔化谢逊');
 
         if (decl.buffType === 'defense') {
-            // 渡厄·首当其冲（个人技，绑人）：防御 +40%，永久词条，安装一次即可（V2.7.15 老板口径：
-            //   既然是绑人的固定加成，就不该每回合挂了又清；_mods 现算，永久词条不会逐回合叠加）
-            if (!self._sanDuShouDangApplied) {
-                self._sanDuShouDangApplied = true;
-                addMod(self, 'def', { source: '首当其冲', value: SAN_DU_DEF_BONUS, ttl: 'permanent', op: 'mul', group: 'monkDef' });
-            }
+            // 渡厄·首当其冲（个人技，绑人）：每回合重挂防御 +40%。
+            //   V2.7.17 | 老板报「渡厄防御怎么这么高」：原 permanent 乘法 mod 依赖 `_sanDuShouDangApplied`
+            //   去重，但 install 每回合重跑、标记挡不住时每回合再 ×1.4 累积（实测 23→78 ≈ 23×1.4³）。
+            //   改为 ttl:'round' 每回合重挂，效果等价且不可能叠加。
+            registerSettlementHook({
+                when: SIGNAL_TYPES.ON_ROUND_START,
+                priority: 21,
+                handler: (data) => {
+                    if (!self.alive) return;
+                    addMod(self, 'def', { source: '首当其冲', value: SAN_DU_DEF_BONUS, ttl: 'round', op: 'mul', group: 'monkDef' });
+                }
+            });
             // V2.7.13 老板纠正：严阵以待不删——倒三角里渡厄照旧吃「个人严阵以待」（防御 +40% + 受击反弹 40%，
             //   不认站位，因为倒三角三渡站 1/3/8 永远不在 2 号位），并且再叠加一套防战职业加成。
             if (kuchanActive) {
