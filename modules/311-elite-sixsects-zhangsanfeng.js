@@ -10,7 +10,7 @@
 // V6.28.4 | 2026-11-22 持癫乱回选池排除免疫控制者（寒离飒等不再接到「癫」）
 export const VER = 'modules/311-elite-sixsects-zhangsanfeng.js V6.28.4';
 import { CONFIG } from '../core/201-config-5v5-test.js';
-import { applyStatChange, addMod, getStat, getBattleRng, previewHeal, removeModsByGroup, emitHpChange } from '../core/214-battle-shared.js';
+import { applyStatChange, addMod, getStat, getBattleRng, previewHeal, removeModsByGroup, emitHpChange, refreshMaxHp } from '../core/214-battle-shared.js';
 import { getBenefitTargets, canBeTargeted, hasBuff } from '../core/203-battle-utils.js';
 import { EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
