@@ -1,6 +1,6 @@
 // modules/342-elite-sixsects-san-du.js — 少林三渡与炎魔狮王、魔化谢逊（第6关·正三角金刚伏魔阵 / 倒三角枯禅轮回阵）
 // 设计：三渡技能固定；正三角职业随站位（2号位=防战 / 7号位=战士 / 9号位=飞行），倒三角职业绑人（渡厄防战/渡劫战士/渡难飞行），均由 modules/330 建队时落实。
-//   渡厄：防御 +20% / 最大生命 +20%（严阵以待，受击反伤 50%；首当其冲同数值）
+//   渡厄：防御 +20% / 最大生命 +20%（首当其冲，永久）；每回合「严阵以待」再 +20% 防 / +20% 生命，受击反伤 50%
 //   渡劫：每回合攻击两次（必发；走引擎 doubleStrike 额外出手通道）
 //   渡难：自带流云身法，闪避 +25%
 //   共有：站 7~9 号位时每回合开始回复 30 点生命（金刚伏魔阵）
@@ -104,7 +104,9 @@
 // V2.7.25 | 2026-11-27 老板口径：魔化谢逊全部伤害/回血 28→18（随攻防 18 统一），护盾 2%→6% 最大生命。
 // V2.7.26 | 2026-11-27 老板口径：严阵以待改为 防御 +20% / 最大生命 +20% / 反伤 50%；
 //   首当其冲的加防加血不再单独取值，直接读严阵以待的两个共用常量（SAN_DU_DEF_BONUS / SAN_DU_HP_BONUS）。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.26';
+// V2.7.27 | 2026-11-27 老板纠正：严阵以待不是永久加成——恢复每回合临时词条（与全局海克斯 fortify 同口径），
+//   保留 防御 +20% / 最大生命 +20% / 反伤 50%；离开 2 号位时收回上回合的生命上限。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.27';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -184,14 +186,13 @@ export const monkFixedBuffHandler = {
                     priority: 22,
                     handler: (data) => {
                         if (!self.alive) return;
-                        // V2.7.26：严阵以待 = 防御 +20% / 最大生命 +20% / 反伤 50%（永久挂一次，按 group 防重）
-                        const hasFortifyDef = ((self._mods && self._mods.def) || []).some(m => m && m.group === 'monkFortify');
-                        const hasFortifyHp = ((self._mods && self._mods.maxHp) || []).some(m => m && m.group === 'monkFortifyHp');
-                        if (!hasFortifyDef || !hasFortifyHp) {
-                            if (!hasFortifyDef) addMod(self, 'def', { source: '严阵以待', value: SAN_DU_DEF_BONUS, ttl: 'permanent', op: 'mul', group: 'monkFortify' });
-                            if (!hasFortifyHp) addMod(self, 'maxHp', { source: '严阵以待', value: SAN_DU_HP_BONUS, ttl: 'permanent', op: 'mul', group: 'monkFortifyHp' });
-                            refreshMaxHp(self, null, '严阵以待');
-                        }
+                        // V2.7.27：严阵以待恢复「每回合临时词条」（与全局海克斯同口径，不是永久）。
+                        //   防御 +20% / 最大生命 +20% / 反伤 50%；每回合开始由 core/210 清掉上回合词条再重挂。
+                        const hasFortifyDef = ((self._mods && self._mods.def) || []).some(m => m && m.group === 'monkFortify' && m.ttl === 'round');
+                        const hasFortifyHp = ((self._mods && self._mods.maxHp) || []).some(m => m && m.group === 'monkFortifyHp' && m.ttl === 'round');
+                        if (!hasFortifyDef) addMod(self, 'def', { source: '严阵以待', value: SAN_DU_DEF_BONUS, ttl: 'round', op: 'mul', group: 'monkFortify' });
+                        if (!hasFortifyHp) addMod(self, 'maxHp', { source: '严阵以待', value: SAN_DU_HP_BONUS, ttl: 'round', op: 'mul', group: 'monkFortifyHp' });
+                        refreshMaxHp(self, null, '严阵以待');
                         self.state._sanDuFortify = true;
                         pushSkillAnnounce(data && data.log, self, '严阵以待',
                             `🛡️ 严阵以待：${self.name} 防御 +${Math.round(SAN_DU_DEF_BONUS * 100)}%，最大生命 +${Math.round(SAN_DU_HP_BONUS * 100)}%，受击反弹 ${Math.round(SAN_DU_FORTIFY_REBOUND * 100)}%`);
@@ -210,15 +211,17 @@ export const monkFixedBuffHandler = {
                         if (!u || !u.state) return;
                         const atTwo = u.alive && u.pos === 2;
                         u.state._sanDuFortify = atTwo;
-                        if (!atTwo) return;
-                        // V2.7.26：2 号位严阵以待 = 防御 +20% / 最大生命 +20% / 反伤 50%（永久挂一次，按 group 防重）
-                        const hasPosDef = ((u._mods && u._mods.def) || []).some(m => m && m.group === 'sanDuPosFort');
-                        const hasPosHp = ((u._mods && u._mods.maxHp) || []).some(m => m && m.group === 'sanDuPosFortHp');
-                        if (!hasPosDef || !hasPosHp) {
-                            if (!hasPosDef) addMod(u, 'def', { source: '严阵以待', value: SAN_DU_DEF_BONUS, ttl: 'permanent', op: 'mul', group: 'sanDuPosFort' });
-                            if (!hasPosHp) addMod(u, 'maxHp', { source: '严阵以待', value: SAN_DU_HP_BONUS, ttl: 'permanent', op: 'mul', group: 'sanDuPosFortHp' });
-                            refreshMaxHp(u, null, '严阵以待');
+                        if (!atTwo) {
+                            // 上回合的 round 上限词条已被 core/210 清掉，但 maxHp 是存值：不在 2 号位时把存量收回来
+                            if (u.alive && Math.abs(getStat(u, 'maxHp') - u.maxHp) > 0.01) refreshMaxHp(u, null, '严阵以待到期');
+                            return;
                         }
+                        // V2.7.27：2 号位严阵以待同样是「每回合临时词条」；离开 2 号位后把上一次的上限加成收回来
+                        const hasPosDef = ((u._mods && u._mods.def) || []).some(m => m && m.group === 'sanDuPosFort' && m.ttl === 'round');
+                        const hasPosHp = ((u._mods && u._mods.maxHp) || []).some(m => m && m.group === 'sanDuPosFortHp' && m.ttl === 'round');
+                        if (!hasPosDef) addMod(u, 'def', { source: '严阵以待', value: SAN_DU_DEF_BONUS, ttl: 'round', op: 'mul', group: 'sanDuPosFort' });
+                        if (!hasPosHp) addMod(u, 'maxHp', { source: '严阵以待', value: SAN_DU_HP_BONUS, ttl: 'round', op: 'mul', group: 'sanDuPosFortHp' });
+                        refreshMaxHp(u, null, '严阵以待');
                         fortifyUnit = u;
                     });
                     if (fortifyUnit) {
