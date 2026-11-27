@@ -99,12 +99,13 @@
 //   与 priority 999 补挂钩子，只保留队伍 _activeBuffs 的复活名额，杜绝两处各写一份 activeBuffs。
 // V2.7.22 | 2026-11-27 老板口径：8 号位已是最低血时不旋转、也不回血（不转=不回）。
 //   同期确认：「血最少」判据由 hp/maxHp 比例改为绝对血量（三渡最大血不同，比例会让高血职业抢 8 号位）。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.22';
+// V2.7.23 | 2026-11-27 老板口径：首当其冲（正/倒三角通用）改为 防御 +20% 且最大生命 +20%（永久）。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.23';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES, SKILL_CUE_KINDS, BUFF_TYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
-import { addMod, applyStatChange, emitHpChange, getBattleRng, getStat, swapUnitPositions } from '../core/214-battle-shared.js';
+import { addMod, applyStatChange, emitHpChange, getBattleRng, getStat, swapUnitPositions, refreshMaxHp } from '../core/214-battle-shared.js';
 import { computeBuffStats } from '../core/204-buff-system.js';
 import { computeDodgeChance } from '../core/213-battle-attack-edge.js';
 import { pushSkillAnnounce, applyRoleBonusMods } from './305-elite-helpers.js';
@@ -117,7 +118,8 @@ function findSelf(A, B, decl) {
 }
 
 // 三渡数值唯一来源（老板 2026-11-22 拍板：首当其冲与 2 号位严阵以待两个 40% 共用同一常量，不写死两处）
-const SAN_DU_DEF_BONUS = 0.4;          // 防御 +40%（个人技 / 2 号位阵位，共用）
+const SAN_DU_DEF_BONUS = 0.4;          // 严阵以待防御 +40%（个人技 / 2 号位阵位，共用）
+const SAN_DU_SHOU_DANG_RATE = 0.2;     // 首当其冲：防御 +20% 且最大生命 +20%（V2.7.23 老板口径）
 const SAN_DU_FORTIFY_REBOUND = 0.4;    // 2 号位严阵以待受击反弹：实际承伤的 40%
 const SAN_DU_LIUYUN_RATE = 0.25;       // 流云身法闪避 +25%
 const SAN_DU_DOUBLE_STRIKE_RATE = 0.8; // 概率连击：80%
@@ -157,14 +159,14 @@ export const monkFixedBuffHandler = {
             .some(u => u && u.name === '魔化谢逊');
 
         if (decl.buffType === 'defense') {
-            // 渡厄·首当其冲（个人技，绑人）：永久防御 ×1.4，挂一次就一直在，不重挂、不清除。
-            //   真正原因：addMod 是纯 push 不去重（core/214:442），install 每回合重跑时，
-            //   `_sanDuShouDangApplied` 标记随单位克隆/重建丢失 → 每回合再 push 一条 → ×1.4 累积（23→78）。
-            //   改为按 group='monkDef' 查重：已经挂着永久词条就不再 push。
+            // 渡厄·首当其冲（个人技，绑人）：V2.7.23 老板口径——防御 +20% 且最大生命 +20%（永久，挂一次）。
+            //   按 group 查重：install 每回合重跑时不再重复 push（addMod 不去重，core/214:442）。
             const hasShouDang = ((self._mods && self._mods.def) || [])
                 .some(m => m && m.group === 'monkDef' && m.ttl === 'permanent');
             if (!hasShouDang) {
-                addMod(self, 'def', { source: '首当其冲', value: SAN_DU_DEF_BONUS, ttl: 'permanent', op: 'mul', group: 'monkDef' });
+                addMod(self, 'def', { source: '首当其冲', value: SAN_DU_SHOU_DANG_RATE, ttl: 'permanent', op: 'mul', group: 'monkDef' });
+                addMod(self, 'maxHp', { source: '首当其冲', value: SAN_DU_SHOU_DANG_RATE, ttl: 'permanent', op: 'mul', group: 'monkDefHp' });
+                refreshMaxHp(self, null, '首当其冲');
             }
             // V2.7.13 老板纠正：严阵以待不删——倒三角里渡厄照旧吃「个人严阵以待」（防御 +40% + 受击反弹 40%，
             //   不认站位，因为倒三角三渡站 1/3/8 永远不在 2 号位），并且再叠加一套防战职业加成。
