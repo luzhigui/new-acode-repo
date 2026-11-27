@@ -82,10 +82,9 @@
 //   40% 等于反复回满，是三渡强度暴涨的主因；属性加强保持不动）。
 // V2.7.11 | 2026-11-27 老板纠正：渡难追加闪避 / 渡厄个人严阵以待 / 渡劫战士加成 三项都是「倒三角专属」，
 //   只在枯禅轮回阵（本队有魔化谢逊）时生效；正三角（炎魔）回到原口径，避免加强外溢。
-// V2.7.12 | 2026-11-27 老板口径：倒三角三渡的追加加成改成「职业加成表」——
-//   渡厄 +一套防战加成（-8攻/+2防/+45血，替代上轮个人严阵以待，反弹回到 2 号位限定）；
-//   渡劫 +一套战士加成（+3攻/+3防/+30血）；渡难仍为流云 25% + 额外 20% 闪避。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.12';
+// V2.7.13 | 2026-11-27 老板纠正：严阵以待不许删——倒三角渡厄 = 个人严阵以待（防御+40%、受击反弹40%，不认站位）
+//   + 防战职业加成（-8攻/+2防/+45血）；渡劫 = 战士职业加成（+3/+3/+30）；渡难 = 流云 25% + 额外 20% 闪避。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.13';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -168,8 +167,22 @@ export const monkFixedBuffHandler = {
                     addMod(self, 'def', { source: '首当其冲', value: SAN_DU_DEF_BONUS, ttl: 'round', op: 'mul', group: 'monkDef' });
                 }
             });
-            // V2.7.12 老板口径：渡厄改为「额外吃一套防战职业加成」（content roles.防战 = -8攻/+2防/+45血），
-            //   取代上轮的「个人严阵以待」；做成幂等的安装加成，只在倒三角（枯禅轮回阵）生效。
+            // V2.7.13 老板纠正：严阵以待不删——倒三角里渡厄照旧吃「个人严阵以待」（防御 +40% + 受击反弹 40%，
+            //   不认站位，因为倒三角三渡站 1/3/8 永远不在 2 号位），并且再叠加一套防战职业加成。
+            if (kuchanActive) {
+                registerSettlementHook({
+                    when: SIGNAL_TYPES.ON_ROUND_START,
+                    priority: 22,
+                    handler: (data) => {
+                        if (!self.alive) return;
+                        addMod(self, 'def', { source: '严阵以待', value: SAN_DU_DEF_BONUS, ttl: 'round', op: 'mul', group: 'monkFortify' });
+                        self.state._sanDuFortify = true;
+                        pushSkillAnnounce(data && data.log, self, '严阵以待',
+                            `🛡️ 严阵以待：${self.name} 防御 +${Math.round(SAN_DU_DEF_BONUS * 100)}%，受击反弹 ${Math.round(SAN_DU_FORTIFY_REBOUND * 100)}%`);
+                    }
+                });
+            }
+            // V2.7.12 老板口径：渡厄额外吃一套防战职业加成（content roles.防战 = -8攻/+2防/+45血），幂等安装，仅倒三角生效。
             if (kuchanActive && !self._sanDuDefenderBonus) {
                 self._sanDuDefenderBonus = true;
                 applyRoleBonusMods(self, ROLE_TYPES.DEFENDER, '三渡·防战加成', 'sanDuDefender');
@@ -203,8 +216,8 @@ export const monkFixedBuffHandler = {
                     const { unit, target, dmg } = data || {};
                     if (!unit || !target || !target.alive || !target.state || !target.state._sanDuFortify) return;
                     // V2.7.8：倒三角里渡厄的个人「严阵以待」也置同一个旗，反弹口径一致
-                    // V2.7.12：个人严阵以待已撤（改防战加成），反弹回到原口径——只认 2 号位
-                    if (target.pos !== 2) return;
+                    // V2.7.13：倒三角内不认站位（三渡站 1/3/8）；其它阵（正三角）仍只认 2 号位
+                    if (!kuchanActive && target.pos !== 2) return;
                     if (!dmg || dmg <= 0) return;
                     const value = Math.floor(dmg * SAN_DU_FORTIFY_REBOUND);
                     if (value <= 0) return;
