@@ -6,7 +6,7 @@
 // V7.1.17 | 2026-11-22 渡劫概率连击补 ⚡（不走轮盘，step.doubleStrikeUid 里没有他）
 // V7.1.18 | 2026-11-24 锁死单位（魔化谢逊 _noRestMark）不再被 😴 休息标记顶掉职业图标
 // V7.1.14 | 2026-11-19 寒毒图标去重：玄冥毒/寒离飒/蹦蹦三源同时挂时格子上只出一个 ❄️
-export const VER = 'render/403-grid-render.js V7.1.18';
+export const VER = 'render/403-grid-render.js V7.1.19';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, fmtHpText, fmtAtk } from '../infra/102-core-utils.js';
 import { eventBus } from '../infra/101-event-bus.js';
@@ -444,10 +444,10 @@ export function renderGrid(id, camp) {
         // 计数胶囊（灭绝 2/3、唐文亮 1/7、张无忌 1/3）也算一个 logo 名额：
         //   原先它白占宽度不进上限，3 字名 + 胶囊 + 2 个 logo 会把格子撑爆。
         //   注意 slice(-0) 会返回整个数组，必须单独处理 budget<=0。
-        // V7.x | 2026-11-27 老板报「反伤弟子格子 3 个 logo 只显示 2 个」：上限 2→3（带计数胶囊时 2），
-        //   技能图标仍是合并后的单个元素，不额外吃名额。
+        // 名额口径（老板 2026-11-27 钉回）：最多 2 个；有计数胶囊时胶囊占 1 格、只留 1 个。
+        //   同日 5891867a 曾把 2 改 3（起因「反伤弟子 3 个只显示 2 个」），老板复查后要求恢复 2 个上限。
         const countBadgeHtml = buildCountBadge(unit);
-        const logoBudget = 3 - (countBadgeHtml ? 1 : 0);
+        const logoBudget = 2 - (countBadgeHtml ? 1 : 0);
         if (logoBudget <= 0) displayLogos = [];
         else if (displayLogos.length > logoBudget) {
             // 因为前面已经按优先级（精英 M 值大小 → 海克斯 → 杂项）排好了序，直接保留最前面的 N 个即可。
