@@ -18,7 +18,7 @@
 // V7.9.10 | 2026-11-24 老板纠正：倒三角（枯禅轮回阵）三渡职业改绑人（渡厄防战/渡劫战士/渡难飞行），不随站位；正三角仍随站位（2/7/9）
 // V7.10.0 | 2026-11-24 机制弟子四选一独立槽：4 个弟子退出 M100/普通兵随机，每局固定只出 1 个
 //   （forceDisciple 指定则必出，否则战斗 RNG 随机）；RNG 抽签契约升 v3（新增 1 次消耗）
-export const VER = 'modules/330-battle-init.js V7.10.0';
+export const VER = 'modules/330-battle-init.js V7.10.1';
 
 // ── RNG 抽签契约版本（initBattleTeams 内随机数消耗的「次数 + 顺序」指纹）──
 // 为什么必须有：V7.6.7 把明教骰子 3→7、六大派骰子 2→6 时没有任何版本标记，
@@ -200,7 +200,10 @@ export function initBattleTeams(currentStage, _rng) {
     // V7.6.1：寒离飒已升强精英，需独立 force 通道（走 forceWeakElite 会撞下方入池校验抛错）
     const forceHanLiSa = GlobalStore.get('forceHanLiSa');
     // M97 机制弟子测试局（dev-index「🧪 机制弟子测试局」按钮）：强制三名带机制弟子同时进明教队
+    // V7.10.1：真正一次性——读到这里立即清掉全局标记。原来只清了 localStorage，
+    //   GlobalStore.forceMechTest 一直是 true → 之后每一局（含正常开局）都被塞 3 个弟子。
     const forceMechTest = GlobalStore.get('forceMechTest') === true;
+    if (forceMechTest) GlobalStore.set('forceMechTest', null);
     const _forceXzEarly = (GlobalStore.get('forceXiaoZhao') === 'sister' || GlobalStore.get('forceXiaoZhao') === 'brother');
     // V7.5.26：forceSoloWeakElite（工具强精英单挑）单独抑制轮盘——只锁寒离飒、不产生第二个精英
     const forceSoloWeak = GlobalStore.get('forceSoloWeakElite') === true;
