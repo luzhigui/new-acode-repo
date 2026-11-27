@@ -47,7 +47,7 @@ function updateBuffSlots(activeBuffs, camp) {
         if (!box) continue;
         box.innerHTML = buffsOfCamp(activeBuffs, c).filter(b => b.permanent).map(b => {
             const cfg = CONFIG.BUFFS?.[b.key];
-            const icon = (cfg && cfg.icon) || '🎴';
+            const icon = (cfg && cfg.icon) || b.icon || '🎴';
             // 补 data-camp 和 data-buffkey 供点击弹窗组件识别
             return `<span class="camp-badge${c === CAMP_TYPES.ENEMY ? ' enemy' : ''}" data-camp="${c}" data-buffkey="${b.key}" style="cursor:pointer;" title="${b.name}（整局，点击查看详情）">${icon}</span>`;
         }).join('');

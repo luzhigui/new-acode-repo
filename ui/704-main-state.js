@@ -69,6 +69,9 @@ GlobalStore.setUIHandler('tickBuffDurations', () => {
         nextBuffs = [...nextBuffs, { key: BUFF_TYPES.HOLY_FIRE, name: '圣火不熄', icon: '🕯️', target: CAMP_TYPES.ENEMY, camp: CAMP_TYPES.ENEMY, remaining: Infinity, permanent: true }];
     }
     GlobalStore.set('activeBuffs', nextBuffs);
+    // 关键：tick 内部画徽章用的是「set 之前」的旧列表，补完必须再画一次，
+    //   否则圣火不熄进了数据但界面永远不显示（2026-11-27 实测）。
+    updateBuffSlots(nextBuffs);
     GlobalStore.set('selectedBuffIndex', result.selectedBuffIndex);
     if (typeof GlobalStore.getUIHandler('updateBuffSlots') === 'function') GlobalStore.getUIHandler('updateBuffSlots')();
 });
