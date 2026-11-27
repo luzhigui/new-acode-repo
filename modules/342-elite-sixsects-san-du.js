@@ -101,7 +101,8 @@
 //   同期确认：「血最少」判据由 hp/maxHp 比例改为绝对血量（三渡最大血不同，比例会让高血职业抢 8 号位）。
 // V2.7.23 | 2026-11-27 老板口径：首当其冲（正/倒三角通用）改为 防御 +20% 且最大生命 +20%（永久）。
 // V2.7.24 | 2026-11-27 老板口径：魔化谢逊 攻18/防18/血1188，每释放一次叠 2% 最大生命护盾。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.24';
+// V2.7.25 | 2026-11-27 老板口径：魔化谢逊全部伤害/回血 28→18（随攻防 18 统一），护盾 2%→6% 最大生命。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.25';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -130,9 +131,9 @@ const SAN_DU_NAME_SET = new Set(['渡厄', '渡劫', '渡难']); // 三渡名单
 const SAN_DU_KUCHAN_HEAL_RATE = 0.2;   // 8 号位枯禅回血：20% 最大生命（V2.7.10 老板下调：40% 几乎回满，太强）
 const SAN_DU_LIUYUN_EXTRA = 0.20;      // 渡难追加闪避：流云 25% 之外再 +20%（V2.7.8 老板口径 → 合计 45%）
 // 渡厄/渡劫 的追加加成统一走 content roles 的职业加成表（V2.7.12 老板口径），不再本地写死数值
-const DEMON_BURST_DMG = 28;            // 魔化谢逊每发：28 点（打敌方=真伤 / 落自家=回血），V2.5.0 老板改回 28
+const DEMON_BURST_DMG = 18;            // 魔化谢逊每发：28 点（打敌方=真伤 / 落自家=回血），V2.5.0 老板改回 28
 const DEMON_SHOTS_PER_VOLLEY = 1;      // 每次「开轰」一发（V2.5.0 老板：轰两下太夸张，改回一发）
-const DEMON_SHIELD_PCT = 0.02;         // 每释放一次叠 2% 最大生命护盾（V2.7.24 老板口径，配 1188 血）
+const DEMON_SHIELD_PCT = 0.06;         // 每释放一次叠 2% 最大生命护盾（V2.7.24 老板口径，配 1188 血）
 // V2.7.8 老板口径：取消「每轰一炮叠护盾」——倒三角不再有护盾。
 // （枯禅轮回：跌破 70%/40% 两档触发；血最少者优先回 8 号位，无随机分支）
 
