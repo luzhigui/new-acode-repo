@@ -157,7 +157,7 @@ const rows = reds.length ? reds.map((x, i) => `
   <div class="card">
     <div class="num">${i + 1}</div>
     <div class="body">
-      <div class="title">${esc(x.key)}　<span class="badge">${esc(x.act.split('：')[0])}</span></div>
+      <div class="title">${esc(x.key)} <span class="badge">${esc(x.act.split('：')[0])}</span></div>
       <div class="q">这项在查什么：${esc(x.q)}</div>
       <div class="why">红了大概意味：${esc(x.why)}</div>
       <div class="act">${esc(x.act)}</div>
@@ -188,9 +188,9 @@ h1{font-size:20px;margin:0 0 6px;} .meta{color:#666;font-size:13px;margin-bottom
 .foot{color:#888;font-size:12px;margin-top:20px;line-height:1.7;}
 </style></head><body><div class="wrap">
 <h1>深度体检报告</h1>
-<div class="meta">跑完于 ${new Date().toLocaleString('zh-CN')}　·　耗时 ${elapsed} 秒　·　退出码 ${exit}（1=有红项）</div>
+<div class="meta">跑完于 ${new Date().toLocaleString('zh-CN')} · 耗时 ${elapsed} 秒 · 退出码 ${exit}（1=有红项）</div>
 <div class="summary">
-  <div class="big">${passCount.length === 2 ? passCount[0] + ' / ' + passCount[1] + ' 项通过' : esc(resultLine)}　·　${reds.length} 项红</div>
+  <div class="big">${passCount.length === 2 ? passCount[0] + ' / ' + passCount[1] + ' 项通过' : esc(resultLine)} · ${reds.length} 项红</div>
   <div class="sub">这份是"深度体检"——它不打开游戏，直接读代码、对账本、扫判据，查的是全能体检（边打边抓现行）查不到的那类问题。<br>
   每项红下面都写了：这项在查什么、红了大概意味着什么、要不要管。看不懂原始输出没关系，看这三行就行。</div>
 </div>
@@ -198,7 +198,7 @@ ${bugCandidates.length ? `
 <div class="bugs">
   <h2>真实 bug 候选（${bugCandidates.length} 条规则在回放里判了失败）</h2>
   <div class="lead">这些是<div style="display:inline">规则回放</div>里真正判fail的问题——之前挂在「覆盖率」这个名字下、只显形不计红，容易被当成"覆盖不够"放过。<b>它们才可能是你记得的那一茬茬 bug。</b></div>
-  ${bugCandidates.map(b => `<div class="item"><b>${esc(b.name)}</b>　<span class="n">${b.fail} 个失败</span>（通过 ${b.pass} / 跳过 ${b.skip}）</div>`).join('')}
+  ${bugCandidates.map(b => `<div class="item"><b>${esc(b.name)}</b> <span class="n">${b.fail} 个失败</span>（通过 ${b.pass} / 跳过 ${b.skip}）</div>`).join('')}
   <div class="hint">注意：判 fail 不等于确认是 bug——也可能是规则判据没跟上新机制。需要逐条定性（看回放明细里每个 seed/stage 的具体数字），不要直接当成主代码缺陷改，也不要直接放宽规则放过。</div>
 </div>` : ''}
 ${rows}

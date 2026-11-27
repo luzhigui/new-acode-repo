@@ -50,7 +50,7 @@ for (const u of uncovered) console.log('  其他 ←', u);
 let otherCardCount = null, dynamicNote = '';
 if (fs.existsSync(OUT)) {
     const html = fs.readFileSync(OUT, 'utf8');
-    // HTML 里命中不到 MEANING 的条目标题渲染为：<div class="title">其他　<span class="badge">...</span></div>
+    // HTML 里命中不到 MEANING 的条目标题渲染为：<div class="title">其他 <span class="badge">...</span></div>
     otherCardCount = (html.match(/class="title">其他/g) || []).length;
     dynamicNote = `报告里“其他”标题数 = ${otherCardCount}`;
 } else {
