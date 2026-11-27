@@ -1,6 +1,6 @@
 // modules/342-elite-sixsects-san-du.js — 少林三渡与炎魔狮王、魔化谢逊（第6关·正三角金刚伏魔阵 / 倒三角枯禅轮回阵）
 // 设计：三渡技能固定；正三角职业随站位（2号位=防战 / 7号位=战士 / 9号位=飞行），倒三角职业绑人（渡厄防战/渡劫战士/渡难飞行），均由 modules/330 建队时落实。
-//   渡厄：防御 +40%（严阵以待）
+//   渡厄：防御 +20% / 最大生命 +20%（严阵以待，受击反伤 50%；首当其冲同数值）
 //   渡劫：每回合攻击两次（必发；走引擎 doubleStrike 额外出手通道）
 //   渡难：自带流云身法，闪避 +25%
 //   共有：站 7~9 号位时每回合开始回复 30 点生命（金刚伏魔阵）
@@ -102,7 +102,9 @@
 // V2.7.23 | 2026-11-27 老板口径：首当其冲（正/倒三角通用）改为 防御 +20% 且最大生命 +20%（永久）。
 // V2.7.24 | 2026-11-27 老板口径：魔化谢逊 攻18/防18/血1188，每释放一次叠 2% 最大生命护盾。
 // V2.7.25 | 2026-11-27 老板口径：魔化谢逊全部伤害/回血 28→18（随攻防 18 统一），护盾 2%→6% 最大生命。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.25';
+// V2.7.26 | 2026-11-27 老板口径：严阵以待改为 防御 +20% / 最大生命 +20% / 反伤 50%；
+//   首当其冲的加防加血不再单独取值，直接读严阵以待的两个共用常量（SAN_DU_DEF_BONUS / SAN_DU_HP_BONUS）。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.26';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -119,10 +121,10 @@ function findSelf(A, B, decl) {
     return (team || []).find(u => u && u.name === decl.name) || null;
 }
 
-// 三渡数值唯一来源（老板 2026-11-22 拍板：首当其冲与 2 号位严阵以待两个 40% 共用同一常量，不写死两处）
-const SAN_DU_DEF_BONUS = 0.4;          // 严阵以待防御 +40%（个人技 / 2 号位阵位，共用）
-const SAN_DU_SHOU_DANG_RATE = 0.2;     // 首当其冲：防御 +20% 且最大生命 +20%（V2.7.23 老板口径）
-const SAN_DU_FORTIFY_REBOUND = 0.4;    // 2 号位严阵以待受击反弹：实际承伤的 40%
+// 三渡数值唯一来源（老板 2026-11-27 拍板：首当其冲与严阵以待共用同一组数值，不写死两处）
+const SAN_DU_DEF_BONUS = 0.2;          // 严阵以待 / 首当其冲：防御 +20%
+const SAN_DU_HP_BONUS = 0.2;           // 严阵以待 / 首当其冲：最大生命 +20%
+const SAN_DU_FORTIFY_REBOUND = 0.5;    // 严阵以待受击反弹：实际承伤的 50%
 const SAN_DU_LIUYUN_RATE = 0.25;       // 流云身法闪避 +25%
 const SAN_DU_DOUBLE_STRIKE_RATE = 0.8; // 概率连击：80%
 
@@ -164,14 +166,17 @@ export const monkFixedBuffHandler = {
         if (decl.buffType === 'defense') {
             // 渡厄·首当其冲（个人技，绑人）：V2.7.23 老板口径——防御 +20% 且最大生命 +20%（永久，挂一次）。
             //   按 group 查重：install 每回合重跑时不再重复 push（addMod 不去重，core/214:442）。
-            const hasShouDang = ((self._mods && self._mods.def) || [])
+            const hasShouDangDef = ((self._mods && self._mods.def) || [])
                 .some(m => m && m.group === 'monkDef' && m.ttl === 'permanent');
-            if (!hasShouDang) {
-                addMod(self, 'def', { source: '首当其冲', value: SAN_DU_SHOU_DANG_RATE, ttl: 'permanent', op: 'mul', group: 'monkDef' });
-                addMod(self, 'maxHp', { source: '首当其冲', value: SAN_DU_SHOU_DANG_RATE, ttl: 'permanent', op: 'mul', group: 'monkDefHp' });
+            const hasShouDangHp = ((self._mods && self._mods.maxHp) || [])
+                .some(m => m && m.group === 'monkDefHp' && m.ttl === 'permanent');
+            if (!hasShouDangDef || !hasShouDangHp) {
+                // V2.7.26：数值直接读严阵以待的两个共用常量（老板口径：首当其冲跟严阵以待走）
+                if (!hasShouDangDef) addMod(self, 'def', { source: '首当其冲', value: SAN_DU_DEF_BONUS, ttl: 'permanent', op: 'mul', group: 'monkDef' });
+                if (!hasShouDangHp) addMod(self, 'maxHp', { source: '首当其冲', value: SAN_DU_HP_BONUS, ttl: 'permanent', op: 'mul', group: 'monkDefHp' });
                 refreshMaxHp(self, null, '首当其冲');
             }
-            // V2.7.13 老板纠正：严阵以待不删——倒三角里渡厄照旧吃「个人严阵以待」（防御 +40% + 受击反弹 40%，
+            // V2.7.13 老板纠正：严阵以待不删——倒三角里渡厄照旧吃「个人严阵以待」（防御 +20% / 生命 +20% / 受击反弹 50%，
             //   不认站位，因为倒三角三渡站 1/3/8 永远不在 2 号位），并且再叠加一套防战职业加成。
             if (kuchanActive) {
                 registerSettlementHook({
@@ -179,15 +184,22 @@ export const monkFixedBuffHandler = {
                     priority: 22,
                     handler: (data) => {
                         if (!self.alive) return;
-                        addMod(self, 'def', { source: '严阵以待', value: SAN_DU_DEF_BONUS, ttl: 'round', op: 'mul', group: 'monkFortify' });
+                        // V2.7.26：严阵以待 = 防御 +20% / 最大生命 +20% / 反伤 50%（永久挂一次，按 group 防重）
+                        const hasFortifyDef = ((self._mods && self._mods.def) || []).some(m => m && m.group === 'monkFortify');
+                        const hasFortifyHp = ((self._mods && self._mods.maxHp) || []).some(m => m && m.group === 'monkFortifyHp');
+                        if (!hasFortifyDef || !hasFortifyHp) {
+                            if (!hasFortifyDef) addMod(self, 'def', { source: '严阵以待', value: SAN_DU_DEF_BONUS, ttl: 'permanent', op: 'mul', group: 'monkFortify' });
+                            if (!hasFortifyHp) addMod(self, 'maxHp', { source: '严阵以待', value: SAN_DU_HP_BONUS, ttl: 'permanent', op: 'mul', group: 'monkFortifyHp' });
+                            refreshMaxHp(self, null, '严阵以待');
+                        }
                         self.state._sanDuFortify = true;
                         pushSkillAnnounce(data && data.log, self, '严阵以待',
-                            `🛡️ 严阵以待：${self.name} 防御 +${Math.round(SAN_DU_DEF_BONUS * 100)}%，受击反弹 ${Math.round(SAN_DU_FORTIFY_REBOUND * 100)}%`);
+                            `🛡️ 严阵以待：${self.name} 防御 +${Math.round(SAN_DU_DEF_BONUS * 100)}%，最大生命 +${Math.round(SAN_DU_HP_BONUS * 100)}%，受击反弹 ${Math.round(SAN_DU_FORTIFY_REBOUND * 100)}%`);
                     }
                 });
             }
             // V2.7.20 老板口径：渡厄已有「首当其冲 + 严阵以待」，不再叠加防战职业加成（上一条已撤）。
-            // 阵位授予（认位不认人）：2 号位=严阵以待（防御 +40% + 受击反弹 40%）；7/9 号位只保留金刚伏魔阵回血
+            // 阵位授予（认位不认人）：2 号位=严阵以待（防御 +20% / 生命 +20% / 受击反弹 50%）；7/9 号位只保留金刚伏魔阵回血
             registerSettlementHook({
                 when: SIGNAL_TYPES.ON_ROUND_START,
                 priority: 19,
@@ -199,16 +211,23 @@ export const monkFixedBuffHandler = {
                         const atTwo = u.alive && u.pos === 2;
                         u.state._sanDuFortify = atTwo;
                         if (!atTwo) return;
-                        addMod(u, 'def', { source: '严阵以待', value: SAN_DU_DEF_BONUS, ttl: 'round', op: 'mul', group: 'sanDuPosFort' });
+                        // V2.7.26：2 号位严阵以待 = 防御 +20% / 最大生命 +20% / 反伤 50%（永久挂一次，按 group 防重）
+                        const hasPosDef = ((u._mods && u._mods.def) || []).some(m => m && m.group === 'sanDuPosFort');
+                        const hasPosHp = ((u._mods && u._mods.maxHp) || []).some(m => m && m.group === 'sanDuPosFortHp');
+                        if (!hasPosDef || !hasPosHp) {
+                            if (!hasPosDef) addMod(u, 'def', { source: '严阵以待', value: SAN_DU_DEF_BONUS, ttl: 'permanent', op: 'mul', group: 'sanDuPosFort' });
+                            if (!hasPosHp) addMod(u, 'maxHp', { source: '严阵以待', value: SAN_DU_HP_BONUS, ttl: 'permanent', op: 'mul', group: 'sanDuPosFortHp' });
+                            refreshMaxHp(u, null, '严阵以待');
+                        }
                         fortifyUnit = u;
                     });
                     if (fortifyUnit) {
                         pushSkillAnnounce(data && data.log, fortifyUnit, '严阵以待',
-                            `🛡️ 严阵以待：${fortifyUnit.name} 防御 +${Math.round(SAN_DU_DEF_BONUS * 100)}%，受击反弹 ${Math.round(SAN_DU_FORTIFY_REBOUND * 100)}%`);
+                            `🛡️ 严阵以待：${fortifyUnit.name} 防御 +${Math.round(SAN_DU_DEF_BONUS * 100)}%，最大生命 +${Math.round(SAN_DU_HP_BONUS * 100)}%，受击反弹 ${Math.round(SAN_DU_FORTIFY_REBOUND * 100)}%`);
                     }
                 }
             });
-            // 严阵以待反击：2 号位实际掉血后反弹 40% 给攻击者（FORTIFY_REBOUND 自带横幅 + 飘字 + 战报）
+            // 严阵以待反击：2 号位实际掉血后反弹 50% 给攻击者（FORTIFY_REBOUND 自带横幅 + 飘字 + 战报）
             registerSettlementHook({
                 when: 'afterDamageApplied',
                 priority: 24,
