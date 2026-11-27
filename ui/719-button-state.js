@@ -2,12 +2,12 @@
 // 整局项（permanent，如圣火不熄）挂阵营名下方徽章 #campBadgesAlly/Enemy，不占底部 2 槽——
 //   轮换海克斯峰值本就 2 条，常驻项会把槽挤满导致最新那条看不见。
 // 关卡共 7 关：GAMEOVER 主按钮判据 currentStage>=7（否则第 6 关结束就显示「重新开始」丢掉第 7 关）。
-export const VER = 'ui/719-button-state.js V1.2.0';
+export const VER = 'ui/719-button-state.js V1.3.0';
 
 import { CONFIG } from '../core/201-config-5v5-test.js';
 
 import { getState, GlobalStore } from '../infra/104-global-store.js';
-import { CAMP_TYPES, BUFF_TYPES } from '../infra/106-battle-enums.js';
+import { CAMP_TYPES } from '../infra/106-battle-enums.js';
 import { buffsOfCamp } from '../modules/329-buff-tools.js';
 import { updateSpeedButtons } from './718-speed-controls.js';
 
@@ -41,32 +41,11 @@ const SLOT_IDS = {
     [CAMP_TYPES.ENEMY]: ['buffSlot0E', 'buffSlot1E'],
 };
 
-// 第6关六大派（三渡阵：正三角炎魔 / 倒三角魔化谢逊）自带整局海克斯「圣火不熄」。
-//   数据侧 player/503 每步都用引擎 battleState.activeBuffs 整体覆盖 GlobalStore.activeBuffs（里面没有这条），
-//   而 ui/704 的 tickBuffDurations 钩子全仓没有任何调用方 → 只在 install 写一次必被冲掉。
-//   故徽章唯一出口放这里：按「场上敌方阵容名」双向同步（有则补、无则删，防下一关残留），
-//   每次绘制前自愈一次，任何覆盖都不可能让它消失。
-const STAGE6_SQUAD_NAMES = ['渡厄', '渡劫', '渡难', '炎魔狮王', '魔化谢逊'];
-function syncHolyFireBadge(activeBuffs) {
-    const list = Array.isArray(activeBuffs) ? activeBuffs : [];
-    const UI = GlobalStore.get('UI') || {};
-    const enemy = Array.isArray(UI.enemyTeam) ? UI.enemyTeam : [];
-    const need = enemy.some(u => u && STAGE6_SQUAD_NAMES.includes(u.name));
-    const has = list.some(b => b && b.key === BUFF_TYPES.HOLY_FIRE && b.target === CAMP_TYPES.ENEMY);
-    if (need === has) return list;
-    const next = need
-        ? [...list, {
-            key: BUFF_TYPES.HOLY_FIRE, name: '圣火不熄', icon: '🕯️',
-            target: CAMP_TYPES.ENEMY, camp: CAMP_TYPES.ENEMY,
-            remaining: CONFIG.MAX_ROUND || 35, permanent: true
-        }]
-        : list.filter(b => !(b && b.key === BUFF_TYPES.HOLY_FIRE && b.target === CAMP_TYPES.ENEMY));
-    GlobalStore.set('activeBuffs', next);
-    return next;
-}
+// 第6关六大派自带的整局海克斯「圣火不熄」不再在 UI 侧按阵容名补：
+//   2026-11-27 起 player/503 已把引擎账（队伍 _activeBuffs 的 permanent 条目）合并进显示账，
+//   徽章与战报、联机同源。UI 只负责按 activeBuffs 画（单一数据源，不重复补）。
 
 function updateBuffSlots(activeBuffs, camp) {
-    activeBuffs = syncHolyFireBadge(activeBuffs);
     // 整局徽章：两个阵营各挂自己那侧
     for (const c of [CAMP_TYPES.ALLY, CAMP_TYPES.ENEMY]) {
         const box = document.getElementById(CAMP_BADGE_ID[c]);

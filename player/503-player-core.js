@@ -1,6 +1,7 @@
 ﻿// player/503-player-core.js — 战斗播放入口（单机/从机/回放）+ clock 桥接 + 收尾结算
 // V7.0.6 | 2026-11-20 尸体摘格改到步末：每步播完后 flushCorpseDue，死亡同一步的击退/换位动画不再被清格打断
-export const VER = 'player/503-player-core.js V7.0.6';
+// V7.0.7 | 2026-11-27 引擎账→显示账打通：每步把队伍 _activeBuffs 的 permanent 条目并入 activeBuffs（去重），回合末 permanent 不递减；第6关圣火不熄徽章改由这条链路自然显示
+export const VER = 'player/503-player-core.js V7.0.7';
 
 import { SeededRNG } from '../infra/102-core-utils.js';
 import { recordXiaoZhaoPermanentBuff } from '../modules/329-buff-tools.js';
@@ -28,6 +29,26 @@ import { readRound, setupDeathTimers, flushCorpseDue } from './506-player-step-s
 import { playStepInterleaved } from './504-player-play-step.js';
 
 function getCtx() { return getPlayerContext(); }
+
+// 引擎账 → 显示账（2026-11-27 老板拍板打通）：
+//   引擎给队伍压的是 `队伍._activeBuffs`（效果用，如第6关圣火不熄的复活名额），
+//   UI/徽章读的是 `activeBuffs`（显示用）；真游戏路径原先没有把两本账合并 →
+//   引擎加的整局海克斯永远显示不出来。这里每步把引擎侧 permanent 条目并进显示列表。
+//   规则：只并 permanent（普通海克斯仍由抽选/递减维护）、按 key+阵营去重、不写 remaining。
+function mergeEnginePermanentBuffs(list, step) {
+    const merged = Array.isArray(list) ? list.slice() : [];
+    const sides = [[step && step.ally, CAMP_TYPES.ALLY], [step && step.enemy, CAMP_TYPES.ENEMY]];
+    for (const [team, camp] of sides) {
+        const teamBuffs = team && team._activeBuffs;
+        if (!Array.isArray(teamBuffs)) continue;
+        for (const b of teamBuffs) {
+            if (!b || !b.permanent) continue;
+            if (merged.some(x => x && x.permanent && x.key === b.key && (x.target || x.camp) === camp)) continue;
+            merged.push({ ...b, target: camp, camp, permanent: true });
+        }
+    }
+    return merged;
+}
 
 // 步间隔：含吸星 cue 的步多留表演时间（2026-11-19 老板报「吸星特效和攻击特效几乎重叠」）。
 //   连线 1000ms + 飘字 1700ms（全部逻辑时间、受 clock 倍速缩放），常规 300ms 步间隔读不完，
@@ -159,7 +180,13 @@ export async function playBattle() {
             if (step.hanlisaAimWindow) { await handleHanlisaAimWindow(c, step); continue; }
             // 张无忌专属·我命由我（2026-11-13）：出手前拖拽选目标窗口——不播不录不发从机，收完 continue
             if (step.zhangTargetPickerWindow) { await handleZhangTargetPicker(c, step); continue; }
-            if (battleState.activeBuffs) c.activeBuffs = battleState.activeBuffs.map(b => ({ ...b }));
+            if (battleState.activeBuffs) {
+                // 引擎账 → 显示账：本步引擎可能刚给队伍挂上整局海克斯（342 圣火不熄等），先并入再回写 UI
+                const _beforeCount = battleState.activeBuffs.length;
+                battleState.activeBuffs = mergeEnginePermanentBuffs(battleState.activeBuffs, step);
+                c.activeBuffs = battleState.activeBuffs.map(b => ({ ...b }));
+                if (battleState.activeBuffs.length !== _beforeCount && c.updateBuffSlots) c.updateBuffSlots();
+            }
             // 联网对战阶段2：房主跑完一步就发给从机（从机只播，不跑引擎）；阶段3 捎带 activeBuffs；快进状态一起捎带
             if (netLinked) net.sendStep(step, c.activeBuffs, getState.speed(), GlobalStore.get('fastForwardActive'));
             feedBattleStep(step, c.activeBuffs);   // 战报导出：与联机同源同净化
@@ -173,7 +200,12 @@ export async function playBattle() {
 
         if (isBattleOver) { finalStep = lastStep; break; }
 
-        let nextActiveBuffs = c.activeBuffs ? c.activeBuffs.map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0) : [];
+        // permanent（整局海克斯，引擎侧注入）不参与回合递减，原样保留
+        let nextActiveBuffs = c.activeBuffs
+            ? c.activeBuffs
+                .map(b => (b && b.permanent) ? { ...b } : { ...b, remaining: (b.remaining || 0) - 1 })
+                .filter(b => b && (b.permanent || b.remaining > 0))
+            : [];
         c.activeBuffs = nextActiveBuffs;
         if (c.updateBuffSlots) c.updateBuffSlots();
         if (battleState.round % 3 === 0 && battleState.round > 0) {
