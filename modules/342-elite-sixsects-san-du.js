@@ -84,7 +84,8 @@
 //   只在枯禅轮回阵（本队有魔化谢逊）时生效；正三角（炎魔）回到原口径，避免加强外溢。
 // V2.7.13 | 2026-11-27 老板纠正：严阵以待不许删——倒三角渡厄 = 个人严阵以待（防御+40%、受击反弹40%，不认站位）
 //   + 防战职业加成（-8攻/+2防/+45血）；渡劫 = 战士职业加成（+3/+3/+30）；渡难 = 流云 25% + 额外 20% 闪避。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.13';
+// V2.7.14 | 2026-11-27 老板口径：炎魔狮王回合开始那发 18 → 28，与其它炎爆统一（不再有 18 的档）。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.14';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -369,8 +370,8 @@ export const blazeLionKingHandler = {
                 // 永久无法行动：_stunned 每回合被重置，这里每回合重新压上（跳过出手/行动）
                 self.state._stunned = true;
                 self.state._blazeCharged = false;
-                // 回合开始固定一发 18
-                fireBurst(18, data, '炎爆', true);
+                // 回合开始固定一发 28（V2.7.14 老板口径：18 取消，统一按 28 打）
+                fireBurst(28, data, '炎爆', true);
             }
         });
 
