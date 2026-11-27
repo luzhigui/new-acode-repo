@@ -76,7 +76,9 @@
 // V2.7.8 | 2026-11-26 老板口径：①取消魔化谢逊「每轰一炮叠护盾」；②渡难流云身法之外再 +20% 闪避（合计 45%）；
 //   ③渡厄在首当其冲之外再挂个人「严阵以待」（防御再 +40% + 受击反弹 40%，不认站位）；
 //   ④渡劫在概率连击之外再加战士加成 +9 攻 / +9 防 / +90 血。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.8';
+// V2.7.9 | 2026-11-27 老板报「渡劫血 165→255→338→428→512、攻 29→60」：core/210 每回合重跑
+//   installDeclaredSkills → 342 的战士加成每回合重复 addMod。加 _sanDuWarriorBonus 幂等闸，只生效一次。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.9';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -217,13 +219,19 @@ export const monkFixedBuffHandler = {
             });
         } else if (decl.buffType === 'doubleAttack') {
             // V2.7.8 老板口径：渡劫在概率连击之外，额外吃一份战士加成（+9攻 / +9防 / +90血）
-            addMod(self, 'atk', { source: '三渡·战士加成', value: SAN_DU_WARRIOR_BONUS.atk, ttl: 'permanent', group: 'sanDuWarrior', op: 'add' });
-            addMod(self, 'def', { source: '三渡·战士加成', value: SAN_DU_WARRIOR_BONUS.def, ttl: 'permanent', group: 'sanDuWarrior', op: 'add' });
-            addMod(self, 'maxHp', { source: '三渡·战士加成', value: SAN_DU_WARRIOR_BONUS.maxHp, ttl: 'permanent', group: 'sanDuWarrior', op: 'add' });
-            self.atk = getStat(self, 'atk');
-            self.def = getStat(self, 'def');
-            self.maxHp = getStat(self, 'maxHp');
-            self.hp += SAN_DU_WARRIOR_BONUS.maxHp;
+            // V2.7.9 关键修复：core/210 每回合都会重跑 installDeclaredSkills → 本分支每回合重复 addMod，
+            //   渡劫每回合白涨 +9攻/+9防/+90血上限且血量静默 +90（老板 2026-11-27 报血 165→512 异常）。
+            //   安装必须幂等：同一单位只生效一次。
+            if (!self.state._sanDuWarriorBonus) {
+                self.state._sanDuWarriorBonus = true;
+                addMod(self, 'atk', { source: '三渡·战士加成', value: SAN_DU_WARRIOR_BONUS.atk, ttl: 'permanent', group: 'sanDuWarrior', op: 'add' });
+                addMod(self, 'def', { source: '三渡·战士加成', value: SAN_DU_WARRIOR_BONUS.def, ttl: 'permanent', group: 'sanDuWarrior', op: 'add' });
+                addMod(self, 'maxHp', { source: '三渡·战士加成', value: SAN_DU_WARRIOR_BONUS.maxHp, ttl: 'permanent', group: 'sanDuWarrior', op: 'add' });
+                self.atk = getStat(self, 'atk');
+                self.def = getStat(self, 'def');
+                self.maxHp = getStat(self, 'maxHp');
+                self.hp += SAN_DU_WARRIOR_BONUS.maxHp;
+            }
             // 渡劫·概率连击：命中/闪避后 80% 概率追加一次（每回合只掷一次骰，不 100% 必发）
             // 格子 ⚡：连击不是轮盘抽的，step.doubleStrikeUid 里没有他 → 用常驻旗给格子补 logo
             self.state._sanDuDoubleStrike = true;
