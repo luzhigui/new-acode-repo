@@ -2,7 +2,9 @@
 // V6.27.3 | 2026-11-25 两仪血量均摊逐人入账（230 组外均摊/互换/红血清基线）
 // V6.27.2 | 2026-11-20 两仪连接修复：双方 `_dualSchools` 全给「战士+远程」两系（原只写对方单个职业，
 //   何太冲 role 非精确『远程』时连自身远程成长一起丢）；搭档候选改按「系」配对（战士系 ↔ 远程系）。
-export const VER = 'modules/314-elite-sixsects-hetaichong.js V6.27.3';
+// V6.27.4 | 2026-11-27 两仪连接搭档严格限定「战士系 ↔ 远程系」：原实现只排同系，
+//   飞行（宋青书）会被当成远程侧与战士系何太冲结对，互换后出现「飞行变战士/远程」的荒谬结果。
+export const VER = 'modules/314-elite-sixsects-hetaichong.js V6.27.4';
 
 import { getRoleBonus } from '../core/202-unit.js';
 import { addMod, getStat, getBattleRng, refreshMaxHp, swapUnitPositions, moveUnitPosition, emitEvent, applyStatChange } from '../core/214-battle-shared.js';
@@ -54,11 +56,16 @@ export function createHeTaichongComponent() {
             //   不再只写「对方那一个职业」——何太冲自身 role 若不是精确 '远程'，会连远程成长一起丢。
             if (he.state._liangyiPartnerUid == null) {
                 const isWarriorSchool = (r) => r === ROLE_TYPES.WARRIOR || r === ROLE_TYPES.DEFENDER;
-                const heIsWarrior = isWarriorSchool(he.role);
-                const candidates = team.filter(u => {
-                    if (!u.alive || u.uid === he.uid || u.isHorse) return false;
-                    return isWarriorSchool(u.role) !== heIsWarrior;
-                });
+                const isRangedSchool = (r) => r === ROLE_TYPES.RANGED;
+                // V6.27.4 | 2026-11-27 老板报「啥玩意？飞行和战士？」：原候选只排「同是战士系」，
+                //   于是飞行（宋青书）被当远程侧拉去和战士系何太冲连两仪、互换后宋青书变战士/远程。
+                //   设定是「远程连战士、战士连远程」——只允许这两系互配，飞行/标枪/蝴蝶等一律不参与。
+                let candidates = [];
+                if (isWarriorSchool(he.role)) {
+                    candidates = team.filter(u => u.alive && u.uid !== he.uid && !u.isHorse && isRangedSchool(u.role));
+                } else if (isRangedSchool(he.role)) {
+                    candidates = team.filter(u => u.alive && u.uid !== he.uid && !u.isHorse && isWarriorSchool(u.role));
+                }
                 if (candidates.length > 0) {
                     const partner = candidates[getBattleRng().nextInt(0, candidates.length - 1)];
                     const bothSchools = [ROLE_TYPES.WARRIOR, ROLE_TYPES.RANGED];
