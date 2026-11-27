@@ -86,7 +86,9 @@
 //   + 防战职业加成（-8攻/+2防/+45血）；渡劫 = 战士职业加成（+3/+3/+30）；渡难 = 流云 25% + 额外 20% 闪避。
 // V2.7.14 | 2026-11-27 老板口径：炎魔狮王回合开始那发 18 → 28，与其它炎爆统一（不再有 18 的档）。
 // V2.7.15 | 2026-11-27 老板口径：渡厄「首当其冲」改为永久词条、安装一次（原每回合挂/清一轮）。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.15';
+// V2.7.16 | 2026-11-27 老板报「正三角六大派没有圣火不熄徽章」：补挂 hook 的 priority 60 早于
+//   buff 抽写 → 每回合写完就被覆盖（实测 activeBuffs 只剩 unity/cloudBody）；改为 999 最后补。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.16';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -149,10 +151,12 @@ export const monkFixedBuffHandler = {
         }
         // UI 永久海克斯徽章（老板 2026-11-26：圣火不熄要出现在六大派名字下面的永久海克斯区）
         syncHolyFireBadge(decl.camp);
-        // 开局抽取的 buff 会覆盖 activeBuffs，每回合开始再补一次，保证徽章整局都在
+        // 开局抽取的 buff 会整体覆盖 activeBuffs：补挂必须排在「buff 抽写之后」，
+        //   原来 priority 60 太早、每回合都被覆盖（2026-11-27 正三角实测 activeBuffs 只剩 unity/cloudBody）。
+        //   999 = 本回合最后执行，写完徽章整局都在。
         registerSettlementHook({
             when: SIGNAL_TYPES.ON_ROUND_START,
-            priority: 60,
+            priority: 999,
             handler: () => syncHolyFireBadge(decl.camp)
         });
         // 枯禅轮回阵（第6关倒三角变体）在场判定：本队含魔化谢逊 → 金刚伏魔阵 30 点平回血停用（V2.2.0）
