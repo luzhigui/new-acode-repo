@@ -11,7 +11,7 @@
 // V3.5.10 | 2026-11-19 修全屏轰拳 ReferenceError：dmgMapFor 未接 hls 却用 getStat(hls,'atk')
 // V3.5.12 | 2026-11-21 预览 N 与引擎对齐：窗口读 recentRounds（原写死 3）、补 _hlsExtraBonus
 // V3.5.11 | 2026-11-20 全轰预览的攻击力加成改读 rowAtkRatio（原写死 /2，实战已按 0.3 算 ⇒ 预览高估）；缺参数 throw 不兜底
-export const VER = 'ui/720-hanlisa-aim.js V3.5.12';
+export const VER = 'ui/720-hanlisa-aim.js V3.5.13';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { getSkillParams } from '../core/201-config-5v5-test.js';
@@ -219,8 +219,11 @@ function dmgMapFor(aim, N, xl, enemies, hls) {
         if (xl.rowAtkRatio == null) throw new Error('缺技能参数: 寒离飒.xuLi.rowAtkRatio');
         const rd = xl.rowDen;
         const hlsAtk = Math.floor(getStat(hls, 'atk'));
-        const frontRow = Math.min(...enemies.filter(e => e && e.alive).map(e => Math.floor((e.pos - 1) / 3)));
-        enemies.filter(e => e && e.alive).forEach(e => {
+        // player/512 传入的敌人对象不带 alive（只带 pos/hp/maxHp/name/atk/def）——
+        //   原 `filter(e => e.alive)` 永远筛空 → 全屏伤害表为空，每格都显示 −0（老板 2026-11-27 报）
+        const aliveEnemies = enemies.filter(e => e && e.alive !== false);
+        const frontRow = Math.min(...aliveEnemies.map(e => Math.floor((e.pos - 1) / 3)));
+        aliveEnemies.forEach(e => {
             const isFront = Math.floor((e.pos - 1) / 3) === frontRow;
             map[e.pos] = { dmg: Math.floor(N / (isFront ? rd.front : rd.back)) + Math.floor(hlsAtk * xl.rowAtkRatio), tier: isFront ? 'rowFront' : 'rowBack' };
         });

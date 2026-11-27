@@ -26,7 +26,7 @@
 // V2.4.12 | 2026-11-21 全轰回调：护盾 25%→30%、每格攻击力加成 30%→40%、前排分母 4→3（N/3）
 // V2.4.13 | 2026-11-21 承伤转化 0.8→1（全量入桶）、目标格 1.2N→1.1N（tierDen.direct 0.9091）
 // V2.4.13 | 2026-11-21 承伤桶改HP_LOSS_APPLIED单监听(所有实扣伤害都进,强化真转化改实际伤害)
-export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.14';
+export const VER = 'modules/319-elite-mingjiao-hanlisa.js V2.4.15';
 
 import { getBattleRng, getStat, recordHpAudit, moveUnitPosition, emitEvent, previewHeal, applyStatChange, poisonBlockedByHook } from '../core/214-battle-shared.js';
 import { isEffectivelyAlive } from '../core/203-battle-utils.js';
@@ -388,7 +388,7 @@ export function createHanLiSaComponent() {
                         // —— 真伤声明（ROUND_STAT_GRANT：不吃防不吃闪避，与旧 2/5/8 真伤同通道）——
                         const lines = [], hits = [], bounces = [];
                         let flight = null, totalDealt = 0;
-                        if (N > 0) {
+                        if (cells.length) {   // 不再要求 N>0：全屏档的「40% 攻击力」部分与承伤基数无关（2026-11-27 修全屏 −0）
                             cells.forEach(cell => {
                                 const u = enemies.find(e => e.alive && e.pos === cell.pos);
                                 if (!u) return;
