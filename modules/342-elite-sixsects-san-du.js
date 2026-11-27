@@ -94,7 +94,8 @@
 //   不再两两互换；动画改白底带格子内容、时长 1700ms（原来半透明红框看不出是谁）。
 // V2.7.19 | 2026-11-27 渡厄攻归零（攻击力不足无法出手）：防战职业加成改按 group='sanDuDefender' 查重，
 //   修复单位克隆后标记丢失导致每回合重复扣 -8 攻（防/血上限同源累积）。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.19';
+// V2.7.20 | 2026-11-27 老板口径：撤掉渡厄的「防战职业加成」（已有首当其冲 + 严阵以待足够）。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.20';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -194,17 +195,7 @@ export const monkFixedBuffHandler = {
                     }
                 });
             }
-            // V2.7.12 老板口径：渡厄额外吃一套防战职业加成（content roles.防战 = -8攻/+2防/+45血），仅倒三角生效。
-            // V2.7.19 修：原来靠 `_sanDuDefenderBonus` 标记防重，单位克隆后标记丢失 → 每回合再扣 -8 攻，
-            //   第 3 回合攻归零报「攻击力不足无法出手」；防/血上限也逐回合累积。
-            //   改为按 group='sanDuDefender' 查重：挂过就不再挂。
-            if (kuchanActive) {
-                const hasRoleBonus = ['atk', 'def', 'maxHp'].some(s =>
-                    ((self._mods && self._mods[s]) || []).some(m => m && m.group === 'sanDuDefender'));
-                if (!hasRoleBonus) {
-                    applyRoleBonusMods(self, ROLE_TYPES.DEFENDER, '三渡·防战加成', 'sanDuDefender');
-                }
-            }
+            // V2.7.20 老板口径：渡厄已有「首当其冲 + 严阵以待」，不再叠加防战职业加成（上一条已撤）。
             // 阵位授予（认位不认人）：2 号位=严阵以待（防御 +40% + 受击反弹 40%）；7/9 号位只保留金刚伏魔阵回血
             registerSettlementHook({
                 when: SIGNAL_TYPES.ON_ROUND_START,
