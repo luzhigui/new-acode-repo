@@ -1,5 +1,5 @@
 // core/215-buff-effects.js — 海克斯实际效果落地（流云、圣火令、carry、惑心换位）
-export const VER = 'core/215-buff-effects.js V6.2.7';
+export const VER = 'core/215-buff-effects.js V6.2.8';
 // V6.2.7（2026-11-17）：惑心换位候选池排除「袋中单位」——shuffleThreeSlots 候选过滤补 !isInBag(allUnits, u)。
 //   装袋（modules/325 putInBag）只上 _untargetable/_stunned，alive 仍为 true、无 _pendingDeath/_ctrlImmune，
 //   旧过滤会把它当合法换位候选，违反 core/203「装袋期间不可位移」口径。
@@ -16,7 +16,7 @@ export const VER = 'core/215-buff-effects.js V6.2.7';
 import { CONFIG, getSkillParams, getBrotherHexEnhance } from './201-config-5v5-test.js';
 import { getUnitRow, getUnitCol, isInBag } from './203-battle-utils.js';
 import { eventBus } from '../infra/101-event-bus.js';
-import { getBattleRng, addMod, getStat, applyStatChange, emitEvent } from './214-battle-shared.js';
+import { getBattleRng, addMod, getStat, applyStatChange, emitEvent, refreshMaxHp } from './214-battle-shared.js';
 import { emitStateChange } from '../infra/108-state-change.js';
 import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
 import { isPendingDeath, isCCImmune } from './218-state-keys.js';   // 待死/免控语义（标签表单一真源）
@@ -30,6 +30,9 @@ export function applyFortifyDef(unit) {
     const mods = (unit._mods && unit._mods.def) || [];
     if (mods.some(m => m.group === 'fortify' && m.ttl === 'round')) return;
     addMod(unit, 'def', { source: '严阵以待', value: CONFIG.BUFFS.fortify.defBonus, ttl: 'round', op: 'mul', group: 'fortify' });
+    // V6.2.8：严阵以待统一为「防御 +20% / 最大生命 +20% / 反弹 50%」（老板 2026-11-27 口径）
+    addMod(unit, 'maxHp', { source: '严阵以待', value: CONFIG.BUFFS.fortify.hpBonus, ttl: 'round', op: 'mul', group: 'fortifyHp' });
+    refreshMaxHp(unit, null, '严阵以待');
 }
 
 // 流云身法：闪避 +25%（闪避不走属性词条，返回比率给 computeBuffStats 用）

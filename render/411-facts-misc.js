@@ -2,7 +2,7 @@
 //   系统行 + 离散精英项（幻影识破/新婚死亡/玄冥 dot 与联动/拒马销毁/buff 摘要）。
 // V1.1.11 | 2026-11-21 补版本日志行（VER 常量已抬，漏写本行致 ver-drift 判领先）。
 // V1.1.10 | 热血奋战摘要按 critPattern 判「全部翻倍」，周期数不再写死 3。
-export const VER = 'render/411-facts-misc.js V1.1.11';
+export const VER = 'render/411-facts-misc.js V1.1.12';
 
 import { CONFIG, getSisterHexEnhance } from '../core/201-config-5v5-test.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './406-fact-registry.js';
@@ -52,7 +52,7 @@ const BUFF_SUMMARY_CFG = {
         const crit = pat ? (pat.length >= cycle ? '全部翻倍' : `每${cycle}次攻击的第${pat.join('、')}次翻倍`) : '每3次翻倍';
         return `攻击回血${fmtNum(pct*100)}%（${crit}）`;
     }},
-    [BUFF_TYPES.FORTIFY]: { role: ROLE_TYPES.DEFENDER, desc: (cfg) => `防御+${fmtNum(cfg.defBonus*100)}% 反弹${fmtNum(cfg.reboundRatio*100)}%` },
+    [BUFF_TYPES.FORTIFY]: { role: ROLE_TYPES.DEFENDER, desc: (cfg) => `防御+${fmtNum(cfg.defBonus*100)}% 生命+${fmtNum((cfg.hpBonus||0)*100)}% 反弹${fmtNum(cfg.reboundRatio*100)}%` },
     [BUFF_TYPES.CLOUD_BODY]: { role: 'all', desc: (cfg) => `闪避+${fmtNum(cfg.dodgeBonus*100)}%` },
     [BUFF_TYPES.WIND_ASSAULT]: { role: ROLE_TYPES.FLYER, desc: (cfg) => `${fmtNum(cfg.hitProb*100)}%波及同行 ${fmtNum(cfg.pushProb*100)}%击退` },
     [BUFF_TYPES.METEOR_SHOWER]: { role: ROLE_TYPES.RANGED, desc: (cfg) => `伤害加深${fmtNum(cfg.bonusRatio*100)}% 溅射${fmtNum(cfg.splashRatio*100)}%（主箭降${fmtNum(cfg.mainDefReduce)}防，小箭降${fmtNum(cfg.splashDefReduce)}防）` },

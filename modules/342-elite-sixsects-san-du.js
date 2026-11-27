@@ -106,12 +106,15 @@
 //   首当其冲的加防加血不再单独取值，直接读严阵以待的两个共用常量（SAN_DU_DEF_BONUS / SAN_DU_HP_BONUS）。
 // V2.7.27 | 2026-11-27 老板纠正：严阵以待不是永久加成——恢复每回合临时词条（与全局海克斯 fortify 同口径），
 //   保留 防御 +20% / 最大生命 +20% / 反伤 50%；离开 2 号位时收回上回合的生命上限。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.27';
+// V2.7.28 | 2026-11-27 老板钉死：严阵以待全仓只有一份（content/buffs.fortify）——
+//   三渡与首当其冲不再本地写数值，统一读 defBonus/hpBonus/reboundRatio；全局海克斯同步 20%/20%/50%。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.28';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, FACT_TYPES, SKILL_CUE_KINDS, BUFF_TYPES, ROLE_TYPES } from '../infra/106-battle-enums.js';
 import { addMod, applyStatChange, emitHpChange, getBattleRng, getStat, swapUnitPositions, refreshMaxHp } from '../core/214-battle-shared.js';
+import { CONFIG } from '../core/201-config-5v5-test.js';
 import { computeBuffStats } from '../core/204-buff-system.js';
 import { computeDodgeChance } from '../core/213-battle-attack-edge.js';
 import { pushSkillAnnounce, applyRoleBonusMods } from './305-elite-helpers.js';
@@ -124,9 +127,10 @@ function findSelf(A, B, decl) {
 }
 
 // 三渡数值唯一来源（老板 2026-11-27 拍板：首当其冲与严阵以待共用同一组数值，不写死两处）
-const SAN_DU_DEF_BONUS = 0.2;          // 严阵以待 / 首当其冲：防御 +20%
-const SAN_DU_HP_BONUS = 0.2;           // 严阵以待 / 首当其冲：最大生命 +20%
-const SAN_DU_FORTIFY_REBOUND = 0.5;    // 严阵以待受击反弹：实际承伤的 50%
+// 严阵以待只有一份定义（content/buffs.fortify，core/215 落地）：三渡/首当其冲都读它，不另写数值
+const SAN_DU_DEF_BONUS = CONFIG.BUFFS.fortify.defBonus;          // 防御 +20%
+const SAN_DU_HP_BONUS = CONFIG.BUFFS.fortify.hpBonus;            // 最大生命 +20%
+const SAN_DU_FORTIFY_REBOUND = CONFIG.BUFFS.fortify.reboundRatio; // 受击反弹 50%
 const SAN_DU_LIUYUN_RATE = 0.25;       // 流云身法闪避 +25%
 const SAN_DU_DOUBLE_STRIKE_RATE = 0.8; // 概率连击：80%
 

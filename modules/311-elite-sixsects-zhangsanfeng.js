@@ -331,6 +331,9 @@ export function createZhangSanfengComponent() {
                 const zhangDefMods = (zhang._mods && zhang._mods.def) || [];
                 if (!zhangDefMods.some(m => m.group === 'fortify' && m.ttl === 'round')) {
                     addMod(zhang, 'def', { source: '严阵以待', value: CONFIG.BUFFS.fortify.defBonus, ttl: 'round', op: 'mul', group: 'fortify' });
+                    // 严阵以待唯一口径含最大生命 +20%（老板 2026-11-27）
+                    addMod(zhang, 'maxHp', { source: '严阵以待', value: CONFIG.BUFFS.fortify.hpBonus, ttl: 'round', op: 'mul', group: 'fortifyHp' });
+                    refreshMaxHp(zhang, null, '严阵以待');
                 }
                 pushFact(data.log, FACT_TYPES.BUFF_SUMMARY, {
                     buff: { key: BUFF_TYPES.FORTIFY, name: '严阵以待', remaining: Infinity },
