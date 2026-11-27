@@ -9,7 +9,9 @@
 //   保存时合并成【应该】【步骤】【实际】三段文本，与旧版纯字符串完全兼容。
 // V6.6.10 | 2026-11-22 涉及角色口径改为"本局实际出场全部单位"，不再按"这段日志提到过"过滤（防漏空智 / 长句误带张松溪）
 // V6.6.11 | 2026-11-23 已保存列表删除单条后保持原滚动位置（重建前暂存 box/list 的 scrollTop，重建后还原）
-export const VER = 'modules/303-error-capture.js V6.6.11';
+export // V6.6.12 | 2026-11-27 老板三催：战场「记录Bug」已保存列表补「✎ 编辑」——textarea 回填原描述，
+//   保存按 id 覆盖 note + 写 updatedAt，不新增条目；删/改后都保留原滚动位置。
+const VER = 'modules/303-error-capture.js V6.6.12';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 
@@ -1051,6 +1053,42 @@ import { GlobalStore } from '../infra/104-global-store.js';
                     const stamp = String(rec.createdAt || rec.id || Date.now()).replace(/[:.]/g, '-');
                     copyOrDownload(buildSingleRecordText(rec), '已复制这一条', 'bug-' + stamp + '.txt');
                 };
+                const editBtn = makeSmallBtn('✎ 编辑');
+                editBtn.onclick = () => {
+                    const mask = document.createElement('div');
+                    mask.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+                    const boxEl = document.createElement('div');
+                    boxEl.style.cssText = 'width:100%;max-width:560px;max-height:80vh;display:flex;flex-direction:column;gap:8px;background:#241c12;border:1px solid #3a2c1a;border-radius:8px;padding:12px;';
+                    const title = document.createElement('div');
+                    title.textContent = '编辑 Bug 记录（保存后覆盖原条目）';
+                    title.style.cssText = 'font-size:12px;color:#e0d6c0;';
+                    const ta = document.createElement('textarea');
+                    ta.value = rec.note != null ? String(rec.note) : (rec.text != null ? String(rec.text) : '');
+                    ta.style.cssText = 'flex:1;min-height:200px;background:#151009;color:#d8cdb4;border:1px solid #3a2c1a;border-radius:6px;padding:8px;font-size:12px;line-height:1.5;';
+                    const row = document.createElement('div');
+                    row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
+                    const cancel = makeSmallBtn('取消');
+                    const saveBtn = makeSmallBtn('保存修改');
+                    saveBtn.style.color = '#8adf8a';
+                    cancel.onclick = () => mask.remove();
+                    saveBtn.onclick = () => {
+                        const arr = loadSaved();
+                        const idx = arr.findIndex(x => x.id === rec.id);
+                        if (idx < 0) { mask.remove(); return; }
+                        arr[idx].note = ta.value;
+                        arr[idx].updatedAt = new Date().toISOString();
+                        if (!writeSaved(arr)) return;
+                        mask.remove();
+                        showToast('已更新这一条');
+                        _savedListScroll = { box: box.scrollTop, list: listBox.scrollTop };
+                        openSavedList();
+                    };
+                    mask.onclick = (e) => { if (e.target === mask) mask.remove(); };
+                    row.appendChild(cancel); row.appendChild(saveBtn);
+                    boxEl.appendChild(title); boxEl.appendChild(ta); boxEl.appendChild(row);
+                    mask.appendChild(boxEl);
+                    document.body.appendChild(mask);
+                };
                 const delBtn = makeSmallBtn('删除');
                 delBtn.style.color = '#ff9a8a';
                 delBtn.onclick = () => {
@@ -1061,7 +1099,7 @@ import { GlobalStore } from '../infra/104-global-store.js';
                     _savedListScroll = { box: box.scrollTop, list: listBox.scrollTop };
                     openSavedList();
                 };
-                ops.appendChild(detailBtn); ops.appendChild(copyOneBtn); ops.appendChild(delBtn);
+                ops.appendChild(detailBtn); ops.appendChild(copyOneBtn); ops.appendChild(editBtn); ops.appendChild(delBtn);
                 card.appendChild(ops);
                 listBox.appendChild(card);
             });
