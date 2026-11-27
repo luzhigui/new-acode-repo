@@ -78,7 +78,11 @@
 //   ④渡劫在概率连击之外再加战士加成 +9 攻 / +9 防 / +90 血。
 // V2.7.9 | 2026-11-27 老板报「渡劫血 165→255→338→428→512、攻 29→60」：core/210 每回合重跑
 //   installDeclaredSkills → 342 的战士加成每回合重复 addMod。加 _sanDuWarriorBonus 幂等闸，只生效一次。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.9';
+// V2.7.10 | 2026-11-27 老板口径：8 号位枯禅回血 40% → 20% 最大生命（轮回几乎每回合都能触发，
+//   40% 等于反复回满，是三渡强度暴涨的主因；属性加强保持不动）。
+// V2.7.11 | 2026-11-27 老板纠正：渡难追加闪避 / 渡厄个人严阵以待 / 渡劫战士加成 三项都是「倒三角专属」，
+//   只在枯禅轮回阵（本队有魔化谢逊）时生效；正三角（炎魔）回到原口径，避免加强外溢。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.11';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -104,7 +108,7 @@ const SAN_DU_DOUBLE_STRIKE_RATE = 0.8; // 概率连击：80%
 
 // ── 枯禅轮回阵（第6关倒三角变体）数值唯一来源 ──
 const SAN_DU_NAME_SET = new Set(['渡厄', '渡劫', '渡难']); // 三渡名单（枯禅轮回/8号位回血识别用）
-const SAN_DU_KUCHAN_HEAL_RATE = 0.4;   // 8 号位枯禅回血：40% 最大生命（V2.3.2 老板上调）
+const SAN_DU_KUCHAN_HEAL_RATE = 0.2;   // 8 号位枯禅回血：20% 最大生命（V2.7.10 老板下调：40% 几乎回满，太强）
 const SAN_DU_LIUYUN_EXTRA = 0.20;      // 渡难追加闪避：流云 25% 之外再 +20%（V2.7.8 老板口径 → 合计 45%）
 const SAN_DU_WARRIOR_BONUS = { atk: 9, def: 9, maxHp: 90 }; // 渡劫追加战士加成（V2.7.8 老板口径）
 const DEMON_BURST_DMG = 28;            // 魔化谢逊每发：28 点（打敌方=真伤 / 落自家=回血），V2.5.0 老板改回 28
@@ -163,17 +167,20 @@ export const monkFixedBuffHandler = {
             });
             // V2.7.8 老板口径：渡厄在「首当其冲」之外再挂一份「严阵以待」（个人技，不认站位）：
             //   防御再 +40% + 受击反弹 40%。priority 22 必须晚于上面 19 的阵位清旗，否则 _sanDuFortify 被覆盖成 false。
-            registerSettlementHook({
-                when: SIGNAL_TYPES.ON_ROUND_START,
-                priority: 22,
-                handler: (data) => {
-                    if (!self.alive) return;
-                    addMod(self, 'def', { source: '严阵以待', value: SAN_DU_DEF_BONUS, ttl: 'round', op: 'mul', group: 'monkFortify' });
-                    self.state._sanDuFortify = true;
-                    pushSkillAnnounce(data && data.log, self, '严阵以待',
-                        `🛡️ 严阵以待：${self.name} 防御 +${Math.round(SAN_DU_DEF_BONUS * 100)}%，受击反弹 ${Math.round(SAN_DU_FORTIFY_REBOUND * 100)}%`);
-                }
-            });
+            // V2.7.11 老板纠正：这三项加强是「倒三角专属」，只在枯禅轮回阵（本队有魔化谢逊）时生效。
+            if (kuchanActive) {
+                registerSettlementHook({
+                    when: SIGNAL_TYPES.ON_ROUND_START,
+                    priority: 22,
+                    handler: (data) => {
+                        if (!self.alive) return;
+                        addMod(self, 'def', { source: '严阵以待', value: SAN_DU_DEF_BONUS, ttl: 'round', op: 'mul', group: 'monkFortify' });
+                        self.state._sanDuFortify = true;
+                        pushSkillAnnounce(data && data.log, self, '严阵以待',
+                            `🛡️ 严阵以待：${self.name} 防御 +${Math.round(SAN_DU_DEF_BONUS * 100)}%，受击反弹 ${Math.round(SAN_DU_FORTIFY_REBOUND * 100)}%`);
+                    }
+                });
+            }
             // 阵位授予（认位不认人）：2 号位=严阵以待（防御 +40% + 受击反弹 40%）；7/9 号位只保留金刚伏魔阵回血
             registerSettlementHook({
                 when: SIGNAL_TYPES.ON_ROUND_START,
@@ -202,7 +209,9 @@ export const monkFixedBuffHandler = {
                 handler: (data) => {
                     const { unit, target, dmg } = data || {};
                     if (!unit || !target || !target.alive || !target.state || !target.state._sanDuFortify) return;
-                    // V2.7.8：不再按 pos===2 限定——渡厄的个人「严阵以待」也置同一个旗，反弹口径一致
+                    // V2.7.8：倒三角里渡厄的个人「严阵以待」也置同一个旗，反弹口径一致
+                    // V2.7.11：非枯萎阵（正三角/正常阵）仍按原来的 2 号位限定，不倒三角专属加强外溢
+                    if (!kuchanActive && target.pos !== 2) return;
                     if (!dmg || dmg <= 0) return;
                     const value = Math.floor(dmg * SAN_DU_FORTIFY_REBOUND);
                     if (value <= 0) return;
@@ -221,8 +230,8 @@ export const monkFixedBuffHandler = {
             // V2.7.8 老板口径：渡劫在概率连击之外，额外吃一份战士加成（+9攻 / +9防 / +90血）
             // V2.7.9 关键修复：core/210 每回合都会重跑 installDeclaredSkills → 本分支每回合重复 addMod，
             //   渡劫每回合白涨 +9攻/+9防/+90血上限且血量静默 +90（老板 2026-11-27 报血 165→512 异常）。
-            //   安装必须幂等：同一单位只生效一次。
-            if (!self.state._sanDuWarriorBonus) {
+            //   安装必须幂等：同一单位只生效一次。V2.7.11：仅倒三角（枯禅轮回阵）生效。
+            if (kuchanActive && !self.state._sanDuWarriorBonus) {
                 self.state._sanDuWarriorBonus = true;
                 addMod(self, 'atk', { source: '三渡·战士加成', value: SAN_DU_WARRIOR_BONUS.atk, ttl: 'permanent', group: 'sanDuWarrior', op: 'add' });
                 addMod(self, 'def', { source: '三渡·战士加成', value: SAN_DU_WARRIOR_BONUS.def, ttl: 'permanent', group: 'sanDuWarrior', op: 'add' });
@@ -268,9 +277,9 @@ export const monkFixedBuffHandler = {
                 handler: () => { self.state._doubleStrikeRolled = false; self.state._doubleStriked = false; }
             });
         } else if (decl.buffType === 'dodge') {
-            // 渡难·流云身法：闪避 +25%，V2.7.8 老板口径再追加 20%（合计 45%）
+            // 渡难·流云身法：闪避 +25%，V2.7.8 再追加 20%（合计 45%，仅倒三角枯禅轮回阵生效）
             self.state._sanDuLiuYun = true;
-            const dodgeTotal = SAN_DU_LIUYUN_RATE + SAN_DU_LIUYUN_EXTRA;
+            const dodgeTotal = SAN_DU_LIUYUN_RATE + (kuchanActive ? SAN_DU_LIUYUN_EXTRA : 0);
             registerDodgeRule((target) => (target && target.uid === self.uid && target.alive ? dodgeTotal : 0));
             registerSettlementHook({
                 when: SIGNAL_TYPES.ON_ROUND_START,
