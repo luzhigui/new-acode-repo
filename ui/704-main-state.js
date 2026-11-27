@@ -3,7 +3,6 @@ export const VER = 'ui/704-main-state.js V6.0.0';
 import { STATE } from '../core/201-config-5v5-test.js';
 import { GlobalStore, getPlayerContext, getState, setState } from '../infra/104-global-store.js';
 import { getStoreDefault } from '../infra/112-store-schema.js';
-import { BUFF_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
 
 import { updateUI, spawnVictoryEffects, setRenderStore } from './703-ui-render-5v5-test.js';
 import { tickBuffDurations as _tickBuffDurations } from './706-main-battle.js';
@@ -58,22 +57,10 @@ GlobalStore.setUIHandler('updateBuffSlots', (buffs, idx) => updateBuffSlots(buff
 GlobalStore.setUIHandler('tickBuffDurations', () => {
     const activeBuffs = GlobalStore.get('activeBuffs') || [];
     const result = _tickBuffDurations(activeBuffs, GlobalStore.get('selectedBuffIndex'), () => updateBuffSlots(GlobalStore.get('activeBuffs')));
-    // 第6关六大派自带海克斯「圣火不熄」：在 buff 重算之后作为**真实 buff 条目**补齐。
-    //   判定不用 snapshot.stage（运行时不一定有该字段，2026-11-27 实测补不上），
-    //   改为看场上单位名：有三渡/炎魔狮王/魔化谢逊就是第6关六大派阵容。
-    let nextBuffs = result.activeBuffs;
-    const _snap = GlobalStore.get('snapshot');
-    const _rows = (_snap && Array.isArray(_snap.units)) ? _snap.units : [];
-    const _hasStage6Squad = _rows.some(r => r && ['渡厄', '渡劫', '渡难', '炎魔狮王', '魔化谢逊'].includes(r[0]));
-    if (_hasStage6Squad && !nextBuffs.some(b => b && b.key === BUFF_TYPES.HOLY_FIRE)) {
-        nextBuffs = [...nextBuffs, { key: BUFF_TYPES.HOLY_FIRE, name: '圣火不熄', icon: '🕯️', target: CAMP_TYPES.ENEMY, camp: CAMP_TYPES.ENEMY, remaining: Infinity, permanent: true }];
-    }
-    GlobalStore.set('activeBuffs', nextBuffs);
-    // 关键：tick 内部画徽章用的是「set 之前」的旧列表，补完必须再画一次，
-    //   否则圣火不熄进了数据但界面永远不显示（2026-11-27 实测）。
-    updateBuffSlots(nextBuffs);
+    // 圣火不熄等整局徽章改由 ui/719 updateBuffSlots 按场上阵容自愈（本钩子全仓无调用方，原补写属死代码，2026-11-27 移除）
+    GlobalStore.set('activeBuffs', result.activeBuffs);
+    updateBuffSlots(result.activeBuffs);
     GlobalStore.set('selectedBuffIndex', result.selectedBuffIndex);
-    if (typeof GlobalStore.getUIHandler('updateBuffSlots') === 'function') GlobalStore.getUIHandler('updateBuffSlots')();
 });
 GlobalStore.setUIHandler('fadeBGMTo', (targetVol, durationMs) => { AudioManager.fadeTo(targetVol, durationMs); });
 GlobalStore.setUIHandler('showBattleReport', showBattleReport);

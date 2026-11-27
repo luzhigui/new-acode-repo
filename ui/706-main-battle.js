@@ -1,5 +1,5 @@
 // ui/706-main-battle.js — UI 层战斗管理（阵容生成、Buff 选择弹窗、小昭形态切换、中止战斗）
-export const VER = 'ui/706-main-battle.js V6.2.2';
+export const VER = 'ui/706-main-battle.js V6.2.3';
 
 import { CONFIG, getGameData } from '../core/201-config-5v5-test.js';
 import { SeededRNG, fmtHpText, fmtAtk, fmtNum } from '../infra/102-core-utils.js';
@@ -51,6 +51,10 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     document.getElementById('labelEnemy').textContent = `六大派\n${stageText}`;
     document.getElementById('labelAlly').textContent = '明 教';
     updateUI();
+    // 开局就画整局海克斯徽章（第6关三渡阵的圣火不熄）：719 会按 UI.enemyTeam 阵容自愈补齐，
+    //   否则要等第一回合收尾那次 updateBuffSlots 才出现（老板 2026-11-27 报「第六关下面没有 logo」）
+    const drawCampBadges = GlobalStore.getUIHandler('updateBuffSlots');
+    if (typeof drawCampBadges === 'function') drawCampBadges();
 }
 
 // Buff 选择

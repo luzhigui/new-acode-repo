@@ -1,5 +1,5 @@
 // fx/604-fx-position-swap.js
-export const VER = 'fx/604-fx-position-swap.js V6.3.1';
+export const VER = 'fx/604-fx-position-swap.js V6.3.2';
 
 import { GlobalStore } from '../infra/104-global-store.js';
 import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES } from '../infra/106-battle-enums.js';
@@ -275,16 +275,14 @@ export async function animatePosCycle(swaps, camp, c, options = {}) {
     for (const { s, cell, target } of cells) {
         const r1 = cell.getBoundingClientRect();
         const r2 = target.getBoundingClientRect();
-        const layer = document.createElement('div');
+        // 老板 2026-11-27 二次口径：白底太丑 → 直接克隆原格（灰底/头像/名字/血量全保留），只额外叠阵营色描边
+        const layer = cell.cloneNode(true);
         layer.style.cssText = [
             'position:fixed', `left:${r1.left}px`, `top:${r1.top}px`,
             `width:${r1.width}px`, `height:${r1.height}px`, 'pointer-events:none', 'z-index:9999',
             `border:2px solid rgba(${color},0.95)`, 'border-radius:10px',
-            `box-shadow:0 0 14px rgba(${color},0.65)`, 'overflow:hidden',
-            // 老板 2026-11-27：原来是半透明红框、看不出是谁 → 改白底保留彩色描边，格子内容（名字/血量）清晰可见
-            'background:rgba(255,255,255,0.96)', 'will-change:transform'
+            `box-shadow:0 0 14px rgba(${color},0.65)`, 'overflow:hidden', 'will-change:transform'
         ].join(';');
-        layer.innerHTML = cell.innerHTML;
         document.body.appendChild(layer);
         cell.style.visibility = 'hidden';
         layers.push({ s, cell, layer, dx: r2.left - r1.left, dy: r2.top - r1.top });
