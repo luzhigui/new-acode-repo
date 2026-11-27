@@ -97,7 +97,8 @@
 // V2.7.20 | 2026-11-27 老板口径：撤掉渡厄的「防战职业加成」（已有首当其冲 + 严阵以待足够）。
 // V2.7.21 | 2026-11-27 圣火不熄徽章收口到 ui/719（按 UI.enemyTeam 阵容自愈）；本文件删掉 syncHolyFireBadge
 //   与 priority 999 补挂钩子，只保留队伍 _activeBuffs 的复活名额，杜绝两处各写一份 activeBuffs。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.21';
+// V2.7.22 | 2026-11-27 老板口径：8 号位已是最低血时不旋转、也不回血（不转=不回）。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.22';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -560,11 +561,11 @@ export const demonXiexunHandler = {
                 const at = (p) => monks.find(u => u.pos === p) || null;
                 const at8 = at(8);
                 if (!at8) return;
-                const ratioOf = (u) => u.hp / Math.max(1, getStat(u, 'maxHp'));
-                const lowest = monks.reduce((a, b) => (ratioOf(b) < ratioOf(a) ? b : a));
-                if (lowest === at8) { healKuchan8(at8, data.log); return; }   // 血最少的已在 8 号位：不换位，照样回血
+                // 老板 2026-11-27 口径：按「绝对血量」最低者换位（三渡最大血不同，比比例会让高血职业抢 8 号位）
+                const lowest = monks.reduce((a, b) => (b.hp < a.hp ? b : a));
+                if (lowest === at8) return;   // 血最少的已在 8 号位：不旋转，也不回血（V2.7.21 老板口径：不转就不回）
                 // 三人整体旋转（老板 2026-11-27 口径）：不是两两互换，是顺时针/逆时针三个格子一起转；
-                //   方向自动选「能让血最少者落到 8 号位」的那一边。血最少者本来就在 8 号位 → 不转，只回血。
+                //   方向自动选「能让血最少者落到 8 号位」的那一边。血最少者本来就在 8 号位 → 不转，也不回血。
                 const ring = monks.slice().sort((a, b) => a.pos - b.pos);
                 const iLow = ring.indexOf(lowest);
                 const i8 = ring.indexOf(at8);
