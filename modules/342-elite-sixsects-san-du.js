@@ -128,9 +128,17 @@ function findSelf(A, B, decl) {
 
 // 三渡数值唯一来源（老板 2026-11-27 拍板：首当其冲与严阵以待共用同一组数值，不写死两处）
 // 严阵以待只有一份定义（content/buffs.fortify，core/215 落地）：三渡/首当其冲都读它，不另写数值
-const SAN_DU_DEF_BONUS = CONFIG.BUFFS.fortify.defBonus;          // 防御 +20%
-const SAN_DU_HP_BONUS = CONFIG.BUFFS.fortify.hpBonus;            // 最大生命 +20%
-const SAN_DU_FORTIFY_REBOUND = CONFIG.BUFFS.fortify.reboundRatio; // 受击反弹 50%
+let SAN_DU_DEF_BONUS = 0;          // 防御 +20%
+let SAN_DU_HP_BONUS = 0;            // 最大生命 +20%
+let SAN_DU_FORTIFY_REBOUND = 0;
+// ⚠️ 不能在模块顶层读 CONFIG.BUFFS：它是 getGameData() 的懒取代理，worker / 无头（以及首屏 import 早于
+//   数据加载时）gameData 还是 null → 直接 TypeError。改为 install 时同步一次。
+function syncSanDuFortifyConsts() {
+    const f = (CONFIG.BUFFS && CONFIG.BUFFS.fortify) || {};
+    SAN_DU_DEF_BONUS = f.defBonus || 0;
+    SAN_DU_HP_BONUS = f.hpBonus || 0;
+    SAN_DU_FORTIFY_REBOUND = f.reboundRatio || 0;
+} // 受击反弹 50%
 const SAN_DU_LIUYUN_RATE = 0.25;       // 流云身法闪避 +25%
 const SAN_DU_DOUBLE_STRIKE_RATE = 0.8; // 概率连击：80%
 
@@ -154,6 +162,7 @@ export const monkFixedBuffHandler = {
     install({ A, B, decl }) {
         const self = findSelf(A, B, decl);
         if (!self) return;
+        syncSanDuFortifyConsts();
         // 三渡免疫控制（2026-11-22 老板口径）：眩晕/击退/换位一律不吃，守卫在 core/12+13
         self.state._ctrlImmune = true;
         // 三渡所在队伍开局携带「圣火不熄」（老板 2026-11-25 口径，正/倒三角通用）：
