@@ -28,7 +28,7 @@ import { eventBus } from '../infra/101-event-bus.js';
 import { FX_SIGNALS } from '../infra/105-fx-signals.js';
 import { getPerfParam } from '../core/223-perf-params.js';
 import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES, UNIT_EVENT_TYPES, STAGE_ACTION_TYPES } from '../infra/106-battle-enums.js';
-import { appendLogHTML, autoScrollLog, updateRoundDisplay, playLogLine, renderStaticLogEntry, findUnitByUid } from './510-renderer.js';
+import { appendLogHTML, appendLogInline, autoScrollLog, updateRoundDisplay, playLogLine, renderStaticLogEntry, findUnitByUid } from './510-renderer.js';
 import { markGridShake } from '../render/403-grid-render.js';
 import { triggerHpAnim } from '../render/405-grid-cells.js';
 import { fmt1 } from '../infra/102-core-utils.js';
@@ -179,7 +179,9 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         // 白骨爪和随爪衍生：瞬间出整行文字，不走逐字（逐字会导致打字时间超过动画时间，节奏严重拖沓）
         // 出完后精准停住对应时长，确保文字和飞爪动画完美同步。
         if (entry2.isClawHit || entry2.clawFast) {
-            appendLogHTML(entry2.text + '<br>');
+            // 白骨爪 + 随爪乾坤衍生并到同一行（老板 2026-11-27：有姐姐在场时不要两行一行行拖）
+            if (entry2.clawFast) appendLogInline(entry2.text);
+            else appendLogHTML(entry2.text + '<br>');
             await clock.waitReal(entry2.isClawHit ? 500 : 350);
         } else {
             const forcedSpeed = (entry2.type === 'combat-text' || entry2.type === 'damage-text') ? 1200 : 600;

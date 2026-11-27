@@ -36,6 +36,16 @@ export function appendLogElement(el) {
     autoScrollLog();
 }
 
+// 并到上一行末尾（老板 2026-11-27：有姐姐在场时白骨爪与乾坤衍生两行一起出，不各占一行拖节奏）。
+//   上一行不存在（本组第一行）时退回正常新行。
+export function appendLogInline(html) {
+    const div = getLogDiv();
+    const prev = div && div.lastElementChild;
+    if (!prev) { appendLogHTML(html); return; }
+    prev.innerHTML += '　' + html;
+    autoScrollLog();
+}
+
 export async function playLogLine(text, forcedSpeed = null, anchorSpecs = null) {
     let div = document.createElement('div');
     appendLogElement(div);
