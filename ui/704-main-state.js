@@ -58,12 +58,14 @@ GlobalStore.setUIHandler('updateBuffSlots', (buffs, idx) => updateBuffSlots(buff
 GlobalStore.setUIHandler('tickBuffDurations', () => {
     const activeBuffs = GlobalStore.get('activeBuffs') || [];
     const result = _tickBuffDurations(activeBuffs, GlobalStore.get('selectedBuffIndex'), () => updateBuffSlots(GlobalStore.get('activeBuffs')));
-    // 第6关六大派自带海克斯「圣火不熄」：在 buff 重算之后作为**真实 buff 条目**补齐
-    //   （permanent + remaining Infinity，tick 不会衰减）。等价「额外给六大派一个海克斯」，
-    //   不再依赖任何回合开始补挂（那条路会被 buff 重写冲掉）。
+    // 第6关六大派自带海克斯「圣火不熄」：在 buff 重算之后作为**真实 buff 条目**补齐。
+    //   判定不用 snapshot.stage（运行时不一定有该字段，2026-11-27 实测补不上），
+    //   改为看场上单位名：有三渡/炎魔狮王/魔化谢逊就是第6关六大派阵容。
     let nextBuffs = result.activeBuffs;
     const _snap = GlobalStore.get('snapshot');
-    if (_snap && Number(_snap.stage) === 6 && !nextBuffs.some(b => b && b.key === BUFF_TYPES.HOLY_FIRE)) {
+    const _rows = (_snap && Array.isArray(_snap.units)) ? _snap.units : [];
+    const _hasStage6Squad = _rows.some(r => r && ['渡厄', '渡劫', '渡难', '炎魔狮王', '魔化谢逊'].includes(r[0]));
+    if (_hasStage6Squad && !nextBuffs.some(b => b && b.key === BUFF_TYPES.HOLY_FIRE)) {
         nextBuffs = [...nextBuffs, { key: BUFF_TYPES.HOLY_FIRE, name: '圣火不熄', icon: '🕯️', target: CAMP_TYPES.ENEMY, camp: CAMP_TYPES.ENEMY, remaining: Infinity, permanent: true }];
     }
     GlobalStore.set('activeBuffs', nextBuffs);
