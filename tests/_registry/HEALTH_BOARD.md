@@ -163,4 +163,4 @@
 - 永远 ≥3 个 `open`：做 N 的人至少留 N+1、N+2、N+3 开放。
 
 (End of file - total 25 lines)
-| 95 | ESLint 门禁要真绿：主代码 3 处 error 转交 + tests/ 侧 6 处收口 | 现状 npx eslint . = 9 error（主代码 3：core/204 全角空白、core/212 重复键 shieldAbsorbed、ui/702 showDanmaku 未定义；tests/ 6：124 重复键 2、health-rules/284 全角空白 1、one-click 两件全角空白 3）。验收：主代码 3 处落地后 npx eslint . EXIT=0，再把 CI 的 ESLint 从只挂改硬门禁。附转交块 T-193-ESLINT。 | open | - | - |
+| 95 | ESLint 门禁要真绿：主代码 3 处 error 转交 + tests/ 侧 6 处收口 | 现状 npx eslint . = 9 error（主代码 3：core/204 全角空白、core/212 重复键 shieldAbsorbed、ui/702 showDanmaku 未定义；tests/ 6：124 重复键 2、health-rules/284 全角空白 1、one-click 两件全角空白 3）。验收：主代码 3 处落地后 npx eslint . EXIT=0，再把 CI 的 ESLint 从只挂改硬门禁。附转交块 T-193-ESLINT。 | doing | 钟老师/第58轮 | 2026-11-27 · 领格 |
