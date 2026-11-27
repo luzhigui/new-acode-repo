@@ -88,7 +88,9 @@
 // V2.7.15 | 2026-11-27 老板口径：渡厄「首当其冲」改为永久词条、安装一次（原每回合挂/清一轮）。
 // V2.7.16 | 2026-11-27 老板报「正三角六大派没有圣火不熄徽章」：补挂 hook 的 priority 60 早于
 //   buff 抽写 → 每回合写完就被覆盖（实测 activeBuffs 只剩 unity/cloudBody）；改为 999 最后补。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.16';
+// V2.7.17 | 2026-11-27 老板口径：炎魔狮王不挨打引爆——只保留「回合开始一发 28 → 轮到自己蓄力 → 收尾一发 28」；
+//   「被攻击立刻引爆/续蓄」专属魔化谢逊。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.17';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -377,12 +379,11 @@ export const blazeLionKingHandler = {
             }
         });
 
-        // 蓄力循环（2026-11-24 老板口径）：回合开始固定一发 18；之后处于「未蓄力」，
-        //   被攻击 / 轮到自己 → 进入蓄力；
-        //   已蓄力后再被攻击 / 轮到行动 / 回合收尾 → 立刻引爆一发 28，并马上重新蓄力。
-        //   净效果：每多挨一次打，就多打一发。
-        // V2.3.1 | 2026-11-24 老板口径：蓄力不再加护盾（护盾让炎魔太强）。
+        // 蓄力循环（V2.7.16 老板口径：炎魔狮王不挨打引爆）：
+        //   回合开始固定一发 28 → 轮到自己行动时进入蓄力 → 回合收尾蓄力完成打一发 28。
+        //   「被攻击立刻引爆」只属于魔化谢逊，炎魔不挂该钩子。
         function enterCharge(data, label) {
+            if (self.state._blazeCharged) return;
             self.state._blazeCharged = true;
             pushSkillAnnounce(data && data.log, self, '蓄力',
                 `🔥 ${label}烈焰凝聚，蓄力待发…`,
@@ -394,26 +395,12 @@ export const blazeLionKingHandler = {
             fireBurst(28, data, label);
         }
 
-        // 「轮到自己」：炎魔被眩晕跳过，走的是 PASS 分支的 ON_UNIT_ACTED，同样能接住
+        // 「轮到自己」：炎魔被眩晕跳过，走的是 PASS 分支的 ON_UNIT_ACTED，这里只负责开始蓄力
         registerSettlementHook({
             when: SIGNAL_TYPES.ON_UNIT_ACTED,
             priority: 24,
             handler: (data) => {
                 if (!self.alive || !data || data.unit !== self) return;
-                if (!self.state._blazeCharged) enterCharge(data, '炎魔狮王');
-                fireCharged(data, '炎爆');
-            }
-        });
-
-        // 被攻击：未蓄力则开始蓄力；已蓄力则立刻引爆一发并续蓄（挨打越多打越多）
-        registerSettlementHook({
-            when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
-            priority: 25,
-            handler: (data) => {
-                if (!self.alive || !data || data.target !== self) return;
-                if (!(data.dmg > 0)) return;
-                if (!self.state._blazeCharged) { enterCharge(data, '炎魔狮王'); return; }
-                fireCharged(data, '炎爆');
                 enterCharge(data, '炎魔狮王');
             }
         });
