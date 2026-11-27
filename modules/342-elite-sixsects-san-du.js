@@ -85,7 +85,8 @@
 // V2.7.13 | 2026-11-27 老板纠正：严阵以待不许删——倒三角渡厄 = 个人严阵以待（防御+40%、受击反弹40%，不认站位）
 //   + 防战职业加成（-8攻/+2防/+45血）；渡劫 = 战士职业加成（+3/+3/+30）；渡难 = 流云 25% + 额外 20% 闪避。
 // V2.7.14 | 2026-11-27 老板口径：炎魔狮王回合开始那发 18 → 28，与其它炎爆统一（不再有 18 的档）。
-export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.14';
+// V2.7.15 | 2026-11-27 老板口径：渡厄「首当其冲」改为永久词条、安装一次（原每回合挂/清一轮）。
+export const VER = 'modules/342-elite-sixsects-san-du.js V2.7.15';
 
 import { registerSettlementHook, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
@@ -159,15 +160,12 @@ export const monkFixedBuffHandler = {
             .some(u => u && u.name === '魔化谢逊');
 
         if (decl.buffType === 'defense') {
-            // 渡厄·首当其冲（个人技，绑人）：防御 +40%（ttl:'round' 每回合重挂，避免永久 mod 逐回合叠加）
-            registerSettlementHook({
-                when: SIGNAL_TYPES.ON_ROUND_START,
-                priority: 20,
-                handler: () => {
-                    if (!self.alive) return;
-                    addMod(self, 'def', { source: '首当其冲', value: SAN_DU_DEF_BONUS, ttl: 'round', op: 'mul', group: 'monkDef' });
-                }
-            });
+            // 渡厄·首当其冲（个人技，绑人）：防御 +40%，永久词条，安装一次即可（V2.7.15 老板口径：
+            //   既然是绑人的固定加成，就不该每回合挂了又清；_mods 现算，永久词条不会逐回合叠加）
+            if (!self._sanDuShouDangApplied) {
+                self._sanDuShouDangApplied = true;
+                addMod(self, 'def', { source: '首当其冲', value: SAN_DU_DEF_BONUS, ttl: 'permanent', op: 'mul', group: 'monkDef' });
+            }
             // V2.7.13 老板纠正：严阵以待不删——倒三角里渡厄照旧吃「个人严阵以待」（防御 +40% + 受击反弹 40%，
             //   不认站位，因为倒三角三渡站 1/3/8 永远不在 2 号位），并且再叠加一套防战职业加成。
             if (kuchanActive) {
