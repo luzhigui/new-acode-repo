@@ -1,4 +1,4 @@
-// modules/343-common-mech-poison-monk.js — 空闻（业火轮回） / 班淑娴（妒心奇毒）
+// modules/344-common-mech-poison-monk.js — 空闻（业火轮回） / 班淑娴（妒心奇毒）
 // 定位：M104 弱精英随机混入（modules/330 的 SIX_SECTS_WEAK_ELITE_POOLS），不进关卡固定池、不改 squadVariants。
 // 玩家口径（网页端任务书 2026-11-28）：
 //   空闻：任一角色阵亡 → 业火焚身，全场存活单位按「当前生命 10%」掉血；累计引爆 3 次后觉醒，
@@ -12,7 +12,7 @@
 //   ③ 破防取 min(30, 当前防御)：防御已为 0 时不发空词条（同 core/203 战士破防口径）。
 //   ④ 觉醒 / 丧夫狂怒都按 mod.group 查重：install 每回合重跑，靠 state 标记会重复叠加（渡厄踩过的坑）。
 // V1.0.0 | 2026-11-28 首次实装（M104 精英混入：空闻 / 班淑娴）
-export const VER = 'modules/343-common-mech-poison-monk.js V1.0.0';
+export const VER = 'modules/344-common-mech-poison-monk.js V1.0.0';
 
 import { registerSettlementHook, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
