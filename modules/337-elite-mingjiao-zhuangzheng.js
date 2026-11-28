@@ -8,8 +8,7 @@ import { processUnitAttack } from '../core/209-battle-attack.js';
 import { registerSettlementHook, EXECUTION_LAYER as L } from '../infra/101-event-bus.js';
 import { registerMechanicHandler } from '../core/219-mechanic-registry.js';
 import { SIGNAL_TYPES, MECHANIC_TYPES, CAMP_TYPES, SKILL_CUE_KINDS, STATE_CHANGE_TYPES } from '../infra/106-battle-enums.js';
-import { applyStatChange, addMod, getStat } from '../core/214-battle-shared.js';
-import { refreshMaxHp } from '../core/214-battle-shared.js';
+import { applyStatChange, addMod, getStat, refreshMaxHp } from '../core/214-battle-shared.js';
 
 import { pushSkillAnnounce, requireSkillParams, emitHpChange } from './305-elite-helpers.js';
 import { fmtNum } from '../infra/102-core-utils.js';
@@ -169,7 +168,11 @@ export const duanChuiHandler = {
                 try {
                     // 返回 false = 没产出攻击组（已死/受控/飞天/锁定目标不可选），日志里就会“免疫公告后直接跳下一击”。
                     //   只在失败时告警，正常运行零噪音，便于下次复现时一眼看出是哪条 early-return。
-                    const ok = processUnitAttack(self, myTeam, foeTeam, data.log, data.A, data.B, data.state, null, attacker.uid);
+                    // T-ZZ-337（2026-11-27 老板「把残留处理掉」）：癫/混乱会让同阵营单位打到庄铮，
+                    //   反击锁定池原样只给敌阵，同阵营攻击方的 uid 永远找不到 → EMPTY_TARGET『锁定目标已阵亡』误判+反击静默。
+                    //   按「谁打我反谁」口径：锁定池随攻击方阵营走（同阵营→己方队伍里找攻击方）。
+                    const counterPool = attacker.camp === self.camp ? myTeam : foeTeam;
+                    const ok = processUnitAttack(self, myTeam, counterPool, data.log, data.A, data.B, data.state, null, attacker.uid);
                     if (!ok) {
                         console.warn('[337] 断锤反击未产出：',
                             'self.alive=' + self.alive, 'hp=' + self.hp,
