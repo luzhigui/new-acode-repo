@@ -1,4 +1,6 @@
 // V1.24.3 | 2026-11-24 三渡分桶拆成「三渡·正三角 / 三渡·倒三角」（含魔化谢逊=倒三角）；新增 kind:'variant'（明教自然满编 vs 各变体整场胜率，818 variant 模式）
+// V1.24.4 | 2026-11-28 替换测试排除三渡：unitAB / weakContrib 遇到任一方含渡厄/渡劫/渡难直接整场丢弃。
+//   起因：空闻/班淑娴第6关 Δ 出现 +20~26pp 假信号——替掉的是三渡阵型的坑位，测的是拆阵不是单位强度。
 // V1.24.3 | 2026-11-26 修 851 姊妹同数据：templateAB 分支漏解构/漏透传 forceXiaoZhao，
 //   姊妹都按默认小昭建队 → 形态技全废、两行强度分完全一致且垫底（老板发现）。
 // V1.24.2 | 2026-11-22 第6关常规阵分桶改名「成昆」（原「标准」）：812 表里两行写清「第6关 成昆 / 第6关 三渡」；
@@ -514,6 +516,10 @@ function runUnitABJob(stage, seed, runs, elite, side, startIndex = 0, enemyHex =
         clearBattleGlobals();
         const t1 = initBattleTeams(stage, new SeededRNG(s));
         if (!t1.allyTeam.length || !t1.enemyTeam.length) continue;
+        // V1.24.4：三渡场次一律不进替换测试。三渡（渡厄/渡劫/渡难）是一整套阵型核心，
+        //   换入候选时被替掉的是三渡体系的坑位/协同，测出来的是「拆阵增益」而不是单位强度
+        //   （2026-11-28 空闻第6关 +26.2pp 就是这么来的假信号）。
+        if ([...t1.allyTeam, ...t1.enemyTeam].some(u => u && SAN_DU_NAMES.includes(u.name))) continue;
         const side1 = side === 'ally' ? t1.allyTeam : t1.enemyTeam;
         if (side1.some(u => u.name === elite)) continue;   // ② 候选自然在场：两臂同弃，避免重复效应污染
         const r1 = runWholeBattle(t1.allyTeam.map(u => u.clone()), t1.enemyTeam, s, true, enemyHex ? { enemyHex } : null);
@@ -586,6 +592,8 @@ function runWeakContribJob(stage, seed, runs, elite, side, arm, probes, startInd
         const battleSeed = seed + (startIndex + i) * 7919;
         const initRng = new SeededRNG(battleSeed);
         const teams = initBattleTeams(stage, initRng);
+        // V1.24.4 同 unitAB：三渡场次不进替换/移除配对，避免「拆三渡阵型」混进贡献度
+        if ([...teams.allyTeam, ...teams.enemyTeam].some(u => u && SAN_DU_NAMES.includes(u.name))) continue;
         const ally = teams.allyTeam.map(u => u.clone());
         if (!ally.length) continue;
         let swappedIn = false;
