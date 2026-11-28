@@ -15,6 +15,6 @@ import './339-elite-mingjiao-zhangzhong.js';
 import './340-common-mech-disciples.js';   // M97 机制弟子：拼命 / 防化
 import './341-common-mech-kongzhi.js';     // 空智：武痴 / 偷学绝技
 import './342-elite-sixsects-san-du.js';   // 第6关：少林三渡 / 炎魔狮王
-import './343-common-mech-poison-monk.js'; // 空闻·业火轮回 / 班淑娴·妒心奇毒（M104 弱精英混入）
+import './344-common-mech-poison-monk.js'; // 空闻·业火轮回 / 班淑娴·妒心奇毒（M104 弱精英混入）
 import './302-elite-skills.js';   // 飞行·猎杀成长：模块顶层 registerRoundHook，必须由本入口装载一次
 export const VER = 'modules/301-reg-mechanics.js V1.0.7';
