@@ -107,6 +107,11 @@
                     <button class="big-btn btn-play" id="btnTangWenLiang" style="flex:1;background:linear-gradient(135deg, #7cb342, #33691e);">👹 唐文亮</button>
                     <button class="big-btn btn-play" id="btnKongJian" style="flex:1;background:linear-gradient(135deg, #ffd700, #8b6f00);">🔔 空见</button>
                 </div>
+                <!-- M104 弱精英（2026-11-28）：空闻·业火轮回 / 班淑娴·妒心奇毒，走 _forceWeakElite 具名锁定 -->
+                <div class="btn-row">
+                    <button class="big-btn btn-play" id="btnKongWen" style="flex:1;background:linear-gradient(135deg, #ffd54f, #6d4c41);">🔥 空闻</button>
+                    <button class="big-btn btn-play" id="btnBanShuXian" style="flex:1;background:linear-gradient(135deg, #ba68c8, #4a148c);">🧪 班淑娴</button>
+                </div>
                 <!-- 明教新三兵（带技能 M100，走 _forceMingUnit 通用通道）：庄铮·叠防 / 彭莹玉·治疗 / 张中·蹦蹦 -->
                 <div class="btn-row">
                     <button class="big-btn btn-play" id="btnZhuangZheng" style="flex:1;background:linear-gradient(135deg, #a1887f, #4e342e);">🧱 庄铮</button>
@@ -702,6 +707,19 @@
         document.getElementById('btnKongJian').addEventListener('click', () => {
             clearDemoFlags();
             mustSet('_forceWeakElite', '空见');
+
+            window.location.href = 'index.html';
+        });
+        // M104 弱精英（2026-11-28）：空闻 / 班淑娴 走同一具名锁定通道
+        document.getElementById('btnKongWen').addEventListener('click', () => {
+            clearDemoFlags();
+            mustSet('_forceWeakElite', '空闻');
+
+            window.location.href = 'index.html';
+        });
+        document.getElementById('btnBanShuXian').addEventListener('click', () => {
+            clearDemoFlags();
+            mustSet('_forceWeakElite', '班淑娴');
 
             window.location.href = 'index.html';
         });
