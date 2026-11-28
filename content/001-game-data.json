@@ -1100,11 +1100,25 @@
 
     "空闻": {
 
-      "named": false,
+      "named": true,
 
-      "tags": ["六大派", "少林", "普通"],
+      "tags": ["六大派", "少林", "防战", "精英"],
 
-      "m": 104, "poolTier": 104, "flag": null, "tier": "normal", "camp": "六大派", "sect": "少林", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 0, "titleOrder": 0
+      "m": 104, "poolTier": 104, "flag": "isKongWen", "tier": "weak", "camp": "六大派", "sect": "少林", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 0, "titleOrder": 0,
+
+      "skills": {
+        "yeHuo": {
+          "name": "业火轮回",
+          "desc": "场上任何角色阵亡时引爆业火，对全场所有存活单位造成其当前生命值 10% 的伤害；累计引爆 3 次后觉醒，攻击力 +50%，此后每次攻击附带破防 30 点。"
+        }
+      },
+
+      "taunts": {
+        "attack": ["业火焚身，回头是岸。", "少林绝技，非你所能挡。"],
+        "kill": ["阿弥陀佛。", "业火已净。"]
+      },
+
+      "mechanics": [{ "camp": "enemy", "type": "kongWenFire" }]
 
     },
 
@@ -1205,11 +1219,25 @@
 
     "班淑娴": {
 
-      "named": false,
+      "named": true,
 
-      "tags": ["六大派", "昆仑", "普通"],
+      "tags": ["六大派", "昆仑", "远程", "精英"],
 
-      "m": 104, "poolTier": 104, "flag": null, "tier": "normal", "camp": "六大派", "sect": "昆仑", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 10, "titleOrder": 1
+      "m": 104, "poolTier": 104, "flag": "isBanShuXian", "tier": "weak", "camp": "六大派", "sect": "昆仑", "summon": false, "everyday": true, "encounter": false, "enemyOrder": 10, "titleOrder": 1,
+
+      "skills": {
+        "duJi": {
+          "name": "妒心奇毒",
+          "desc": "每回合开始锁定敌方攻击力最高者，施加妒心奇毒：防御 -20%，并在之后每回合扣除 4% 最大生命，持续 2 回合。若何太冲阵亡，班淑娴陷入狂怒，攻击力永久 +50%，并对全场敌人施加奇毒。"
+        }
+      },
+
+      "taunts": {
+        "attack": ["狐媚子，受死！", "让你尝尝昆仑的毒！"],
+        "kill": ["跟我斗，你还嫩点。", "死吧！"]
+      },
+
+      "mechanics": [{ "camp": "enemy", "type": "banShuXianPoison" }]
 
     },
 

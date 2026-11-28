@@ -238,7 +238,10 @@ export const MECHANIC_TYPES = Object.freeze({
     // 第6关·少林三渡正三角（modules/342）
     MONK_FIXED_BUFF: 'monkFixedBuff',   // 三渡固定被动：防御+40% / 每回合两次攻击 / 闪避+25%
     BLAZE_LION_KING: 'blazeLionKing',   // 炎魔狮王：锁死不动，每回合随机一发炎爆（28 真伤）
-    DEMON_XIEXUN: 'demonXiexun'         // 魔化谢逊（第6关倒三角·枯禅轮回阵）：锁死不动，收尾全场 2×28 真伤，驱动三渡轮转
+    DEMON_XIEXUN: 'demonXiexun',        // 魔化谢逊（第6关倒三角·枯禅轮回阵）：锁死不动，收尾全场 2×28 真伤，驱动三渡轮转
+    // 六大派弱精英随机混入（modules/343）
+    KONG_WEN_FIRE: 'kongWenFire',       // 空闻·业火轮回：任一角色阵亡 → 全场按当前生命 10% 焚身，3 次后觉醒
+    BAN_SHU_XIAN_POISON: 'banShuXianPoison' // 班淑娴·妒心奇毒：每回合毒攻击最高者（减防 20% + 每回合 4% 最大生命）
 });
 
 /**

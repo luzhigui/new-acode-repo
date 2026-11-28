@@ -199,6 +199,12 @@ export const BATTLE_STATE_SCHEMA = {
     _demonCharged:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 魔化谢逊蓄力待发（342 写入，2026-11-24 蓄力循环）
     _demonOpened:            { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 魔化谢逊开局那一发只打一次（342 写，2026-11-25）
     _sanDuWarriorBonus:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 渡劫战士加成只安装一次（342 写，2026-11-27）
+    // 空闻·业火轮回（modules/343 写）：引爆次数 / 已觉醒 / 同帧防重入
+    _yeHuoCount:             { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _isKongWenAwakened:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _isYeHuoProcessing:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 班淑娴·妒心奇毒（modules/343 写）：{ rounds } 剩余毒发回合
+    _duJiPoison:             { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     _ownTargetRule:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 自带选敌机制优先于癫（327 杨逍写；333 读，2026-11-25）
     _kuchanHealed:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 8 号位枯禅每回合只回一次（342 回合末复位）
     _sanDu70:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },   // 三渡阵位血量跌破 70% 已触发一次（342 写，回满 95% 复位）

@@ -38,7 +38,7 @@ export const RNG_CONTRACT_VERSION = 'rng-contract-v3';
 //   导出给 tools/820 参数实验室的「关卡角色过滤」用——工具里不再抄一份名单，避免两边漂移。
 export const SIX_SECTS_WEAK_ELITE_POOLS = Object.freeze({
     M107: ['张三丰', '宋青书', '周芷若', '胖远桥', '灭绝师太'],
-    M104: ['何太冲', '唐文亮', '空见', '空智'],
+    M104: ['何太冲', '唐文亮', '空见', '空智', '空闻', '班淑娴'],
     M100: ['俞莲舟', '素问', '少林圆真']
 });
 
